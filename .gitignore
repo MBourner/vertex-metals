@@ -1,0 +1,14 @@
+# Supabase credentials — never commit
+js/supabase-client.js
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log

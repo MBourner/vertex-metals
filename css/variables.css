@@ -1,0 +1,97 @@
+/* ============================================================
+   Vertex Metals Ltd — Design Tokens
+   All colours, fonts, and spacing are defined here.
+   No hardcoded values anywhere else in the CSS.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+
+  /* ─── Colours ────────────────────────────────────────────
+     Derived from the Vertex Metals logo: deep navy background
+     with a steel-blue metallic mark. Reference sites (ArcelorMittal,
+     Nucor, JSW, Stemcor) confirmed: dark navy primary, metallic
+     accent, clean off-white surfaces. Copper-gold replaced with
+     steel blue to match the logo directly.
+  ──────────────────────────────────────────────────────── */
+
+  --color-primary:        #0a1728;   /* Deep navy — hero, nav, footer, dark sections */
+  --color-primary-mid:    #0d2040;   /* Mid navy — dark cards, portal sidebar */
+  --color-primary-light:  #12294f;   /* Light navy — borders on dark sections */
+
+  --color-accent:         #7ab8d4;   /* Steel blue — CTA buttons, links, icons, dividers */
+  --color-accent-light:   #b8d4e8;   /* Steel highlight — gradient endpoints, hover */
+  --color-accent-dark:    #4a8fad;   /* Steel pressed — active states */
+
+  --color-surface:        #f4f5f7;   /* Off-white — light section backgrounds */
+  --color-surface-raised: #ffffff;   /* White — cards on light sections */
+  --color-border:         #e5e7eb;   /* Light border */
+  --color-border-dark:    #1e3a5f;   /* Dark section border */
+
+  --color-text-primary:   #111827;   /* Near-black body text */
+  --color-text-secondary: #374151;   /* Secondary body */
+  --color-text-muted:     #6b7280;   /* Muted / captions */
+  --color-text-light:     #9ca3af;   /* Disabled / placeholder */
+
+  --color-success:        #16a34a;
+  --color-warning:        #d97706;
+  --color-danger:         #dc2626;
+  --color-info:           #2563eb;
+
+  --color-success-bg:     #f0fdf4;
+  --color-warning-bg:     #fffbeb;
+  --color-danger-bg:      #fef2f2;
+  --color-info-bg:        #eff6ff;
+
+  /* ─── Typography ─────────────────────────────────────────
+     Display: Syne — geometric, wide-tracked, matches the logo
+     wordmark energy. Used for all headings, nav, labels, buttons.
+     Body: DM Sans — clean, low-contrast, legible at small sizes.
+  ──────────────────────────────────────────────────────── */
+
+  --font-display: 'Syne', system-ui, sans-serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+
+  --text-xs:   0.75rem;    /* 12px */
+  --text-sm:   0.875rem;   /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg:   1.125rem;   /* 18px */
+  --text-xl:   1.25rem;    /* 20px */
+  --text-2xl:  1.5rem;     /* 24px */
+  --text-3xl:  1.875rem;   /* 30px */
+  --text-4xl:  2.25rem;    /* 36px */
+  --text-5xl:  3rem;       /* 48px */
+
+  /* ─── Spacing (4px base grid) ────────────────────────── */
+
+  --space-1:  0.25rem;   /* 4px  */
+  --space-2:  0.5rem;    /* 8px  */
+  --space-3:  0.75rem;   /* 12px */
+  --space-4:  1rem;      /* 16px */
+  --space-6:  1.5rem;    /* 24px */
+  --space-8:  2rem;      /* 32px */
+  --space-10: 2.5rem;    /* 40px */
+  --space-12: 3rem;      /* 48px */
+  --space-16: 4rem;      /* 64px */
+  --space-24: 6rem;      /* 96px */
+
+  /* ─── Layout ─────────────────────────────────────────── */
+
+  --max-width:      1280px;
+  --section-pad-y:  5rem;
+  --section-pad-x:  1.5rem;
+  --nav-height:     72px;
+
+  /* ─── Effects ────────────────────────────────────────── */
+
+  --radius-sm: 0.125rem;
+  --radius:    0.25rem;
+  --radius-lg: 0.5rem;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.10);
+  --shadow-lg: 0 10px 40px rgba(0,0,0,0.15);
+
+  --transition: 200ms ease;
+}

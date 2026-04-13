@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<!-- SHARED: update portal sidebar in all portal pages if changed -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Markup Calculator — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img src="../../assets/images/logo/vertex-metals-logo.jpg" alt="" /><div><div class="sidebar-logo-text">Vertex Metals</div><div class="sidebar-logo-sub">Internal Portal</div></div></div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section-label">Overview</div><a href="../dashboard.html" class="sidebar-link">Dashboard</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Trade</div>
+    <a href="../rfq/index.html" class="sidebar-link">RFQs</a><a href="index.html" class="sidebar-link">Supplier Quotes</a><a href="../trades/index.html" class="sidebar-link">Trades</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Compliance</div>
+    <a href="../kyc/index.html" class="sidebar-link">KYC Records</a><a href="../contacts/index.html" class="sidebar-link">Contacts</a><a href="../cbam/index.html" class="sidebar-link">CBAM Tracker</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Tools</div><a href="calculator.html" class="sidebar-link active">Markup Calculator</a>
+  </nav>
+  <div class="sidebar-footer"><div class="sidebar-user"><div class="sidebar-user-email" id="user-email">Loading...</div><div class="sidebar-user-role">Director</div></div><button onclick="signOut()" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center">Sign Out</button><div style="text-align:center;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-4);opacity:.5">Built by Vector Business Solutions</div></div>
+</aside>
+
+<div class="portal-main">
+  <div class="topbar"><div style="display:flex;align-items:center;gap:var(--space-3)"><button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="topbar-title">Markup Calculator</span></div></div>
+  <div class="portal-content">
+    <div class="portal-page-header"><div><h1>Markup Calculator</h1><p>Calculate landed cost and target sell price from an FOB supplier quote</p></div></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-8);align-items:start">
+
+      <!-- Inputs -->
+      <div class="panel">
+        <div class="panel-header"><h3>Inputs</h3></div>
+        <div class="panel-body">
+          <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+            <div class="form-group">
+              <label class="form-label">FOB Price (USD per MT)</label>
+              <input class="form-input" id="fob" type="number" step="0.01" placeholder="e.g. 2400" oninput="calculate()" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Quantity (MT)</label>
+              <input class="form-input" id="qty" type="number" step="0.01" placeholder="e.g. 20" oninput="calculate()" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Freight estimate (USD total)</label>
+              <input class="form-input" id="freight" type="number" step="0.01" placeholder="e.g. 1200" oninput="calculate()" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Insurance estimate (USD total)</label>
+              <input class="form-input" id="insurance" type="number" step="0.01" placeholder="e.g. 150" oninput="calculate()" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">GBP/USD exchange rate</label>
+              <input class="form-input" id="rate" type="number" step="0.0001" placeholder="e.g. 1.27" oninput="calculate()" />
+              <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Enter manually — live rate requires API key</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Target margin (%)</label>
+              <input class="form-input" id="margin" type="number" step="0.1" value="20" oninput="calculate()" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div>
+        <div class="panel" style="margin-bottom:var(--space-6)">
+          <div class="panel-header"><h3>Results</h3></div>
+          <div class="panel-body">
+            <div style="display:flex;flex-direction:column;gap:var(--space-4)" id="results">
+              <div style="color:var(--color-text-muted);font-size:var(--text-sm)">Enter values on the left to see results.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Save as quote -->
+        <div class="panel">
+          <div class="panel-header"><h3>Save as Supplier Quote</h3></div>
+          <div class="panel-body">
+            <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+              <div class="form-group">
+                <label class="form-label">Supplier</label>
+                <select class="form-select" id="save-supplier"><option value="">Select supplier...</option></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Product / Specification</label>
+                <input class="form-input" id="save-product" type="text" placeholder="e.g. EC Grade 1350 — 2mm diameter" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Validity date</label>
+                <input class="form-input" id="save-validity" type="date" />
+              </div>
+              <div id="save-alert" style="display:none"></div>
+              <button class="btn btn-primary btn-sm" onclick="saveQuote()">Save Quote to Supabase</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/portal-guard.js"></script>
+<script src="../../js/portal/calculator.js"></script>
+</body>
+</html>

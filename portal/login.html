@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portal Login — Vertex Metals Ltd</title>
+  <link rel="stylesheet" href="../css/variables.css" />
+  <link rel="stylesheet" href="../css/base.css" />
+  <link rel="stylesheet" href="../css/components.css" />
+  <link rel="stylesheet" href="../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="../assets/images/logo/vertex-metals-logo.jpg" alt="Vertex Metals" />
+      <span class="login-logo-text">Vertex Metals</span>
+    </div>
+    <h2>Portal Sign In</h2>
+    <p>Internal management portal. Authorised personnel only.</p>
+
+    <div id="login-alert" style="display:none;margin-bottom:var(--space-6)"></div>
+
+    <form id="login-form" novalidate>
+      <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div class="form-group">
+          <label class="form-label" for="email">Email address</label>
+          <input class="form-input" id="email" type="email" placeholder="you@vertexmetalsltd.com" autocomplete="email" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input class="form-input" id="password" type="password" placeholder="••••••••••" autocomplete="current-password" required />
+        </div>
+        <button type="submit" class="btn btn-primary" id="login-btn" style="width:100%;justify-content:center">
+          Sign In
+        </button>
+      </div>
+    </form>
+
+    <p style="margin-top:var(--space-8);font-size:var(--text-xs);color:rgba(255,255,255,0.2);text-align:center;line-height:1.6">Portal accounts are managed directly in the Supabase Authentication dashboard.<br>Contact Martyn Bourner for access.</p>
+  </div>
+</div>
+
+<script src="../js/supabase-client.js"></script>
+<script src="../js/auth.js"></script>
+<script>
+  // If already authenticated, go straight to dashboard
+  (async () => {
+    const session = await getSession();
+    if (session) window.location.replace('/portal/dashboard.html');
+  })();
+
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('login-btn');
+    const alertEl = document.getElementById('login-alert');
+    alertEl.style.display = 'none';
+
+    btn.disabled = true;
+    btn.textContent = 'Signing in...';
+
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    const { error } = await signIn(email, password);
+
+    if (error) {
+      alertEl.style.display = 'block';
+      alertEl.className = 'alert alert-error';
+      alertEl.textContent = 'Sign in failed: ' + (error.message || 'Invalid credentials');
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+    }
+    // On success, signIn() redirects — no further code runs
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<!-- SHARED: update nav and footer in all public pages if changed -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compliance — Vertex Metals Ltd</title>
+  <meta name="description" content="Vertex Metals Ltd AML/KYC policy, no-cash policy, sanctions screening, and CBAM readiness statement." />
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <style>
+    .compliance-section { margin-bottom: var(--space-12); padding-bottom: var(--space-12); border-bottom: 1px solid var(--color-border); scroll-margin-top: calc(var(--nav-height) + var(--space-8)); }
+    .compliance-section:last-of-type { border-bottom: none; }
+  </style>
+</head>
+<body>
+
+<!-- ═══ NAVIGATION ═══════════════════════════════════════════ -->
+<nav class="nav scrolled" id="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo"><img src="assets/images/logo/vertex-metals-logo.jpg" alt="Vertex Metals" /><span class="nav-logo-text">Vertex Metals</span></a>
+    <ul class="nav-links" role="list">
+      <li><a href="products.html">Products</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="compliance.html" class="active">Compliance</a></li>
+      <li><a href="contact.html">Contact</a></li>
+    </ul>
+    <a href="contact.html" class="btn btn-primary nav-cta btn-sm">Request a Quote</a>
+    <button class="nav-hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="nav-mobile" id="nav-mobile">
+  <a href="products.html">Products</a><a href="about.html">About</a><a href="compliance.html">Compliance</a><a href="contact.html">Contact</a>
+  <a href="contact.html" class="btn btn-primary">Request a Quote</a>
+</div>
+
+<!-- ═══ PAGE HERO ═════════════════════════════════════════════ -->
+<section class="page-hero bg-dark">
+  <div class="container" style="position:relative;z-index:1">
+    <span class="section-label">Compliance</span>
+    <h1 class="text-white" style="max-width:700px;margin-bottom:var(--space-4)">Our compliance framework</h1>
+    <div class="divider-steel"></div>
+    <p style="max-width:640px;color:rgba(255,255,255,0.55);font-size:var(--text-lg);margin-bottom:var(--space-8)">Vertex Metals Ltd takes its compliance obligations seriously as a metals trader operating into the UK regulated market.</p>
+    <!-- Jump links -->
+    <div style="display:flex;flex-wrap:wrap;gap:var(--space-3)">
+      <a href="#aml-kyc" style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;border:1px solid rgba(122,184,212,0.3);color:var(--color-accent);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);text-decoration:none;transition:background var(--transition)" onmouseover="this.style.background='rgba(122,184,212,0.1)'" onmouseout="this.style.background='transparent'">AML/KYC</a>
+      <a href="#no-cash" style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;border:1px solid rgba(122,184,212,0.3);color:var(--color-accent);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);text-decoration:none;transition:background var(--transition)" onmouseover="this.style.background='rgba(122,184,212,0.1)'" onmouseout="this.style.background='transparent'">No-Cash Policy</a>
+      <a href="#sanctions" style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;border:1px solid rgba(122,184,212,0.3);color:var(--color-accent);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);text-decoration:none;transition:background var(--transition)" onmouseover="this.style.background='rgba(122,184,212,0.1)'" onmouseout="this.style.background='transparent'">Sanctions</a>
+      <a href="#cbam" style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;border:1px solid rgba(122,184,212,0.3);color:var(--color-accent);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);text-decoration:none;transition:background var(--transition)" onmouseover="this.style.background='rgba(122,184,212,0.1)'" onmouseout="this.style.background='transparent'">CBAM</a>
+      <a href="#registrations" style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;border:1px solid rgba(122,184,212,0.3);color:var(--color-accent);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);text-decoration:none;transition:background var(--transition)" onmouseover="this.style.background='rgba(122,184,212,0.1)'" onmouseout="this.style.background='transparent'">Registrations</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ COMPLIANCE CONTENT ════════════════════════════════════ -->
+<section class="section bg-surface">
+  <div class="container">
+    <div style="max-width:800px">
+
+      <!-- AML/KYC -->
+      <div class="compliance-section" id="aml-kyc">
+        <div style="display:flex;align-items:flex-start;gap:var(--space-4);margin-bottom:var(--space-6)">
+          <div style="width:40px;height:40px;background:var(--color-primary);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div>
+            <h2 style="margin-bottom:var(--space-2)">AML/KYC Policy</h2>
+            <div class="divider-steel"></div>
+          </div>
+        </div>
+        <div style="padding-left:56px">
+          <p style="margin-bottom:var(--space-4)">Vertex Metals Ltd operates a comprehensive Anti-Money Laundering (AML) and Know Your Customer (KYC) programme in accordance with the requirements of the Isle of Man Financial Services Authority (IOM FSA) and applicable UK Money Laundering Regulations.</p>
+          <p style="margin-bottom:var(--space-4)">All counterparties — whether buyers or suppliers — are subject to Customer Due Diligence (CDD) before any trade commences. This includes identity verification of beneficial owners and key principals, source of funds and business activity review, and ongoing monitoring of the trading relationship.</p>
+          <p style="margin-bottom:var(--space-4)">Enhanced due diligence (EDD) is applied where counterparties are located in higher-risk jurisdictions, are politically exposed persons (PEPs), or where the trade involves goods with elevated dual-use risk.</p>
+          <p>Vertex Metals maintains a documented AML/KYC policy, appoints a nominated Money Laundering Reporting Officer (MLRO), and conducts regular reviews of its procedures in line with regulatory guidance.</p>
+          <p style="margin-top:var(--space-4)"><strong>MLRO:</strong> Martyn Bourner — <a href="mailto:mlro@vertexmetalsltd.com" style="color:var(--color-accent)">mlro@vertexmetalsltd.com</a></p>
+        </div>
+      </div>
+
+      <!-- No-cash policy — highlighted box -->
+      <div class="compliance-section" id="no-cash">
+        <div style="display:flex;align-items:flex-start;gap:var(--space-4);margin-bottom:var(--space-6)">
+          <div style="width:40px;height:40px;background:var(--color-primary);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          </div>
+          <div>
+            <h2 style="margin-bottom:var(--space-2)">No-Cash Policy</h2>
+            <div class="divider-steel"></div>
+          </div>
+        </div>
+        <div style="padding-left:56px">
+          <!-- Prominent boxed statement -->
+          <div style="background:var(--color-primary);border-left:4px solid var(--color-accent);border-radius:var(--radius);padding:var(--space-6);margin-bottom:var(--space-6)">
+            <p style="font-family:var(--font-display);font-size:var(--text-base);font-weight:600;color:#fff;line-height:1.5;margin:0">All transactions are settled by bank transfer through a regulated financial institution, or by Irrevocable Transferable Documentary Letter of Credit only. <span style="color:var(--color-accent)">No cash is accepted in any currency, under any circumstances.</span></p>
+          </div>
+          <p style="margin-bottom:var(--space-4)">Vertex Metals Ltd operates a strict no-cash policy. All payments — whether from buyers or to suppliers — must be made via verified bank transfer through a regulated financial institution, or under a documentary Letter of Credit.</p>
+          <p>Vertex Metals does not accept cash, cryptocurrency, or informal value transfer payments in connection with any trade. All funds must originate from and be directed to accounts held in the name of the verified counterparty.</p>
+        </div>
+      </div>
+
+      <!-- Sanctions -->
+      <div class="compliance-section" id="sanctions">
+        <div style="display:flex;align-items:flex-start;gap:var(--space-4);margin-bottom:var(--space-6)">
+          <div style="width:40px;height:40px;background:var(--color-primary);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div>
+            <h2 style="margin-bottom:var(--space-2)">Sanctions Screening</h2>
+            <div class="divider-steel"></div>
+          </div>
+        </div>
+        <div style="padding-left:56px">
+          <p style="margin-bottom:var(--space-4)">Vertex Metals Ltd screens all counterparties — including buyers, sellers, agents, intermediaries, and beneficial owners — against applicable sanctions lists at onboarding and every six months thereafter.</p>
+          <p style="margin-bottom:var(--space-4)">Screening is conducted against:</p>
+          <ul style="margin-bottom:var(--space-4);padding-left:var(--space-6)">
+            <li style="font-size:var(--text-sm);color:var(--color-text-secondary);margin-bottom:var(--space-2);list-style:disc">UK HM Treasury (OFSI) consolidated sanctions list</li>
+            <li style="font-size:var(--text-sm);color:var(--color-text-secondary);margin-bottom:var(--space-2);list-style:disc">UN Security Council consolidated list</li>
+            <li style="font-size:var(--text-sm);color:var(--color-text-secondary);margin-bottom:var(--space-2);list-style:disc">EU sanctions lists (as applicable)</li>
+            <li style="font-size:var(--text-sm);color:var(--color-text-secondary);list-style:disc">Other applicable regimes depending on jurisdiction and transaction type</li>
+          </ul>
+          <p>Any transaction that would involve, directly or indirectly, a sanctions-designated person, entity, or jurisdiction is declined. Screening records are retained and available for regulatory inspection.</p>
+        </div>
+      </div>
+
+      <!-- CBAM -->
+      <div class="compliance-section" id="cbam">
+        <div style="display:flex;align-items:flex-start;gap:var(--space-4);margin-bottom:var(--space-6)">
+          <div style="width:40px;height:40px;background:var(--color-primary);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <div>
+            <h2 style="margin-bottom:var(--space-2)">UK CBAM Readiness</h2>
+            <div class="divider-steel"></div>
+          </div>
+        </div>
+        <div style="padding-left:56px">
+          <p style="margin-bottom:var(--space-4)">The UK Carbon Border Adjustment Mechanism (CBAM) takes effect <strong>1 January 2027</strong>. Aluminium is within scope. UK importers will be required to report and ultimately pay for the carbon intensity of imported aluminium products.</p>
+          <p style="margin-bottom:var(--space-4)">Vertex Metals is actively preparing for CBAM implementation. This includes engaging with Indian suppliers to collect installation-level carbon intensity data (tCO₂e per tonne of product), building internal tracking and reporting systems, and monitoring HMRC guidance as it is published.</p>
+          <p style="margin-bottom:var(--space-4)">Buyers who may be affected by CBAM obligations are encouraged to raise this with us at the enquiry stage. We are committed to providing the data and documentation necessary to support your CBAM reporting requirements. Vertex Metals must register with HMRC as an authorised declarant before 1 January 2027.</p>
+          <p>For specific enquiries about CBAM documentation or carbon intensity data, contact: <a href="mailto:sales@vertexmetalsltd.com" style="color:var(--color-accent)">sales@vertexmetalsltd.com</a></p>
+        </div>
+      </div>
+
+      <!-- Regulatory registrations -->
+      <div class="compliance-section" id="registrations">
+        <div style="display:flex;align-items:flex-start;gap:var(--space-4);margin-bottom:var(--space-6)">
+          <div style="width:40px;height:40px;background:var(--color-primary);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:4px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
+          <div>
+            <h2 style="margin-bottom:var(--space-2)">Regulatory Registrations</h2>
+            <div class="divider-steel"></div>
+          </div>
+        </div>
+        <div style="padding-left:56px">
+          <p style="margin-bottom:var(--space-6)">Vertex Metals Ltd operates under the following regulatory frameworks:</p>
+          <div class="table-wrapper">
+            <table>
+              <thead><tr><th>Registration / Framework</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Isle of Man Companies Act 1931 — Private Limited Company</td><td><span class="badge badge-success">Active</span></td></tr>
+                <tr><td>AML/KYC Policy</td><td><span class="badge badge-success">Active</span></td></tr>
+                <tr><td>HMRC EORI Number</td><td><span class="badge badge-warning">Transfer in Progress</span></td></tr>
+                <tr><td>UK VAT Registration</td><td><span class="badge badge-warning">Under Assessment</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="margin-top:var(--space-6)"><strong>Governing frameworks:</strong> Proceeds of Crime Act 2008 (IOM), Anti-Money Laundering and Countering the Financing of Terrorism Code 2019 (IOM), UK Money Laundering Regulations 2017 (as amended), OFSI sanctions obligations.</p>
+        </div>
+      </div>
+
+      <!-- Contact for compliance -->
+      <div class="card-dark">
+        <h3 style="color:#fff;margin-bottom:var(--space-3)">Compliance enquiries</h3>
+        <p style="color:rgba(255,255,255,0.5);font-size:var(--text-sm);margin-bottom:var(--space-4)">For questions about our compliance policies, counterparty onboarding requirements, CBAM documentation, or any other regulatory matter, please contact us directly.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:var(--space-4)">
+          <div>
+            <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:var(--space-1)">General enquiries</p>
+            <a href="mailto:sales@vertexmetalsltd.com" style="color:var(--color-accent);font-size:var(--text-sm)">sales@vertexmetalsltd.com</a>
+          </div>
+          <div>
+            <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:var(--space-1)">MLRO / Compliance</p>
+            <a href="mailto:mlro@vertexmetalsltd.com" style="color:var(--color-accent);font-size:var(--text-sm)">mlro@vertexmetalsltd.com</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Disclaimer -->
+<section style="background:var(--color-primary-mid);border-top:1px solid var(--color-border-dark);padding:var(--space-8) 0">
+  <div class="container">
+    <p style="font-size:var(--text-xs);color:rgba(255,255,255,0.25);max-width:760px;line-height:1.7">This page provides a summary of Vertex Metals Ltd's compliance policies for counterparty information purposes. It does not constitute legal or regulatory advice. Regulatory positions may change as registrations are completed. Last reviewed: April 2026.</p>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ════════════════════════════════════════════════ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="index.html" class="nav-logo"><img src="assets/images/logo/vertex-metals-logo.jpg" alt="Vertex Metals" /><span class="nav-logo-text">Vertex Metals</span></a>
+        <p>Isle of Man commodity trading intermediary.</p>
+        <div style="margin-top:var(--space-6)">
+          <address style="font-style:normal;font-size:var(--text-sm);color:rgba(255,255,255,0.4);line-height:1.8">No 3, Falcon Cliff Apartments<br>9–10 Palace Road, Douglas<br>Isle of Man, IM2 4LD</address>
+        </div>
+      </div>
+      <div class="footer-col"><h4>Company</h4><a href="about.html">About Us</a><a href="compliance.html">Compliance</a><a href="contact.html">Contact</a></div>
+      <div class="footer-col"><h4>Products</h4><a href="products/aluminium-alloy-core-wire.html">Aluminium Alloy Core Wire</a><a href="products.html">All Products</a></div>
+      <div class="footer-col"><h4>Legal</h4><a href="compliance.html#aml-kyc">AML/KYC Policy</a><a href="compliance.html#sanctions">Sanctions Policy</a><a href="compliance.html#cbam">CBAM Readiness</a></div>
+    </div>
+    <div class="footer-bottom">
+      <p>© <span id="year"></span> Vertex Metals Ltd. All rights reserved. Incorporated in the Isle of Man.</p>
+      <p>Incorporated in the Isle of Man under the Companies Act 1931</p>
+      <p style="margin-top:var(--space-2);opacity:.5">Built by <a href="#" style="color:inherit;text-decoration:none">Vector Business Solutions</a></p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+  const hamburger = document.getElementById('hamburger');
+  const navMobile = document.getElementById('nav-mobile');
+  hamburger.addEventListener('click', () => {
+    const open = navMobile.classList.toggle('open');
+    hamburger.classList.toggle('open', open);
+    hamburger.setAttribute('aria-expanded', String(open));
+  });
+</script>
+</body>
+</html>

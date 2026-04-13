@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<!-- SHARED: update portal sidebar in all portal pages if changed -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CBAM Tracker — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img src="../../assets/images/logo/vertex-metals-logo.jpg" alt="" /><div><div class="sidebar-logo-text">Vertex Metals</div><div class="sidebar-logo-sub">Internal Portal</div></div></div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section-label">Overview</div><a href="../dashboard.html" class="sidebar-link">Dashboard</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Trade</div>
+    <a href="../rfq/index.html" class="sidebar-link">RFQs</a><a href="../quotes/index.html" class="sidebar-link">Supplier Quotes</a><a href="../trades/index.html" class="sidebar-link">Trades</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Compliance</div>
+    <a href="../kyc/index.html" class="sidebar-link">KYC Records</a><a href="../contacts/index.html" class="sidebar-link">Contacts</a><a href="index.html" class="sidebar-link active">CBAM Tracker</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Tools</div><a href="../quotes/calculator.html" class="sidebar-link">Markup Calculator</a>
+  </nav>
+  <div class="sidebar-footer"><div class="sidebar-user"><div class="sidebar-user-email" id="user-email">Loading...</div><div class="sidebar-user-role">Director</div></div><button onclick="signOut()" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center">Sign Out</button><div style="text-align:center;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-4);opacity:.5">Built by Vector Business Solutions</div></div>
+</aside>
+<div class="portal-main">
+  <div class="topbar"><div style="display:flex;align-items:center;gap:var(--space-3)"><button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="topbar-title">CBAM Tracker</span></div><button onclick="document.getElementById('new-cbam-modal').classList.add('open')" class="btn btn-primary btn-sm">+ Log CBAM Entry</button></div>
+  <div class="portal-content">
+    <div class="portal-page-header"><div><h1>CBAM Tracker</h1><p>Carbon Border Adjustment Mechanism — embedded carbon reporting per shipment</p></div></div>
+
+    <div class="cbam-banner" style="margin-bottom:var(--space-6)">
+      <strong>Regulatory Notice:</strong> UK CBAM applies to aluminium imports from 1 January 2027. Declarants must report embedded carbon content at time of import. Ensure supplier Mill Certificates include process emission data.
+    </div>
+
+    <div class="filter-bar">
+      <select class="form-select" id="filter-status" onchange="loadCbam()" style="min-width:160px">
+        <option value="">All statuses</option>
+        <option value="pending">Pending</option>
+        <option value="data_received">Data Received</option>
+        <option value="submitted">Submitted</option>
+        <option value="verified">Verified</option>
+      </select>
+      <select class="form-select" id="filter-year" onchange="loadCbam()" style="min-width:120px">
+        <option value="">All years</option>
+        <option value="2025">2025</option>
+        <option value="2026">2026</option>
+        <option value="2027">2027</option>
+      </select>
+    </div>
+
+    <div class="table-wrapper"><table>
+      <thead><tr><th>Trade Ref</th><th>Supplier</th><th>Product</th><th>Qty (MT)</th><th>Import Date</th><th>CN Code</th><th>Embedded CO₂ (tCO₂e)</th><th>Status</th></tr></thead>
+      <tbody id="cbam-body"><tr><td colspan="8" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- New CBAM Entry Modal -->
+<div class="modal-overlay" id="new-cbam-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('new-cbam-modal').classList.remove('open')">✕</button>
+    <h3>Log CBAM Entry</h3>
+    <div id="cbam-form-container"></div>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal-guard.js"></script><script src="../../js/portal/cbam.js"></script>
+</body></html>

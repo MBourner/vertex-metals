@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<!-- SHARED: update portal sidebar in all portal pages if changed -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financials — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" />
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+  <link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img src="../../assets/images/logo/vertex-metals-logo.jpg" alt="Vertex Metals" /><div><div class="sidebar-logo-text">Vertex Metals</div><div class="sidebar-logo-sub">Internal Portal</div></div></div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section-label">Overview</div>
+    <a href="../dashboard.html" class="sidebar-link">Dashboard</a>
+    <a href="index.html" class="sidebar-link active">Financials</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Trade</div>
+    <a href="../rfq/index.html" class="sidebar-link">RFQs</a><a href="../quotes/index.html" class="sidebar-link">Supplier Quotes</a><a href="../trades/index.html" class="sidebar-link">Trades</a><a href="../product-lines/index.html" class="sidebar-link">Product Lines</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Compliance</div>
+    <a href="../kyc/index.html" class="sidebar-link">KYC Records</a><a href="../contacts/index.html" class="sidebar-link">Contacts</a><a href="../cbam/index.html" class="sidebar-link">CBAM Tracker</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Tools</div><a href="../quotes/calculator.html" class="sidebar-link">Markup Calculator</a>
+  </nav>
+  <div class="sidebar-footer"><div class="sidebar-user"><div class="sidebar-user-email" id="user-email">Loading...</div><div class="sidebar-user-role">Director</div></div><button onclick="signOut()" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center">Sign Out</button><div style="text-align:center;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-4);opacity:.5">Built by Vector Business Solutions</div></div>
+</aside>
+
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title">Financials</span>
+    </div>
+  </div>
+
+  <div class="portal-content" id="fin-content">
+
+    <!-- Page header + period tabs -->
+    <div class="portal-page-header" style="align-items:flex-start;flex-wrap:wrap;gap:var(--space-4)">
+      <div>
+        <h1>Financials</h1>
+        <p>Revenue, margin, collections and VAT — <strong id="period-label">This Month</strong></p>
+      </div>
+      <div style="display:flex;gap:var(--space-2);flex-wrap:wrap">
+        <button class="period-tab btn btn-sm btn-primary"  data-period="month"   onclick="setPeriod('month')">This Month</button>
+        <button class="period-tab btn btn-sm btn-ghost"    data-period="quarter" onclick="setPeriod('quarter')">This Quarter</button>
+        <button class="period-tab btn btn-sm btn-ghost"    data-period="year"    onclick="setPeriod('year')">This Year</button>
+        <button class="period-tab btn btn-sm btn-ghost"    data-period="all"     onclick="setPeriod('all')">All Time</button>
+      </div>
+    </div>
+
+    <!-- KPI row 1: pipeline / revenue / collected -->
+    <div class="fin-stats" id="kpi-row-1">
+      <div class="stat-card"><div class="stat-card__value" style="font-size:var(--text-2xl)">—</div></div>
+      <div class="stat-card"><div class="stat-card__value" style="font-size:var(--text-2xl)">—</div></div>
+      <div class="stat-card"><div class="stat-card__value" style="font-size:var(--text-2xl)">—</div></div>
+    </div>
+
+    <!-- KPI row 2: outstanding / margin / VAT -->
+    <div class="fin-stats" id="kpi-row-2">
+      <div class="stat-card"><div class="stat-card__value" style="font-size:var(--text-2xl)">—</div></div>
+      <div class="stat-card"><div class="stat-card__value" style="font-size:var(--text-2xl)">—</div></div>
+      <div class="stat-card"><div class="stat-card__value" style="font-size:var(--text-2xl)">—</div></div>
+    </div>
+
+    <!-- P&L table + VAT panel -->
+    <div class="grid-sidebar" style="gap:var(--space-6);margin-bottom:var(--space-6)">
+
+      <!-- Monthly P&L -->
+      <div class="panel">
+        <div class="panel-header"><h3 id="pl-header">Monthly Breakdown</h3></div>
+        <div class="panel-body" style="padding:0">
+          <table>
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th style="text-align:center">Deals</th>
+                <th>Revenue (ex‑VAT)</th>
+                <th>Cost (landed)</th>
+                <th>Gross Profit</th>
+                <th>Margin %</th>
+              </tr>
+            </thead>
+            <tbody id="pl-body">
+              <tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- VAT return panel -->
+      <div class="panel">
+        <div class="panel-header"><h3>VAT Return</h3></div>
+        <div class="panel-body" id="vat-body">
+          <div style="color:var(--color-text-muted);font-size:var(--text-sm)">Loading…</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Trade financials table -->
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Trade Financials</h3>
+        <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Use Record to log invoice numbers, payments and supplier costs</span>
+      </div>
+      <div class="panel-body" style="padding:0">
+        <div style="overflow-x:auto">
+          <table style="min-width:860px">
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>Buyer</th>
+                <th>Invoice No. / Date</th>
+                <th>Invoice Total (inc. VAT)</th>
+                <th>Collected / Date</th>
+                <th>Supplier Paid / Date</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="trade-fin-body">
+              <tr><td colspan="8" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /portal-content -->
+</div><!-- /portal-main -->
+
+<!-- Record modal -->
+<div class="modal-overlay" id="record-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeRecordModal()">✕</button>
+    <h3 id="record-modal-title">Record Invoice &amp; Payment</h3>
+    <div id="record-modal-body"></div>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/portal-guard.js"></script>
+<script src="../../js/portal/financials.js"></script>
+</body>
+</html>

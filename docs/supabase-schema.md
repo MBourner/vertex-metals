@@ -118,6 +118,28 @@ CREATE TRIGGER trades_updated_at
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 ```
 
+### Trades — additional columns (run after initial creation)
+
+Added to support live pricing, product lines, and financials tracking.
+
+```sql
+ALTER TABLE trades
+  ADD COLUMN IF NOT EXISTS product_line_id        UUID REFERENCES product_lines(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS fob_price_usd           NUMERIC(14,4),
+  ADD COLUMN IF NOT EXISTS freight_usd             NUMERIC(14,2),
+  ADD COLUMN IF NOT EXISTS insurance_usd           NUMERIC(14,2),
+  ADD COLUMN IF NOT EXISTS exchange_rate           NUMERIC(10,6),
+  ADD COLUMN IF NOT EXISTS markup_pct              NUMERIC(6,2),
+  ADD COLUMN IF NOT EXISTS vat_rate                NUMERIC(5,4),
+  ADD COLUMN IF NOT EXISTS vat_amount_gbp          NUMERIC(14,2),
+  ADD COLUMN IF NOT EXISTS invoice_number          TEXT,
+  ADD COLUMN IF NOT EXISTS invoice_date            DATE,
+  ADD COLUMN IF NOT EXISTS payment_received_date   DATE,
+  ADD COLUMN IF NOT EXISTS payment_received_gbp    NUMERIC(14,2),
+  ADD COLUMN IF NOT EXISTS supplier_payment_date   DATE,
+  ADD COLUMN IF NOT EXISTS supplier_payment_gbp    NUMERIC(14,2);
+```
+
 ---
 
 ## 5. kyc_records

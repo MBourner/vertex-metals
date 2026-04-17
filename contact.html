@@ -27,7 +27,7 @@
       <li><a href="compliance.html">Compliance</a></li>
       <li><a href="partners.html">Partners</a></li>
     </ul>
-    <a href="contact.html" class="btn btn-primary nav-cta btn-sm">Request a Quote</a>
+    <a href="contact.html" class="btn btn-primary nav-cta btn-sm">Submit Enquiry</a>
     <button class="nav-hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false"><span></span><span></span><span></span></button>
   </div>
 </nav>
@@ -38,7 +38,7 @@
   <a href="about.html">About</a>
   <a href="compliance.html">Compliance</a>
   <a href="partners.html">Partners</a>
-  <a href="contact.html" class="btn btn-primary">Request a Quote</a>
+  <a href="contact.html" class="btn btn-primary">Submit Enquiry</a>
 </div>
 
 <!-- ═══ PAGE HERO ═════════════════════════════════════════════ -->
@@ -47,7 +47,7 @@
     <span class="section-label">Contact</span>
     <h1 class="text-white" style="max-width:600px;margin-bottom:var(--space-4)">Get in touch</h1>
     <div class="divider-steel"></div>
-    <p style="max-width:560px;color:rgba(255,255,255,0.55);font-size:var(--text-lg)">Whether you are a UK buyer looking to source metals, or an Indian manufacturer looking to supply Vertex Metals, we would like to hear from you.</p>
+    <p style="max-width:560px;color:rgba(255,255,255,0.55);font-size:var(--text-lg)">Submit an RFQ or product enquiry. We respond to all buyer enquiries within one business day. Suppliers should use the <a href="partners.html" style="color:var(--color-accent)">partner registration page</a>.</p>
   </div>
 </section>
 
@@ -58,18 +58,12 @@
 
       <!-- Form -->
       <div>
-        <h2 style="margin-bottom:var(--space-2)">Send an enquiry</h2>
+        <h2 style="margin-bottom:var(--space-2)">Complete the enquiry form</h2>
         <div class="divider-steel"></div>
 
-        <!-- Tab selector -->
-        <div style="display:flex;border:1px solid var(--color-border);border-radius:var(--radius);overflow:hidden;margin-bottom:var(--space-8)">
-          <button id="tab-buyer" onclick="switchTab('buyer')" style="flex:1;padding:var(--space-3);font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;border:none;background:var(--color-primary);color:var(--color-accent);cursor:pointer;transition:all var(--transition)">I am a UK Buyer</button>
-          <button id="tab-supplier" onclick="switchTab('supplier')" style="flex:1;padding:var(--space-3);font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;border:none;background:var(--color-surface-raised);color:var(--color-text-muted);cursor:pointer;transition:all var(--transition)">I am a Supplier</button>
-        </div>
-
-        <!-- Context note -->
-        <div id="tab-note" style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);padding:var(--space-4) var(--space-6);margin-bottom:var(--space-6);font-size:var(--text-sm);color:var(--color-text-muted)">
-          UK buyers — tell us about your requirements and we will respond with indicative pricing. All enquiries are handled confidentially and subject to our AML/KYC onboarding process.
+        <!-- Supplier callout -->
+        <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);padding:var(--space-4) var(--space-6);margin-bottom:var(--space-8);font-size:var(--text-sm);color:var(--color-text-muted)">
+          Are you a supplier or manufacturer? <a href="partners.html" style="color:var(--color-accent);font-weight:500">Register as a supplier partner →</a>
         </div>
 
         <form id="contact-form" novalidate>
@@ -107,6 +101,7 @@
                 <option value="aluminium">Aluminium — Other forms (bar, plate, coil, etc.)</option>
                 <option value="copper">Copper &amp; Copper Products</option>
                 <option value="stainless-steel">Stainless Steel</option>
+                <option value="mild-steel">Mild Steel</option>
                 <option value="other-metals">Other Metals (brass, bronze, tool steel, Inconel, etc.)</option>
                 <option value="critical-minerals">Critical Minerals (mica, lithium, manganese, etc.)</option>
                 <option value="general">General enquiry</option>
@@ -114,36 +109,14 @@
             </div>
           </div>
 
-          <!-- Buyer-only field -->
-          <div id="buyer-fields" style="margin-top:var(--space-6)">
-            <div class="form-group">
-              <label class="form-label" for="field-quantity">Estimated annual volume</label>
-              <input class="form-input" id="field-quantity" type="text" placeholder="e.g. 50 MT/year" />
-            </div>
-          </div>
-
-          <!-- Supplier-only field -->
-          <div id="supplier-fields" style="display:none;margin-top:var(--space-6)">
-            <div class="form-grid">
-              <div class="form-group">
-                <label class="form-label" for="field-country">Country of operation <span class="required">*</span></label>
-                <input class="form-input" id="field-country" type="text" placeholder="e.g. India" />
-                <span class="form-error" id="err-country"></span>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="field-capacity">Approximate annual export capacity</label>
-                <input class="form-input" id="field-capacity" type="text" placeholder="e.g. 500 MT/year" />
-              </div>
-            </div>
-            <div class="form-group" style="margin-top:var(--space-6)">
-              <label class="form-label" for="field-products-mfg">Products you manufacture</label>
-              <input class="form-input" id="field-products-mfg" type="text" placeholder="e.g. EC grade aluminium wire, 6101 alloy" />
-            </div>
+          <div class="form-group" style="margin-top:var(--space-6)">
+            <label class="form-label" for="field-quantity">Estimated annual volume</label>
+            <input class="form-input" id="field-quantity" type="text" placeholder="e.g. 50 MT/year" />
           </div>
 
           <div class="form-group" style="margin-top:var(--space-6)">
             <label class="form-label" for="field-message">Message</label>
-            <textarea class="form-textarea" id="field-message" rows="5" placeholder="Describe your requirements or introduce your business..."></textarea>
+            <textarea class="form-textarea" id="field-message" rows="5" placeholder="Describe your requirements, specification, delivery timeline, or any other relevant details..."></textarea>
           </div>
 
           <!-- Alert area -->

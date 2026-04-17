@@ -4,8 +4,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vertex Metals Ltd — Industrial Metals. India to the UK.</title>
-  <meta name="description" content="Vertex Metals Ltd is an Isle of Man commodity trading intermediary supplying aluminium alloy core wire and strategic metals from India to UK industrial buyers. AML/KYC compliant. India–UK FTA advantage." />
+  <title>Vertex Metals Ltd — Industrial Metals Sourcing. India to the UK.</title>
+  <meta name="description" content="Vertex Metals Ltd is an Isle of Man commodity trading intermediary sourcing aluminium, copper, stainless steel and strategic metals from India and global suppliers for UK industrial buyers. AML/KYC compliant. India–UK CETA advantage." />
   <link rel="stylesheet" href="css/variables.css" />
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/components.css" />
@@ -22,9 +22,11 @@
     </a>
     <ul class="nav-links" role="list">
       <li><a href="products.html">Products</a></li>
+      <li><a href="industries.html">Sectors</a></li>
+      <li><a href="sustainability.html">Sustainability</a></li>
       <li><a href="about.html">About</a></li>
       <li><a href="compliance.html">Compliance</a></li>
-      <li><a href="contact.html">Contact</a></li>
+      <li><a href="partners.html">Partners</a></li>
     </ul>
     <a href="contact.html" class="btn btn-primary nav-cta btn-sm">Request a Quote</a>
     <button class="nav-hamburger" id="hamburger" aria-label="Toggle menu" aria-expanded="false">
@@ -36,25 +38,43 @@
 <!-- Mobile nav -->
 <div class="nav-mobile" id="nav-mobile" role="navigation" aria-label="Mobile navigation">
   <a href="products.html">Products</a>
+  <a href="industries.html">Sectors</a>
+  <a href="sustainability.html">Sustainability</a>
   <a href="about.html">About</a>
   <a href="compliance.html">Compliance</a>
-  <a href="contact.html">Contact</a>
+  <a href="partners.html">Partners</a>
   <a href="contact.html" class="btn btn-primary">Request a Quote</a>
 </div>
 
-<!-- ═══ HERO ══════════════════════════════════════════════════ -->
-<section class="hero bg-dark" aria-label="Hero">
-  <div class="container hero-inner">
+<!-- ═══ HERO — VIDEO BANNER ══════════════════════════════════ -->
+<section class="hero-video" aria-label="Hero">
+
+  <!-- Video element — swap placeholder div for <video> when footage is available -->
+  <!-- <video autoplay muted loop playsinline poster="assets/images/video-poster.jpg">
+    <source src="assets/video/hero.mp4" type="video/mp4">
+  </video> -->
+
+  <!-- Placeholder shown until video footage is sourced -->
+  <div class="hero-video-placeholder" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
+    </svg>
+    <span>Video — footage to follow</span>
+  </div>
+
+  <div class="hero-video-overlay"></div>
+
+  <div class="container hero-video-content">
     <span class="section-label">Vertex Metals Ltd</span>
     <h1 class="text-white" style="max-width:900px;margin-bottom:var(--space-6)">
-      Industrial metals.<br>
-      <span class="text-gradient">India to the UK.</span>
+      Global metals sourcing.<br>
+      <span class="text-gradient">Built for UK industry.</span>
     </h1>
     <p style="font-size:var(--text-xl);max-width:640px;margin-bottom:var(--space-10);color:rgba(255,255,255,0.6)">
-      Isle of Man commodity trading intermediary. Aluminium alloy core wire and strategic metals, structured around the India–UK FTA and built for procurement teams that demand compliance rigour.
+      Isle of Man commodity trading intermediary. Aluminium, copper, stainless steel and strategic metals — sourced across India and global supply networks, structured around compliance, trade agreements, and UK procurement standards.
     </p>
     <div style="display:flex;gap:var(--space-4);flex-wrap:wrap">
-      <a href="contact.html" class="btn btn-primary btn-lg">Enquire about a shipment</a>
+      <a href="contact.html" class="btn btn-primary btn-lg">Submit an RFQ</a>
       <a href="products.html" class="btn btn-ghost btn-lg">View products</a>
     </div>
 
@@ -65,8 +85,8 @@
         <div style="font-size:var(--text-sm);color:rgba(255,255,255,0.4);line-height:1.4">India's YoY growth in UK aluminium wire market share</div>
       </div>
       <div style="background:var(--color-primary-mid);padding:var(--space-6) var(--space-8);border-left:1px solid var(--color-border-dark)">
-        <div style="font-family:var(--font-display);font-size:var(--text-3xl);font-weight:700;color:var(--color-accent);margin-bottom:var(--space-1)">Critical</div>
-        <div style="font-size:var(--text-sm);color:rgba(255,255,255,0.4);line-height:1.4">Aluminium designated UK Critical Mineral, March 2025</div>
+        <div style="font-family:var(--font-display);font-size:var(--text-3xl);font-weight:700;color:var(--color-accent);margin-bottom:var(--space-1)">4+</div>
+        <div style="font-size:var(--text-sm);color:rgba(255,255,255,0.4);line-height:1.4">Metal families — aluminium, copper, stainless steel, critical minerals</div>
       </div>
       <div style="background:var(--color-primary-mid);padding:var(--space-6) var(--space-8);border-left:1px solid var(--color-border-dark)">
         <div style="font-family:var(--font-display);font-size:var(--text-3xl);font-weight:700;color:var(--color-accent);margin-bottom:var(--space-1)">FTA 2025</div>
@@ -80,10 +100,10 @@
 <section class="section bg-surface">
   <div class="container">
     <span class="section-label">Why Vertex Metals</span>
-    <h2 style="max-width:640px;margin-bottom:var(--space-2)">A trading partner built on substance and compliance</h2>
+    <h2 style="max-width:640px;margin-bottom:var(--space-2)">A sourcing desk built on substance and compliance</h2>
     <div class="divider-steel"></div>
     <p style="max-width:640px;margin-bottom:var(--space-12);font-size:var(--text-lg)">
-      We operate from the Isle of Man with full AML/KYC procedures, IOM FSA oversight, and compliance frameworks that match the expectations of UK procurement and legal teams.
+      We act as principal in every trade — one compliant Isle of Man counterparty, managing documentation, supplier qualification, and trade execution from enquiry to UK delivery.
     </p>
     <div class="grid-4">
       <div class="card">
@@ -91,28 +111,28 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         </div>
         <h3 style="font-size:var(--text-base);margin-bottom:var(--space-2)">AML/KYC Compliant</h3>
-        <p style="font-size:var(--text-sm)">Full AML/KYC policy active. Sanctions screening applied to every counterparty. HMRC EORI and VAT registered.</p>
+        <p style="font-size:var(--text-sm)">Full AML/KYC policy. Sanctions screening on every counterparty. HMRC EORI and VAT registered. Compliance built into every trade, not bolted on.</p>
       </div>
       <div class="card">
         <div style="width:40px;height:40px;background:var(--color-primary);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-4)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
         </div>
-        <h3 style="font-size:var(--text-base);margin-bottom:var(--space-2)">Isle of Man Incorporated</h3>
-        <p style="font-size:var(--text-sm)">Established on the IOM as a private limited company by it's two co-founders.</p>
+        <h3 style="font-size:var(--text-base);margin-bottom:var(--space-2)">Global Sourcing Network</h3>
+        <p style="font-size:var(--text-sm)">Direct supplier relationships across India, Europe, and East Asia — structured to leverage the India–UK CETA, CPTPP, and bilateral trade agreements for landed-cost advantage.</p>
+      </div>
+      <div class="card">
+        <div style="width:40px;height:40px;background:var(--color-primary);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-4)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
+        </div>
+        <h3 style="font-size:var(--text-base);margin-bottom:var(--space-2)">No-Warehouse Model</h3>
+        <p style="font-size:var(--text-sm)">We don't hold stock. Materials are sourced to order, reducing waste and carbon footprint — a genuine sustainability advantage over traditional stock-holding traders.</p>
       </div>
       <div class="card">
         <div style="width:40px;height:40px;background:var(--color-primary);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-4)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
         </div>
-        <h3 style="font-size:var(--text-base);margin-bottom:var(--space-2)">India–UK FTA Advantage</h3>
-        <p style="font-size:var(--text-sm)">India–UK CETA signed May 2025. Near tariff-free aluminium imports structured into every trade we execute.</p>
-      </div>
-      <div class="card">
-        <div style="width:40px;height:40px;background:var(--color-primary);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-4)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        </div>
-        <h3 style="font-size:var(--text-base);margin-bottom:var(--space-2)">UK Critical Mineral</h3>
-        <p style="font-size:var(--text-sm)">Aluminium designated a UK Critical Mineral in March 2025, underscoring its strategic importance to UK manufacturing.</p>
+        <h3 style="font-size:var(--text-base);margin-bottom:var(--space-2)">CBAM Ready</h3>
+        <p style="font-size:var(--text-sm)">UK CBAM comes into force January 2027. We're already collecting carbon-intensity data from supplier facilities, so your reporting burden is reduced from day one.</p>
       </div>
     </div>
   </div>
@@ -124,92 +144,184 @@
     <span class="section-label">Products</span>
     <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-6);flex-wrap:wrap;margin-bottom:var(--space-12)">
       <div>
-        <h2>Strategic metals, sourced from India</h2>
+        <h2>Four metal families. One qualified counterparty.</h2>
         <div class="divider-steel"></div>
       </div>
       <a href="products.html" class="btn btn-secondary btn-sm">All products →</a>
     </div>
-    <div class="grid-3">
-      <!-- Aluminium Alloy Core Wire -->
+    <div class="grid-4">
+      <!-- Aluminium -->
       <div class="card-dark" style="display:flex;flex-direction:column">
         <div style="width:32px;height:2px;background:linear-gradient(to right,var(--color-accent),var(--color-accent-light));margin-bottom:var(--space-4)"></div>
-        <p style="font-size:var(--text-xs);font-family:var(--font-display);letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:var(--space-2)">Gujarat & Odisha, India</p>
-        <h3 style="color:#fff;margin-bottom:var(--space-3)">Aluminium Alloy Core Wire</h3>
-        <p style="color:rgba(255,255,255,0.5);font-size:var(--text-sm);margin-bottom:var(--space-6)">EC Grade and 6XXX series aluminium alloy wire. India to UK under the CETA tariff advantage. Critical input for EV cabling, transmission infrastructure, and aerospace wiring.</p>
-        <a href="products/aluminium-alloy-core-wire.html" style="margin-top:auto;display:inline-flex;align-items:center;gap:var(--space-2);color:var(--color-accent);font-family:var(--font-display);font-size:var(--text-sm);font-weight:500;letter-spacing:0.1em;text-transform:uppercase;transition:gap var(--transition)">View details →</a>
+        <p style="font-size:var(--text-xs);font-family:var(--font-display);letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:var(--space-2)">Gujarat &amp; Odisha, India</p>
+        <h3 style="color:#fff;font-size:var(--text-lg);margin-bottom:var(--space-3)">Aluminium Alloys</h3>
+        <p style="color:rgba(255,255,255,0.5);font-size:var(--text-sm);margin-bottom:var(--space-4)">EC grade wire, 6XXX series, bars, plates, coils, rods, pipes, sheets, tube, channel. Launch product — active from day one.</p>
+        <span class="badge badge-success" style="width:fit-content;margin-bottom:var(--space-4)">Active</span>
+        <a href="products.html#aluminium" style="margin-top:auto;display:inline-flex;align-items:center;gap:var(--space-2);color:var(--color-accent);font-family:var(--font-display);font-size:var(--text-sm);font-weight:500;letter-spacing:0.1em;text-transform:uppercase">View details →</a>
       </div>
-      <!-- Steel & Iron — coming soon -->
-      <div class="card-dark" style="opacity:0.65;display:flex;flex-direction:column">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)">
-          <div style="width:32px;height:2px;background:linear-gradient(to right,var(--color-accent),var(--color-accent-light))"></div>
-          <span class="badge badge-neutral" style="font-size:10px">Coming Soon</span>
-        </div>
-        <p style="font-size:var(--text-xs);font-family:var(--font-display);letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:var(--space-2)">India</p>
-        <h3 style="color:#fff;margin-bottom:var(--space-3)">Steel &amp; Iron Products</h3>
-        <p style="color:rgba(255,255,255,0.5);font-size:var(--text-sm)">Structural steel, billets, and iron products for UK construction and manufacturing supply chains.</p>
+      <!-- Copper -->
+      <div class="card-dark" style="display:flex;flex-direction:column">
+        <div style="width:32px;height:2px;background:linear-gradient(to right,var(--color-accent),var(--color-accent-light));margin-bottom:var(--space-4)"></div>
+        <p style="font-size:var(--text-xs);font-family:var(--font-display);letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:var(--space-2)">India &amp; South America</p>
+        <h3 style="color:#fff;font-size:var(--text-lg);margin-bottom:var(--space-3)">Copper &amp; Products</h3>
+        <p style="color:rgba(255,255,255,0.5);font-size:var(--text-sm);margin-bottom:var(--space-4)">Plates, rods, wire, tube, sheets, pipes. Essential for power, renewables, EV manufacturing, and telecoms infrastructure.</p>
+        <span class="badge badge-neutral" style="width:fit-content;margin-bottom:var(--space-4)">On Enquiry</span>
+        <a href="products.html#copper" style="margin-top:auto;display:inline-flex;align-items:center;gap:var(--space-2);color:var(--color-accent);font-family:var(--font-display);font-size:var(--text-sm);font-weight:500;letter-spacing:0.1em;text-transform:uppercase">View details →</a>
       </div>
-      <!-- Mica — coming soon -->
-      <div class="card-dark" style="opacity:0.65;display:flex;flex-direction:column">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)">
-          <div style="width:32px;height:2px;background:linear-gradient(to right,var(--color-accent),var(--color-accent-light))"></div>
-          <span class="badge badge-neutral" style="font-size:10px">Coming Soon</span>
+      <!-- Stainless Steel -->
+      <div class="card-dark" style="display:flex;flex-direction:column">
+        <div style="width:32px;height:2px;background:linear-gradient(to right,var(--color-accent),var(--color-accent-light));margin-bottom:var(--space-4)"></div>
+        <p style="font-size:var(--text-xs);font-family:var(--font-display);letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:var(--space-2)">India, Europe &amp; East Asia</p>
+        <h3 style="color:#fff;font-size:var(--text-lg);margin-bottom:var(--space-3)">Stainless Steel</h3>
+        <p style="color:rgba(255,255,255,0.5);font-size:var(--text-sm);margin-bottom:var(--space-4)">Bars, sheets, plates, coils, rods, pipes, wire, tube, channel, I-beam. From leading mills across India, Europe, and East Asia.</p>
+        <span class="badge badge-neutral" style="width:fit-content;margin-bottom:var(--space-4)">On Enquiry</span>
+        <a href="products.html#stainless" style="margin-top:auto;display:inline-flex;align-items:center;gap:var(--space-2);color:var(--color-accent);font-family:var(--font-display);font-size:var(--text-sm);font-weight:500;letter-spacing:0.1em;text-transform:uppercase">View details →</a>
+      </div>
+      <!-- Other & Critical -->
+      <div class="card-dark" style="display:flex;flex-direction:column">
+        <div style="width:32px;height:2px;background:linear-gradient(to right,var(--color-accent),var(--color-accent-light));margin-bottom:var(--space-4)"></div>
+        <p style="font-size:var(--text-xs);font-family:var(--font-display);letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:var(--space-2)">Global</p>
+        <h3 style="color:#fff;font-size:var(--text-lg);margin-bottom:var(--space-3)">Other Metals &amp; Minerals</h3>
+        <p style="color:rgba(255,255,255,0.5);font-size:var(--text-sm);margin-bottom:var(--space-4)">Brass, bronze, tool steel, titanium, nickel superalloys, mica, lithium precursors, manganese, chromite — sourced on enquiry.</p>
+        <span class="badge badge-info" style="width:fit-content;margin-bottom:var(--space-4)">On Enquiry</span>
+        <a href="products.html#other" style="margin-top:auto;display:inline-flex;align-items:center;gap:var(--space-2);color:var(--color-accent);font-family:var(--font-display);font-size:var(--text-sm);font-weight:500;letter-spacing:0.1em;text-transform:uppercase">View details →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SUSTAINABILITY TEASER ═════════════════════════════════ -->
+<section class="section bg-dark" style="position:relative;overflow:hidden">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 20% 60%,rgba(122,184,212,0.06) 0%,transparent 55%);pointer-events:none"></div>
+  <div class="container" style="position:relative">
+    <div class="grid-2" style="gap:var(--space-16);align-items:center">
+      <div>
+        <span class="section-label">Sustainability</span>
+        <h2 class="text-white" style="margin-bottom:var(--space-4)">A lighter footprint, built into the model</h2>
+        <div class="divider-steel"></div>
+        <p style="color:rgba(255,255,255,0.55);font-size:var(--text-lg);margin-bottom:var(--space-6)">Our no-warehouse model isn't just operationally efficient — it genuinely reduces carbon output compared to traditional stock-holding metals traders. No warehouse energy. No overstock. No unnecessary handling.</p>
+        <ul class="check-list" style="margin-bottom:var(--space-8)">
+          <li style="color:rgba(255,255,255,0.65)">No warehouse = no associated energy consumption or embodied carbon in surplus stock</li>
+          <li style="color:rgba(255,255,255,0.65)">CBAM-ready supplier data collection — reduces your reporting burden from 2027</li>
+          <li style="color:rgba(255,255,255,0.65)">Responsible sourcing standards for mica, lithium, and high-risk minerals</li>
+          <li style="color:rgba(255,255,255,0.65)">Carbon-intensity data from Indian supplier facilities, available on request</li>
+        </ul>
+        <a href="sustainability.html" class="btn btn-secondary">Our sustainability approach →</a>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="card-dark">
+          <h4 style="color:var(--color-accent);margin-bottom:var(--space-2);font-size:var(--text-base)">CBAM — an opportunity, not a burden</h4>
+          <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">UK CBAM takes effect January 2027. Buyers who source through Vertex Metals gain access to pre-collected carbon-intensity data — simplifying your own compliance obligations before reporting kicks in.</p>
         </div>
-        <p style="font-size:var(--text-xs);font-family:var(--font-display);letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:var(--space-2)">Rajasthan, India</p>
-        <h3 style="color:#fff;margin-bottom:var(--space-3)">Mica</h3>
-        <p style="color:rgba(255,255,255,0.5);font-size:var(--text-sm)">Electrical and thermal grade mica for UK industrial applications. Phase 2 expansion.</p>
+        <div class="card-dark">
+          <h4 style="color:var(--color-accent);margin-bottom:var(--space-2);font-size:var(--text-base)">ISO 9001 — targeted post year one</h4>
+          <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">Our systems and processes are designed to ISO 9001 principles from day one. We are actively pursuing accreditation after our first full year of operations.</p>
+        </div>
+        <div class="card-dark">
+          <h4 style="color:var(--color-accent);margin-bottom:var(--space-2);font-size:var(--text-base)">Responsible sourcing by policy</h4>
+          <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">Mica is sourced exclusively from suppliers with certified responsible-sourcing credentials. ESG due diligence is a mandatory part of supplier onboarding across all product categories.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SECTORS TEASER ════════════════════════════════════════ -->
+<section class="section bg-surface">
+  <div class="container">
+    <span class="section-label">Sectors</span>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-6);flex-wrap:wrap;margin-bottom:var(--space-10)">
+      <div>
+        <h2>Industries we serve</h2>
+        <div class="divider-steel"></div>
+      </div>
+      <a href="industries.html" class="btn btn-secondary btn-sm">All sectors →</a>
+    </div>
+    <div class="grid-4">
+      <div class="sector-card">
+        <div class="sector-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <h4 style="margin-bottom:var(--space-2)">Energy &amp; Power</h4>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">Overhead transmission, grid infrastructure, renewable energy projects. Aluminium wire is a critical input.</p>
+      </div>
+      <div class="sector-card">
+        <div class="sector-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        </div>
+        <h4 style="margin-bottom:var(--space-2)">Automotive &amp; EV</h4>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">EV cabling, wiring harnesses, power cable manufacture. West Midlands and national supply chains.</p>
+      </div>
+      <div class="sector-card">
+        <div class="sector-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V2M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"/></svg>
+        </div>
+        <h4 style="margin-bottom:var(--space-2)">Aerospace &amp; Defence</h4>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">Precision aluminium profiles, structural forms, and wiring materials for aerospace manufacturing.</p>
+      </div>
+      <div class="sector-card">
+        <div class="sector-card-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </div>
+        <h4 style="margin-bottom:var(--space-2)">Telecoms &amp; Technology</h4>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">Copper cable, aluminium aerial wire, mica insulation, and critical mineral inputs for network infrastructure.</p>
       </div>
     </div>
   </div>
 </section>
 
 <!-- ═══ DIFFERENTIATORS ═══════════════════════════════════════ -->
-<section class="section bg-dark" style="position:relative;overflow:hidden">
-  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 25% 70%,rgba(122,184,212,0.07) 0%,transparent 55%);pointer-events:none"></div>
-  <div class="container" style="position:relative">
+<section class="section bg-white">
+  <div class="container">
     <span class="section-label">Our Approach</span>
-    <h2 class="text-white" style="max-width:640px;margin-bottom:var(--space-4)">How we work with UK buyers</h2>
+    <h2 style="max-width:640px;margin-bottom:var(--space-4)">How we work with UK buyers</h2>
     <div class="divider-steel"></div>
-    <p style="max-width:640px;margin-bottom:var(--space-12);font-size:var(--text-lg);color:rgba(255,255,255,0.5)">We act as principal in every trade — sourcing, qualifying suppliers, managing documentation, and ensuring compliance at every step.</p>
-    <div class="grid-2">
-      <div class="card-dark">
-        <h3 style="color:#fff;margin-bottom:var(--space-2)">Compliance-First Trading</h3>
-        <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">AML/KYC policy, sanctions screening, and HMRC registration are not afterthoughts — they are built into every transaction. UK buyers and their procurement teams can trade with confidence.</p>
+    <p style="max-width:640px;margin-bottom:var(--space-12);font-size:var(--text-lg)">We act as principal in every trade — sourcing, qualifying suppliers, managing documentation, and ensuring compliance at every step.</p>
+    <div class="grid-4">
+      <div style="padding:var(--space-6);border-left:2px solid var(--color-accent)">
+        <div style="font-family:var(--font-display);font-weight:700;color:rgba(10,23,40,0.12);font-size:var(--text-4xl);margin-bottom:var(--space-2)">01</div>
+        <h4 style="margin-bottom:var(--space-2)">Compliance-First Trading</h4>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">AML/KYC, sanctions screening, and HMRC registration are not afterthoughts — they are built into every transaction from counterparty onboarding onwards.</p>
       </div>
-      <div class="card-dark">
-        <h3 style="color:#fff;margin-bottom:var(--space-2)">Deep India Supply Network</h3>
-        <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">Direct relationships with manufacturing clusters in Gujarat and Odisha give us access to competitive FOB pricing and reliable production capacity.</p>
+      <div style="padding:var(--space-6);border-left:2px solid var(--color-accent)">
+        <div style="font-family:var(--font-display);font-weight:700;color:rgba(10,23,40,0.12);font-size:var(--text-4xl);margin-bottom:var(--space-2)">02</div>
+        <h4 style="margin-bottom:var(--space-2)">Deep India Supply Network</h4>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">Direct relationships with manufacturing clusters in Gujarat and Odisha give us access to competitive FOB pricing and reliable production capacity.</p>
       </div>
-      <div class="card-dark">
-        <h3 style="color:#fff;margin-bottom:var(--space-2)">India–UK CETA Specialists</h3>
-        <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">We have structured our trading model around the CETA advantage. Near tariff-free aluminium imports represent a structural cost advantage for UK buyers compared to other sourcing routes.</p>
+      <div style="padding:var(--space-6);border-left:2px solid var(--color-accent)">
+        <div style="font-family:var(--font-display);font-weight:700;color:rgba(10,23,40,0.12);font-size:var(--text-4xl);margin-bottom:var(--space-2)">03</div>
+        <h4 style="margin-bottom:var(--space-2)">Trade-Agreement Expertise</h4>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">We structure trades to leverage India–UK CETA, CPTPP, and bilateral agreements — delivering structural tariff advantages over non-optimised sourcing routes.</p>
       </div>
-      <div class="card-dark">
-        <h3 style="color:#fff;margin-bottom:var(--space-2)">End-to-End Trade Management</h3>
-        <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">We manage documentation, logistics coordination, and compliance paperwork so your procurement team can focus on production rather than paperwork.</p>
+      <div style="padding:var(--space-6);border-left:2px solid var(--color-accent)">
+        <div style="font-family:var(--font-display);font-weight:700;color:rgba(10,23,40,0.12);font-size:var(--text-4xl);margin-bottom:var(--space-2)">04</div>
+        <h4 style="margin-bottom:var(--space-2)">End-to-End Trade Management</h4>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">Letters of Credit, Bills of Lading, certificates of origin, customs clearance — we manage documentation and logistics so your procurement team can focus on production.</p>
       </div>
     </div>
   </div>
 </section>
 
 <!-- ═══ INDIA–UK TRADE CONTEXT ════════════════════════════════ -->
-<section class="section bg-surface">
-  <div class="container">
+<section class="section bg-dark" style="position:relative;overflow:hidden">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 75% 50%,rgba(122,184,212,0.07) 0%,transparent 55%);pointer-events:none"></div>
+  <div class="container" style="position:relative">
     <div style="max-width:760px;margin:0 auto;text-align:center">
       <span class="section-label" style="text-align:center;display:block">Trade Corridor</span>
-      <h2 style="margin-bottom:var(--space-4)">The India–UK aluminium opportunity</h2>
+      <h2 class="text-white" style="margin-bottom:var(--space-4)">The India–UK metals opportunity</h2>
       <div class="divider-steel" style="margin:0 auto var(--space-8)"></div>
       <div class="grid-3" style="text-align:left;margin-top:var(--space-10)">
-        <div style="padding:var(--space-6);background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius)">
-          <div style="font-family:var(--font-display);font-size:var(--text-2xl);font-weight:700;color:var(--color-primary);margin-bottom:var(--space-2)">CETA</div>
-          <p style="font-size:var(--text-sm)">India–UK Comprehensive Economic &amp; Trade Agreement signed May 2025, delivering near tariff-free aluminium imports from India to the UK.</p>
+        <div style="padding:var(--space-6);background:var(--color-primary-mid);border:1px solid var(--color-border-dark);border-radius:var(--radius)">
+          <div style="font-family:var(--font-display);font-size:var(--text-2xl);font-weight:700;color:var(--color-accent);margin-bottom:var(--space-2)">CETA</div>
+          <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">India–UK Comprehensive Economic &amp; Trade Agreement signed May 2025, delivering near tariff-free metals imports from India to the UK.</p>
         </div>
-        <div style="padding:var(--space-6);background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius)">
-          <div style="font-family:var(--font-display);font-size:var(--text-2xl);font-weight:700;color:var(--color-primary);margin-bottom:var(--space-2)">2,615%</div>
-          <p style="font-size:var(--text-sm)">Year-on-year growth in India's market share for aluminium alloy wire in the UK — driven by scale, manufacturing investment, and cost competitiveness.</p>
+        <div style="padding:var(--space-6);background:var(--color-primary-mid);border:1px solid var(--color-border-dark);border-radius:var(--radius)">
+          <div style="font-family:var(--font-display);font-size:var(--text-2xl);font-weight:700;color:var(--color-accent);margin-bottom:var(--space-2)">2,615%</div>
+          <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">Year-on-year growth in India's market share for aluminium alloy wire in the UK — driven by scale, investment, and cost competitiveness.</p>
         </div>
-        <div style="padding:var(--space-6);background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius)">
-          <div style="font-family:var(--font-display);font-size:var(--text-2xl);font-weight:700;color:var(--color-primary);margin-bottom:var(--space-2)">2027</div>
-          <p style="font-size:var(--text-sm)">UK CBAM takes effect 1 January 2027. Vertex Metals is already collecting carbon intensity data from supplier facilities.</p>
+        <div style="padding:var(--space-6);background:var(--color-primary-mid);border:1px solid var(--color-border-dark);border-radius:var(--radius)">
+          <div style="font-family:var(--font-display);font-size:var(--text-2xl);font-weight:700;color:var(--color-accent);margin-bottom:var(--space-2)">2027</div>
+          <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">UK CBAM takes effect 1 January 2027. Vertex Metals is already collecting carbon-intensity data from supplier facilities to simplify buyer reporting.</p>
         </div>
       </div>
     </div>
@@ -222,7 +334,10 @@
     <span style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.25em;text-transform:uppercase;color:rgba(10,23,40,0.55);display:block;margin-bottom:var(--space-4)">Get in touch</span>
     <h2 style="color:var(--color-primary);margin-bottom:var(--space-4)">Ready to source? Talk to us.</h2>
     <p style="color:rgba(10,23,40,0.65);font-size:var(--text-lg);margin-bottom:var(--space-8);max-width:560px;margin-left:auto;margin-right:auto">Submit an RFQ or introduce your business. We respond to all enquiries within one business day.</p>
-    <a href="contact.html" class="btn btn-dark btn-lg">Enquire about a shipment</a>
+    <div style="display:flex;gap:var(--space-4);flex-wrap:wrap;justify-content:center">
+      <a href="contact.html" class="btn btn-dark btn-lg">Submit an RFQ</a>
+      <a href="partners.html" class="btn btn-secondary btn-lg" style="border-color:rgba(10,23,40,0.4);color:rgba(10,23,40,0.7)">Become a supplier partner</a>
+    </div>
   </div>
 </section>
 
@@ -235,7 +350,7 @@
           <img src="assets/images/logo/vertex-metals-logo.jpg" alt="Vertex Metals" />
           <span class="nav-logo-text">Vertex Metals</span>
         </a>
-        <p>Isle of Man commodity trading intermediary. Industrial metals from India to UK manufacturers.</p>
+        <p>Isle of Man commodity trading intermediary. Industrial metals and strategic minerals from global supply networks to UK manufacturers.</p>
         <div style="margin-top:var(--space-6)">
           <address style="font-style:normal;font-size:var(--text-sm);color:rgba(255,255,255,0.4);line-height:1.8">
             No 3, Falcon Cliff Apartments<br>
@@ -246,26 +361,32 @@
         </div>
       </div>
       <div class="footer-col">
+        <h4>Products &amp; Sectors</h4>
+        <a href="products.html">All Products</a>
+        <a href="products.html#aluminium">Aluminium Alloys</a>
+        <a href="products.html#copper">Copper &amp; Products</a>
+        <a href="products.html#stainless">Stainless Steel</a>
+        <a href="industries.html">Industries We Serve</a>
+      </div>
+      <div class="footer-col">
         <h4>Company</h4>
         <a href="about.html">About Us</a>
+        <a href="sustainability.html">Sustainability</a>
         <a href="compliance.html">Compliance</a>
+        <a href="partners.html">Become a Partner</a>
         <a href="contact.html">Contact</a>
       </div>
       <div class="footer-col">
-        <h4>Products</h4>
-        <a href="products/aluminium-alloy-core-wire.html">Aluminium Alloy Core Wire</a>
-        <a href="products.html">All Products</a>
-      </div>
-      <div class="footer-col">
-        <h4>Legal</h4>
+        <h4>Legal &amp; Compliance</h4>
         <a href="compliance.html">AML/KYC Policy</a>
         <a href="compliance.html#sanctions">Sanctions Policy</a>
         <a href="compliance.html#cbam">CBAM Readiness</a>
+        <a href="compliance.html#iso">Quality Standards</a>
       </div>
     </div>
     <div class="footer-bottom">
       <p>© <span id="year"></span> Vertex Metals Ltd. All rights reserved. Incorporated in the Isle of Man.</p>
-      <p>Incorporated in the Isle of Man under the Companies Act 1931</p>
+      <p>Incorporated under the Isle of Man Companies Act 1931</p>
       <p style="margin-top:var(--space-2);opacity:.5">Built by <a href="#" style="color:inherit;text-decoration:none">Vector Business Solutions</a></p>
     </div>
   </div>
@@ -274,13 +395,11 @@
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
 
-  // Nav scroll behaviour
   const nav = document.getElementById('nav');
   window.addEventListener('scroll', () => {
     nav.classList.toggle('scrolled', window.scrollY > 24);
   }, { passive: true });
 
-  // Hamburger toggle
   const hamburger = document.getElementById('hamburger');
   const navMobile = document.getElementById('nav-mobile');
   hamburger.addEventListener('click', () => {

@@ -10,8 +10,67 @@
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/components.css" />
   <link rel="stylesheet" href="css/layout.css" />
+  <link rel="preload" as="image" href="assets/images/sustainability-forest-bg.webp" type="image/webp" fetchpriority="high">
+  <style>
+    /* ── Sustainability page: ambient forest background ─────────
+       Scoped to .sustainability-page to prevent bleed to other pages.
+       To revert: remove this <style> block, the preload link above,
+       and the .forest-bg-wrapper div after <body>. ──────────── */
+
+    /* body has background-color set in base.css — clear it so the
+       fixed forest image (z-index: -1) is not painted over */
+    body.sustainability-page { background: transparent; }
+
+    /* Fixed forest image — behind all content */
+    .sustainability-page .forest-bg-wrapper {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+    }
+    .sustainability-page .forest-bg-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      filter: brightness(0.65) saturate(0.7);
+      display: block;
+    }
+    /* Vignette: darkens corners and edges, anchors the composition */
+    .sustainability-page .forest-bg-wrapper::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 50% 0%,   rgba(0,0,0,0.35) 0%, transparent 55%),
+        radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0.35) 0%, transparent 55%),
+        radial-gradient(ellipse at 0%   50%, rgba(0,0,0,0.15) 0%, transparent 48%),
+        radial-gradient(ellipse at 100% 50%, rgba(0,0,0,0.15) 0%, transparent 48%);
+      pointer-events: none;
+    }
+
+    /* Dark sections: semi-transparent so forest bleeds through subtly */
+    .sustainability-page .bg-dark,
+    .sustainability-page .page-hero.bg-dark {
+      background-color: rgba(10, 23, 40, 0.85);
+    }
+
+    /* Light sections remain fully opaque — visual rest between dark bands */
+    .sustainability-page .bg-surface { background-color: var(--color-surface); }
+    .sustainability-page .bg-white   { background-color: #ffffff; }
+    .sustainability-page .bg-accent  { background-color: var(--color-accent); }
+  </style>
 </head>
-<body>
+<body class="sustainability-page">
+
+<!-- ═══ FOREST BACKGROUND ════════════════════════════════════ -->
+<div class="forest-bg-wrapper" aria-hidden="true">
+  <picture>
+    <source srcset="assets/images/sustainability-forest-bg.webp" type="image/webp">
+    <source srcset="assets/images/sustainability-forest-bg.jpg" type="image/jpeg">
+    <img src="assets/images/sustainability-forest-bg.jpg" alt="" loading="eager" fetchpriority="high">
+  </picture>
+</div>
 
 <!-- ═══ NAVIGATION ═══════════════════════════════════════════ -->
 <nav class="nav scrolled" id="nav">
@@ -42,20 +101,6 @@
   <a href="compliance.html">Compliance</a>
   <a href="partners.html">Partners</a>
   <a href="contact.html" class="btn btn-primary">Submit Enquiry</a>
-</div>
-
-<!-- ═══ PAGE VIDEO BANNER ══════════════════════════════════════ -->
-<div class="page-video-banner" style="margin-top:var(--nav-height)">
-  <!-- <video autoplay muted loop playsinline poster="assets/images/video-poster-sustainability.jpg">
-    <source src="assets/video/sustainability.mp4" type="video/mp4">
-  </video> -->
-  <div class="hero-video-placeholder" aria-hidden="true">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
-    </svg>
-    <span>Video — footage to follow</span>
-  </div>
-  <div class="hero-video-overlay"></div>
 </div>
 
 <!-- ═══ PAGE HERO ═════════════════════════════════════════════ -->
@@ -240,7 +285,7 @@
           <img src="assets/images/logo/vertex-metals-logo.jpg" alt="Vertex Metals" />
           <span class="nav-logo-text">Vertex Metals</span>
         </a>
-        <p>Isle of Man commodity trading intermediary. Industrial metals and strategic minerals from global supply networks to UK manufacturers.</p>
+        <p>A global sourcer of critical metals and minerals to the UK. Utilising responsible and vetted mills around the world, trust us to keep your supply chain moving efficiently.</p>
         <div style="margin-top:var(--space-6)">
           <address style="font-style:normal;font-size:var(--text-sm);color:rgba(255,255,255,0.4);line-height:1.8">No 3, Falcon Cliff Apartments<br>9–10 Palace Road, Douglas<br>Isle of Man, IM2 4LD</address>
           <a href="mailto:sales@vertexmetalsltd.com" style="display:block;margin-top:var(--space-3);font-size:var(--text-sm);color:rgba(255,255,255,0.4)">sales@vertexmetalsltd.com</a>

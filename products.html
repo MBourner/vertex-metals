@@ -45,21 +45,15 @@
 </div>
 
 <!-- ═══ PAGE VIDEO BANNER ══════════════════════════════════════ -->
-<div class="page-video-banner" style="margin-top:var(--nav-height)">
-  <!-- <video autoplay muted loop playsinline poster="assets/images/video-poster-products.jpg">
-    <source src="assets/video/products.mp4" type="video/mp4">
-  </video> -->
-  <div class="hero-video-placeholder" aria-hidden="true">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
-    </svg>
-    <span>Video — footage to follow</span>
-  </div>
+<div class="page-video-banner" style="margin-top:var(--nav-height);position:relative;overflow:hidden">
+  <video autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;object-position:center 40%;display:block;position:absolute;top:0;left:0">
+    <source src="assets/video/products-steel.mp4" type="video/mp4">
+  </video>
   <div class="hero-video-overlay"></div>
 </div>
 
 <!-- ═══ PAGE HERO ═════════════════════════════════════════════ -->
-<section class="page-hero bg-dark">
+<section class="page-hero bg-dark" style="padding-top:var(--space-16)">
   <div class="container" style="position:relative;z-index:1">
     <span class="section-label">Products</span>
     <h1 class="text-white" style="max-width:700px;margin-bottom:var(--space-4)">Metals and minerals for UK industry — sourced globally, delivered compliantly</h1>
@@ -90,7 +84,7 @@
             <span style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--color-accent)">Primary Origin: India</span>
           </div>
           <h2 style="margin-bottom:var(--space-3)">Aluminium Alloys</h2>
-          <p style="margin-bottom:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted)">Gujarat &amp; Odisha, India · Secondary: Europe, China</p>
+          <p style="margin-bottom:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted)">Sources across India and the Asia-Pacific</p>
           <p style="margin-bottom:var(--space-6)">Our extensive network of reputable mills across India specialises in aluminium alloys of the highest quality across all grades. Our launch focus is <strong>Aluminium Alloy Core Wire</strong> (EC Grade and 6XXX series) — a critical input for EV cabling, overhead transmission infrastructure, and aerospace wiring systems. All products are supplied under the India–UK CETA tariff advantage and are accompanied by full documentation including certificates of origin and mill test reports.</p>
 
           <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);padding:var(--space-4) var(--space-6);margin-bottom:var(--space-6)">
@@ -127,8 +121,8 @@
           </div>
         </div>
         <div style="flex-shrink:0;display:flex;flex-direction:column;gap:var(--space-3);min-width:200px">
-          <a href="products/aluminium-alloy-core-wire.html" class="btn btn-primary" style="justify-content:center">Wire Specification</a>
-          <a href="contact.html?product=aluminium" class="btn btn-secondary" style="justify-content:center">Request a Quote</a>
+          <a href="products/aluminium-alloy-core-wire.html" class="btn btn-secondary" style="justify-content:center">Specifications</a>
+          <a href="contact.html?product=aluminium" class="btn btn-primary" style="justify-content:center">Submit Enquiry</a>
         </div>
       </div>
     </article>
@@ -142,7 +136,7 @@
             <span style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--color-accent)">Primary Origin: India; South America developing</span>
           </div>
           <h2 style="margin-bottom:var(--space-3)">Copper &amp; Copper Products</h2>
-          <p style="margin-bottom:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted)">India · South American copper concentrate under development (CPTPP framework)</p>
+          <p style="margin-bottom:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted)">Sources across India and the Asia-Pacific</p>
           <p style="margin-bottom:var(--space-6)">By collaborating closely with reputable mills in India, Vertex Metals provides access to top-quality copper products across all standard grades. Copper is a critical input for UK electrical manufacturing, grid infrastructure, renewable energy installations, EV charging networks, and telecoms. We are also developing South American copper concentrate supply via the CPTPP framework.</p>
 
           <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-3)">Product Forms Available</p>
@@ -169,8 +163,8 @@
           </div>
         </div>
         <div style="flex-shrink:0;display:flex;flex-direction:column;gap:var(--space-3);min-width:200px">
-          <a href="contact.html?product=copper" class="btn btn-primary" style="justify-content:center">Request a Quote</a>
-          <a href="industries.html" class="btn btn-secondary" style="justify-content:center">View sectors →</a>
+          <a href="products/copper-products.html" class="btn btn-secondary" style="justify-content:center">Specifications</a>
+          <a href="contact.html?product=copper" class="btn btn-primary" style="justify-content:center">Submit Enquiry</a>
         </div>
       </div>
     </article>
@@ -184,7 +178,7 @@
             <span style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--color-accent)">Origin: India, Europe &amp; East Asia</span>
           </div>
           <h2 style="margin-bottom:var(--space-3)">Stainless Steel</h2>
-          <p style="margin-bottom:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted)">India · Europe · East Asia — leading mills across all origins</p>
+          <p style="margin-bottom:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted)">Sources across India and the Asia-Pacific</p>
           <p style="margin-bottom:var(--space-6)">By collaborating closely with top-tier mills across India, Europe, and East Asia, Vertex Metals provides access to a comprehensive range of stainless steel grades at highly competitive prices. Our network enables direct container shipment from these mills to the UK buyer's destination — removing unnecessary handling and compressing lead times.</p>
 
           <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-3)">Product Forms Available</p>
@@ -215,8 +209,8 @@
           </div>
         </div>
         <div style="flex-shrink:0;display:flex;flex-direction:column;gap:var(--space-3);min-width:200px">
-          <a href="contact.html?product=stainless-steel" class="btn btn-primary" style="justify-content:center">Request a Quote</a>
-          <a href="industries.html" class="btn btn-secondary" style="justify-content:center">View sectors →</a>
+          <a href="products/stainless-steel.html" class="btn btn-secondary" style="justify-content:center">Specifications</a>
+          <a href="contact.html?product=stainless-steel" class="btn btn-primary" style="justify-content:center">Submit Enquiry</a>
         </div>
       </div>
     </article>
@@ -230,7 +224,7 @@
             <span style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--color-accent)">Origin: India &amp; China</span>
           </div>
           <h2 style="margin-bottom:var(--space-3)">Mild Steel</h2>
-          <p style="margin-bottom:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted)">India · China — leading mills supplying all standard forms</p>
+          <p style="margin-bottom:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted)">Sources across India and the Asia-Pacific</p>
           <p style="margin-bottom:var(--space-6)">Vertex Metals sources high-quality mild steel from foremost manufacturers in India and China. With our strong and established connections, we ensure a seamless supply chain for this versatile metal — from structural sections through to flat products and tubular forms — delivered directly to UK buyers with full documentation and compliance built in.</p>
 
           <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-3)">Product Forms Available</p>
@@ -261,8 +255,8 @@
           </div>
         </div>
         <div style="flex-shrink:0;display:flex;flex-direction:column;gap:var(--space-3);min-width:200px">
-          <a href="contact.html?product=mild-steel" class="btn btn-primary" style="justify-content:center">Request a Quote</a>
-          <a href="industries.html" class="btn btn-secondary" style="justify-content:center">View sectors →</a>
+          <a href="products/mild-steel.html" class="btn btn-secondary" style="justify-content:center">Specifications</a>
+          <a href="contact.html?product=mild-steel" class="btn btn-primary" style="justify-content:center">Submit Enquiry</a>
         </div>
       </div>
     </article>
@@ -276,7 +270,7 @@
             <span style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--color-accent)">Global Origins</span>
           </div>
           <h2 style="margin-bottom:var(--space-3)">Other Metals</h2>
-          <p style="margin-bottom:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted)">Global — sourced against specific buyer specifications</p>
+          <p style="margin-bottom:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted)">Actively developing sources worldwide</p>
           <p style="margin-bottom:var(--space-6)">Benefiting from a seasoned sourcing team, Vertex Metals ensures that regardless of the size, shape, or quantity of metals required, we will secure the optimal deal — drawing on a global network of qualified suppliers. Each enquiry is assessed against our AML/KYC framework prior to commitment. Note: titanium is sourced from non-India origins only, subject to origin verification.</p>
 
           <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-3)">Materials Available</p>
@@ -291,7 +285,8 @@
           </ul>
         </div>
         <div style="flex-shrink:0;display:flex;flex-direction:column;gap:var(--space-3);min-width:200px">
-          <a href="contact.html?product=other-metals" class="btn btn-primary" style="justify-content:center">Discuss Requirements</a>
+          <a href="products/other-metals.html" class="btn btn-secondary" style="justify-content:center">Specifications</a>
+          <a href="contact.html?product=other-metals" class="btn btn-primary" style="justify-content:center">Submit Enquiry</a>
         </div>
       </div>
     </article>
@@ -305,7 +300,7 @@
             <span style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--color-accent)">On Enquiry</span>
           </div>
           <h2 style="color:#fff;margin-bottom:var(--space-3)">Critical Minerals &amp; Concentrates</h2>
-          <p style="margin-bottom:var(--space-4);font-size:var(--text-sm);color:rgba(255,255,255,0.4)">India, South America &amp; global — sourced on enquiry against buyer specification</p>
+          <p style="margin-bottom:var(--space-4);font-size:var(--text-sm);color:rgba(255,255,255,0.4)">Actively developing sources worldwide</p>
           <p style="margin-bottom:var(--space-6);color:rgba(255,255,255,0.6)">Vertex Metals markets a forward sourcing capability across critical minerals and mineral concentrates, aligned with the UK's Vision 2035 Critical Minerals Strategy. These materials are not day-one active inventory but are available to source on enquiry from our qualified supplier network. Each enquiry is assessed against AML/KYC, ESG, and supplier-qualification standards before any commitment is made.</p>
 
           <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:var(--space-3)">Materials Available on Enquiry</p>
@@ -323,7 +318,8 @@
           </div>
         </div>
         <div style="flex-shrink:0;display:flex;flex-direction:column;gap:var(--space-3);min-width:200px">
-          <a href="contact.html?product=critical-minerals" class="btn btn-primary" style="justify-content:center">Discuss Requirements</a>
+          <a href="products/critical-minerals.html" class="btn btn-secondary" style="justify-content:center">Specifications</a>
+          <a href="contact.html?product=critical-minerals" class="btn btn-primary" style="justify-content:center">Submit Enquiry</a>
         </div>
       </div>
     </article>
@@ -331,48 +327,16 @@
   </div>
 </section>
 
-<!-- ═══ HOW WE QUALIFY SUPPLIERS ════════════════════════════ -->
-<section class="section bg-white">
-  <div class="container">
-    <span class="section-label">Our Process</span>
-    <h2 style="max-width:600px;margin-bottom:var(--space-4)">How we qualify suppliers and source to spec</h2>
-    <div class="divider-steel"></div>
-    <p style="max-width:640px;margin-bottom:var(--space-12);font-size:var(--text-lg)">Every product we supply is sourced from a qualified supplier. Every supplier is subject to the same rigorous onboarding process before any trade is executed.</p>
-    <div class="grid-4">
-      <div style="padding:var(--space-6);border-left:2px solid var(--color-accent)">
-        <div style="font-family:var(--font-display);font-weight:700;color:rgba(10,23,40,0.10);font-size:var(--text-4xl);margin-bottom:var(--space-2)">01</div>
-        <h4 style="margin-bottom:var(--space-2)">Receive RFQ</h4>
-        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">You submit your specification, quantity, delivery timeline, and required certifications. We confirm whether we can source within your parameters.</p>
-      </div>
-      <div style="padding:var(--space-6);border-left:2px solid var(--color-accent)">
-        <div style="font-family:var(--font-display);font-weight:700;color:rgba(10,23,40,0.10);font-size:var(--text-4xl);margin-bottom:var(--space-2)">02</div>
-        <h4 style="margin-bottom:var(--space-2)">Supplier Qualification</h4>
-        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">We apply AML/KYC, sanctions screening, and quality due diligence to every supplier. No new supplier is used without completing this process.</p>
-      </div>
-      <div style="padding:var(--space-6);border-left:2px solid var(--color-accent)">
-        <div style="font-family:var(--font-display);font-weight:700;color:rgba(10,23,40,0.10);font-size:var(--text-4xl);margin-bottom:var(--space-2)">03</div>
-        <h4 style="margin-bottom:var(--space-2)">Quote &amp; Contract</h4>
-        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">We provide a CIF UK port price structured to leverage applicable trade-agreement tariff rates. Contracts are executed under established trade terms (LC or bank transfer).</p>
-      </div>
-      <div style="padding:var(--space-6);border-left:2px solid var(--color-accent)">
-        <div style="font-family:var(--font-display);font-weight:700;color:rgba(10,23,40,0.10);font-size:var(--text-4xl);margin-bottom:var(--space-2)">04</div>
-        <h4 style="margin-bottom:var(--space-2)">Delivery &amp; Docs</h4>
-        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">We manage sea freight, customs clearance, and documentation — Bill of Lading, Certificate of Origin, mill test reports, and CBAM data where applicable.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- ═══ CTA ═══════════════════════════════════════════════════ -->
-<section class="bg-dark" style="padding:var(--space-16) 0;border-top:1px solid var(--color-border-dark)">
+<section class="bg-accent" style="padding:var(--space-16) 0">
   <div class="container" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-6)">
     <div>
-      <h2 class="text-white" style="margin-bottom:var(--space-2)">Don't see exactly what you need?</h2>
-      <p style="color:rgba(255,255,255,0.5)">We source to specification. Tell us what you need and we'll confirm whether we can source it.</p>
+      <h2 style="color:var(--color-primary);margin-bottom:var(--space-2)">Don't see exactly what you need?</h2>
+      <p style="color:rgba(10,23,40,0.65)">We source to specification. Tell us what you need and we'll confirm whether we can source it.</p>
     </div>
     <div style="display:flex;gap:var(--space-3);flex-wrap:wrap">
-      <a href="contact.html" class="btn btn-primary">Submit an RFQ</a>
-      <a href="industries.html" class="btn btn-ghost btn-sm">Browse by sector →</a>
+      <a href="contact.html" class="btn btn-dark">Submit enquiry</a>
+      <a href="industries.html" class="btn btn-dark btn-sm">Browse by sector →</a>
     </div>
   </div>
 </section>
@@ -388,7 +352,7 @@
         </a>
         <p>A global sourcer of critical metals and minerals to the UK. Utilising responsible and vetted mills around the world, trust us to keep your supply chain moving efficiently.</p>
         <div style="margin-top:var(--space-6)">
-          <address style="font-style:normal;font-size:var(--text-sm);color:rgba(255,255,255,0.4);line-height:1.8">No 3, Falcon Cliff Apartments<br>9–10 Palace Road, Douglas<br>Isle of Man, IM2 4LD</address>
+          <address style="font-style:normal;font-size:var(--text-sm);color:rgba(255,255,255,0.4);line-height:1.8">No 3 Falcon Cliff<br>9–10 Palace Road, Douglas<br>Isle of Man, IM2 4LD</address>
           <a href="mailto:sales@vertexmetalsltd.com" style="display:block;margin-top:var(--space-3);font-size:var(--text-sm);color:rgba(255,255,255,0.4)">sales@vertexmetalsltd.com</a>
         </div>
       </div>

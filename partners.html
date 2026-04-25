@@ -44,34 +44,33 @@
   <a href="contact.html" class="btn btn-primary">Submit Enquiry</a>
 </div>
 
-<!-- ═══ HERO — VIDEO BANNER ══════════════════════════════════ -->
+<!-- ═══ HERO — IMAGE BANNER ═══════════════════════════════════ -->
 <section class="hero-video" aria-label="Partner hero">
-  <!-- <video autoplay muted loop playsinline poster="assets/images/video-poster-partners.jpg">
-    <source src="assets/video/partners.mp4" type="video/mp4">
-  </video> -->
-  <div class="hero-video-placeholder" aria-hidden="true">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
-    </svg>
-    <span>Video — footage to follow</span>
-  </div>
-  <div class="hero-video-overlay"></div>
+  <img src="assets/images/partners-hero.png" alt="" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;">
+  <div class="hero-video-overlay" style="background:linear-gradient(to bottom,rgba(0,0,0,0.08) 0%,rgba(10,23,40,0.25) 55%,rgba(10,23,40,0.65) 100%)"></div>
 
   <div class="container hero-video-content">
     <span class="section-label">Supplier Partnerships</span>
-    <h1 class="text-white" style="max-width:800px;margin-bottom:var(--space-6)">
+    <h1 class="text-white" style="max-width:800px;margin-bottom:var(--space-6);text-shadow:0 2px 20px rgba(0,0,0,0.7),0 1px 6px rgba(0,0,0,0.9)">
       Partner with Vertex Metals.<br>
-      <span class="text-gradient">Take your products to global markets.</span>
+      <span style="color:var(--color-accent);text-shadow:0 2px 20px rgba(0,0,0,0.7),0 1px 6px rgba(0,0,0,0.9)">Take your products to global markets.</span>
     </h1>
-    <p style="font-size:var(--text-xl);max-width:600px;margin-bottom:var(--space-10);color:rgba(255,255,255,0.6)">
+    <p style="font-size:var(--text-xl);max-width:600px;margin-bottom:var(--space-10);color:rgba(255,255,255,0.95);text-shadow:0 1px 8px rgba(0,0,0,0.8)">
       If you are a metals mill, manufacturer, or mineral producer looking to grow your UK customer portfolio and strengthen your export business, you have arrived at the right place.
     </p>
     <a href="#register" class="btn btn-primary btn-lg">Register your interest</a>
+    <div style="display:flex;flex-wrap:wrap;gap:var(--space-3);margin-top:var(--space-8)">
+      <a href="#why-partner" style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;border:1px solid rgba(122,184,212,0.3);color:var(--color-accent);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);text-decoration:none;transition:background var(--transition)" onmouseover="this.style.background='rgba(122,184,212,0.1)'" onmouseout="this.style.background='transparent'">Why Partner</a>
+      <a href="#who-we-work-with" style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;border:1px solid rgba(122,184,212,0.3);color:var(--color-accent);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);text-decoration:none;transition:background var(--transition)" onmouseover="this.style.background='rgba(122,184,212,0.1)'" onmouseout="this.style.background='transparent'">Who We Work With</a>
+      <a href="#our-standards" style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;border:1px solid rgba(122,184,212,0.3);color:var(--color-accent);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);text-decoration:none;transition:background var(--transition)" onmouseover="this.style.background='rgba(122,184,212,0.1)'" onmouseout="this.style.background='transparent'">Our Standards</a>
+      <a href="#onboarding-process" style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;border:1px solid rgba(122,184,212,0.3);color:var(--color-accent);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);text-decoration:none;transition:background var(--transition)" onmouseover="this.style.background='rgba(122,184,212,0.1)'" onmouseout="this.style.background='transparent'">Onboarding</a>
+      <a href="#register" style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;border:1px solid rgba(122,184,212,0.3);color:var(--color-accent);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);text-decoration:none;transition:background var(--transition)" onmouseover="this.style.background='rgba(122,184,212,0.1)'" onmouseout="this.style.background='transparent'">Register</a>
+    </div>
   </div>
 </section>
 
 <!-- ═══ WHAT WE OFFER SUPPLIERS ══════════════════════════════ -->
-<section class="section bg-surface">
+<section id="why-partner" class="section bg-surface" style="scroll-margin-top:var(--nav-height)">
   <div class="container">
     <span class="section-label">Why Partner With Us</span>
     <h2 style="max-width:640px;margin-bottom:var(--space-4)">A qualified route to UK industrial buyers</h2>
@@ -85,12 +84,12 @@
         <h4 style="color:#fff;margin-bottom:var(--space-3)">Access to UK Industrial Buyers</h4>
         <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">Vertex Metals is actively developing UK buyer relationships across energy, automotive, construction, telecoms, and industrial manufacturing. Partnering with us opens a structured channel to these buyers without the commercial and compliance overhead of managing them directly.</p>
       </div>
-      <div class="partner-benefit-card">
-        <div style="width:44px;height:44px;background:rgba(122,184,212,0.1);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-4)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <div class="partner-benefit-card" style="background:var(--color-accent);border-color:rgba(10,23,40,0.12)">
+        <div style="width:44px;height:44px;background:rgba(10,23,40,0.12);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-4)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         </div>
-        <h4 style="color:#fff;margin-bottom:var(--space-3)">Compliance-Managed Trade Route</h4>
-        <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">We manage AML/KYC, sanctions screening, HMRC registrations, CBAM documentation, and trade compliance on our side of the transaction. You supply to a single, qualified Isle of Man counterparty — not to a chain of unknown end-buyers with varying compliance standards.</p>
+        <h4 style="color:var(--color-primary);margin-bottom:var(--space-3)">Compliance-Managed Trade Route</h4>
+        <p style="font-size:var(--text-sm);color:rgba(10,23,40,0.65)">We manage AML/KYC, sanctions screening, HMRC registrations, CBAM documentation, and trade compliance on our side of the transaction. You supply to a single, qualified Isle of Man counterparty — not to a chain of unknown end-buyers with varying compliance standards.</p>
       </div>
       <div class="partner-benefit-card">
         <div style="width:44px;height:44px;background:rgba(122,184,212,0.1);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-4)">
@@ -99,12 +98,12 @@
         <h4 style="color:#fff;margin-bottom:var(--space-3)">Trade-Agreement Advantage</h4>
         <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">For India-based manufacturers, the India–UK CETA (signed May 2025) delivers near tariff-free access to UK buyers. We structure our trades to maximise this advantage — making your pricing more competitive in the UK market compared to non-FTA origins.</p>
       </div>
-      <div class="partner-benefit-card">
-        <div style="width:44px;height:44px;background:rgba(122,184,212,0.1);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-4)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <div class="partner-benefit-card" style="background:var(--color-accent);border-color:rgba(10,23,40,0.12)">
+        <div style="width:44px;height:44px;background:rgba(10,23,40,0.12);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-4)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         </div>
-        <h4 style="color:#fff;margin-bottom:var(--space-3)">Long-Term Relationships</h4>
-        <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">We prioritise lasting supplier relationships over one-off transactions. Once you are onboarded and qualified, you become part of our supplier network — considered for every relevant RFQ we receive, with a clear and predictable qualification framework.</p>
+        <h4 style="color:var(--color-primary);margin-bottom:var(--space-3)">Long-Term Relationships</h4>
+        <p style="font-size:var(--text-sm);color:rgba(10,23,40,0.65)">We prioritise lasting supplier relationships over one-off transactions. Once you are onboarded and qualified, you become part of our supplier network — considered for every relevant RFQ we receive, with a clear and predictable qualification framework.</p>
       </div>
       <div class="partner-benefit-card">
         <div style="width:44px;height:44px;background:rgba(122,184,212,0.1);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-4)">
@@ -113,19 +112,19 @@
         <h4 style="color:#fff;margin-bottom:var(--space-3)">Structured Documentation</h4>
         <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">We work with you to ensure trade documentation — certificates of origin, mill test reports, packing lists, Bills of Lading, and CBAM carbon-intensity data — meets UK buyer and regulatory requirements. Proper documentation protects both sides of the trade.</p>
       </div>
-      <div class="partner-benefit-card">
-        <div style="width:44px;height:44px;background:rgba(122,184,212,0.1);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-4)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <div class="partner-benefit-card" style="background:var(--color-accent);border-color:rgba(10,23,40,0.12)">
+        <div style="width:44px;height:44px;background:rgba(10,23,40,0.12);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-4)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         </div>
-        <h4 style="color:#fff;margin-bottom:var(--space-3)">Reliable Settlement</h4>
-        <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">All settlements are by bank transfer or Irrevocable Documentary Letter of Credit. We operate a strict no-cash policy. You will always know how and when you will be paid before a trade is executed.</p>
+        <h4 style="color:var(--color-primary);margin-bottom:var(--space-3)">Reliable Settlement</h4>
+        <p style="font-size:var(--text-sm);color:rgba(10,23,40,0.65)">All settlements are by bank transfer or Irrevocable Documentary Letter of Credit. We operate a strict no-cash policy. You will always know how and when you will be paid before a trade is executed.</p>
       </div>
     </div>
   </div>
 </section>
 
 <!-- ═══ WHO WE PARTNER WITH ═══════════════════════════════════ -->
-<section class="section bg-white">
+<section id="who-we-work-with" class="section bg-white" style="scroll-margin-top:var(--nav-height)">
   <div class="container">
     <span class="section-label">Who We Work With</span>
     <h2 style="max-width:640px;margin-bottom:var(--space-4)">The types of suppliers we want to partner with</h2>
@@ -145,7 +144,7 @@
       <div class="card">
         <div style="width:32px;height:2px;background:linear-gradient(to right,var(--color-accent),var(--color-accent-light));margin-bottom:var(--space-4)"></div>
         <h4 style="margin-bottom:var(--space-2)">Steel Mills</h4>
-        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">Stainless steel mills and fabricators from India, Europe, and East Asia capable of supplying to UK specifications with full mill certification and documented origin.</p>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">Steel mills and fabricators from India, Europe, and East Asia capable of supplying to UK specifications with full mill certification and documented origin.</p>
       </div>
       <div class="card">
         <div style="width:32px;height:2px;background:linear-gradient(to right,var(--color-accent),var(--color-accent-light));margin-bottom:var(--space-4)"></div>
@@ -157,7 +156,7 @@
 </section>
 
 <!-- ═══ WHAT WE REQUIRE ═══════════════════════════════════════ -->
-<section class="section bg-dark" style="position:relative;overflow:hidden">
+<section id="our-standards" class="section bg-dark" style="position:relative;overflow:hidden;scroll-margin-top:var(--nav-height)">
   <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 25% 60%,rgba(122,184,212,0.06) 0%,transparent 55%);pointer-events:none"></div>
   <div class="container" style="position:relative">
     <span class="section-label">Our Standards</span>
@@ -180,6 +179,38 @@
       <div class="card-dark">
         <h4 style="color:#fff;margin-bottom:var(--space-3)">Carbon Intensity Data</h4>
         <p style="font-size:var(--text-sm);color:rgba(255,255,255,0.5)">For aluminium and other CBAM-covered materials, we require carbon-intensity data at the facility level. This data is used to satisfy UK CBAM reporting obligations from January 2027 and to support our preference for lower-carbon supply. Suppliers who provide verified lower-intensity data may be preferred in competitive sourcing situations.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ONBOARDING PROCESS ════════════════════════════════════ -->
+<section id="onboarding-process" class="section bg-white" style="scroll-margin-top:var(--nav-height)">
+  <div class="container">
+    <span class="section-label">Supplier Qualification</span>
+    <h2 style="max-width:600px;margin-bottom:var(--space-4)">How we onboard and approve new suppliers</h2>
+    <div class="divider-steel"></div>
+    <p style="max-width:640px;margin-bottom:var(--space-12);font-size:var(--text-lg)">No supplier enters our network without completing every stage of this process. It is the same standard for every mill, regardless of size or origin.</p>
+    <div class="grid-4">
+      <div style="padding:var(--space-6);border-left:2px solid var(--color-accent)">
+        <div style="font-family:var(--font-display);font-weight:700;color:rgba(10,23,40,0.10);font-size:var(--text-4xl);margin-bottom:var(--space-2)">01</div>
+        <h4 style="margin-bottom:var(--space-2)">Compliance &amp; Financial Screening</h4>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">We verify the supplier against our AML/KYC policy, run sanctions screening, review company accounts, and confirm applicable standards compliance — including ISO certification and CBAM obligations where relevant.</p>
+      </div>
+      <div style="padding:var(--space-6);border-left:2px solid var(--color-accent)">
+        <div style="font-family:var(--font-display);font-weight:700;color:rgba(10,23,40,0.10);font-size:var(--text-4xl);margin-bottom:var(--space-2)">02</div>
+        <h4 style="margin-bottom:var(--space-2)">Product Quality Vetting</h4>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">The supplier provides product samples for quality review. We also assess their existing customer base and export markets to establish their track record and the standards they already operate to.</p>
+      </div>
+      <div style="padding:var(--space-6);border-left:2px solid var(--color-accent)">
+        <div style="font-family:var(--font-display);font-weight:700;color:rgba(10,23,40,0.10);font-size:var(--text-4xl);margin-bottom:var(--space-2)">03</div>
+        <h4 style="margin-bottom:var(--space-2)">On-Site Audit &amp; Approval</h4>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">A formal audit is conducted against UK import and quality standards, including an on-site visit and meeting with key personnel at the facility. No supplier is approved on documentation alone.</p>
+      </div>
+      <div style="padding:var(--space-6);border-left:2px solid var(--color-accent)">
+        <div style="font-family:var(--font-display);font-weight:700;color:rgba(10,23,40,0.10);font-size:var(--text-4xl);margin-bottom:var(--space-2)">04</div>
+        <h4 style="margin-bottom:var(--space-2)">Logistics Verification &amp; Approval</h4>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">We confirm the logistics arrangement — either the supplier's own or verified through our logistics partners — and establish the supply line. Once all checks pass, the supplier is added to our approved suppliers list.</p>
       </div>
     </div>
   </div>
@@ -224,7 +255,7 @@
           </div>
           <div style="border-top:1px solid var(--color-border);padding-top:var(--space-4)">
             <p style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-4)">By submitting this form you consent to Vertex Metals Ltd retaining your details to progress a potential supplier relationship. Your data is handled in accordance with UK GDPR. See our <a href="compliance.html" style="color:var(--color-accent)">compliance page</a> for details.</p>
-            <button type="button" onclick="document.querySelector('.partner-form-submitted').style.display='block';this.closest('form,div').querySelector('button').style.display='none'" class="btn btn-primary" style="width:100%;justify-content:center">Submit application</button>
+            <button type="button" onclick="document.querySelector('.partner-form-submitted').style.display='block';this.closest('form,div').querySelector('button').style.display='none'" class="btn btn-primary" style="width:100%;justify-content:center">Submit enquiry</button>
           </div>
         </div>
         <div class="partner-form-submitted" style="display:none;margin-top:var(--space-6);padding:var(--space-6);background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.2);border-radius:var(--radius)">
@@ -249,7 +280,7 @@
         </a>
         <p>A global sourcer of critical metals and minerals to the UK. Utilising responsible and vetted mills around the world, trust us to keep your supply chain moving efficiently.</p>
         <div style="margin-top:var(--space-6)">
-          <address style="font-style:normal;font-size:var(--text-sm);color:rgba(255,255,255,0.4);line-height:1.8">No 3, Falcon Cliff Apartments<br>9–10 Palace Road, Douglas<br>Isle of Man, IM2 4LD</address>
+          <address style="font-style:normal;font-size:var(--text-sm);color:rgba(255,255,255,0.4);line-height:1.8">No 3 Falcon Cliff<br>9–10 Palace Road, Douglas<br>Isle of Man, IM2 4LD</address>
           <a href="mailto:sales@vertexmetalsltd.com" style="display:block;margin-top:var(--space-3);font-size:var(--text-sm);color:rgba(255,255,255,0.4)">sales@vertexmetalsltd.com</a>
         </div>
       </div>

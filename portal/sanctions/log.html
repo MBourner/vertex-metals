@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sanctions Log — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img src="../../assets/images/logo/vertex-metals-logo.jpg" alt="" /><div><div class="sidebar-logo-text">Vertex Metals</div><div class="sidebar-logo-sub">Internal Portal</div></div></div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section-label">Overview</div>
+    <a href="../dashboard.html" class="sidebar-link">Dashboard</a><a href="../financials/index.html" class="sidebar-link">Financials</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Operations</div>
+    <a href="../orders/index.html" class="sidebar-link">Orders</a><a href="../verification-queue/index.html" class="sidebar-link">Verification Queue</a><a href="../rfq/index.html" class="sidebar-link">RFQs</a><a href="../quotes/index.html" class="sidebar-link">Supplier Quotes</a><a href="../product-lines/index.html" class="sidebar-link">Product Lines</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Suppliers</div>
+    <a href="../suppliers/index.html" class="sidebar-link">Supplier Register</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Compliance</div>
+    <a href="../kyc/index.html" class="sidebar-link">KYC Records</a><a href="../contacts/index.html" class="sidebar-link">Contacts</a><a href="../sanctions/log.html" class="sidebar-link active">Sanctions Log</a><a href="../cbam/index.html" class="sidebar-link">CBAM Tracker</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Post-Trade</div>
+    <a href="../disputes/index.html" class="sidebar-link">Disputes</a><a href="../concessions/index.html" class="sidebar-link">Concessions</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Tools</div>
+    <a href="../quotes/calculator.html" class="sidebar-link">Markup Calculator</a>
+  </nav>
+  <div class="sidebar-footer"><div class="sidebar-user"><div class="sidebar-user-email" id="user-email">Loading...</div><div class="sidebar-user-role">Director</div></div><button onclick="signOut()" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center">Sign Out</button><div style="text-align:center;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-4);opacity:.5">Built by Vector Business Solutions</div></div>
+</aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)"><button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="topbar-title">Sanctions Screening Log</span></div>
+    <button onclick="document.getElementById('screen-modal').classList.add('open')" class="btn btn-primary btn-sm">+ Record Screen</button>
+  </div>
+  <div class="portal-content">
+    <div class="portal-page-header"><div><h1>Sanctions Screening Log</h1><p>Append-only record of all sanctions screens — for MLRO review and regulator audits</p></div></div>
+    <div class="filter-bar" style="display:flex;gap:var(--space-3);flex-wrap:wrap">
+      <input type="text" class="form-input" id="filter-subject" placeholder="Search by subject name…" style="min-width:200px" oninput="loadScreenings()" />
+      <select class="form-select" id="filter-result" onchange="loadScreenings()" style="min-width:160px">
+        <option value="">All results</option>
+        <option value="clear">Clear</option>
+        <option value="potential_match">Potential Match</option>
+        <option value="confirmed_match">Confirmed Match</option>
+      </select>
+      <input type="date" class="form-input" id="filter-date-from" onchange="loadScreenings()" title="From date" />
+      <input type="date" class="form-input" id="filter-date-to" onchange="loadScreenings()" title="To date" />
+    </div>
+    <div class="table-wrapper"><table>
+      <thead><tr><th>Date</th><th>Subject</th><th>Lists Screened</th><th>Tool</th><th>Result</th><th>Notes</th></tr></thead>
+      <tbody id="sanctions-body"><tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading…</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- Record Screen Modal -->
+<div class="modal-overlay" id="screen-modal">
+  <div class="modal-box" style="max-width:520px">
+    <button class="modal-close" onclick="document.getElementById('screen-modal').classList.remove('open')">✕</button>
+    <h3>Record Sanctions Screen</h3>
+    <form onsubmit="recordScreening(event)" style="margin-top:var(--space-4)">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Subject Type <span style="color:var(--color-danger)">*</span></label>
+          <select class="form-select" id="s-subject-type" required>
+            <option value="contact">Contact (buyer/supplier)</option>
+            <option value="beneficial_owner">Beneficial Owner</option>
+            <option value="vessel">Vessel</option>
+            <option value="port">Port</option>
+            <option value="bank">Bank</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Link to Contact (optional)</label>
+          <select class="form-select" id="s-contact"><option value="">— None —</option></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Subject Name as Screened <span style="color:var(--color-danger)">*</span></label>
+        <input type="text" class="form-input" id="s-name" placeholder="Full legal name as screened" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="margin-bottom:var(--space-2)">Lists Screened</label>
+        <div style="display:flex;gap:var(--space-4);flex-wrap:wrap;font-size:var(--text-sm)">
+          <label><input type="checkbox" class="list-check" value="OFSI_UK" checked /> OFSI (UK)</label>
+          <label><input type="checkbox" class="list-check" value="UN" checked /> UN</label>
+          <label><input type="checkbox" class="list-check" value="EU" /> EU</label>
+          <label><input type="checkbox" class="list-check" value="OFAC_SDN" /> OFAC SDN</label>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Screening Tool</label>
+          <input type="text" class="form-input" id="s-tool" placeholder="e.g. ComplyAdvantage v4" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Result <span style="color:var(--color-danger)">*</span></label>
+          <select class="form-select" id="s-result" required>
+            <option value="clear">Clear</option>
+            <option value="potential_match">Potential Match</option>
+            <option value="confirmed_match">Confirmed Match</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Match Resolution Notes</label>
+        <textarea class="form-textarea" id="s-notes" rows="2" placeholder="How any potential matches were resolved"></textarea>
+      </div>
+      <div id="screen-error" style="color:var(--color-danger);font-size:var(--text-sm);margin-bottom:var(--space-3)"></div>
+      <div style="display:flex;gap:var(--space-3);justify-content:flex-end">
+        <button type="button" onclick="document.getElementById('screen-modal').classList.remove('open')" class="btn btn-secondary">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="screen-submit-btn">Save Screen</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal/auth-roles.js"></script><script src="../../js/portal-guard.js"></script><script src="../../js/portal/state-machine.js"></script><script src="../../js/portal/sanctions.js"></script>
+</body></html>

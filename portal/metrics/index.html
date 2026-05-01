@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Metrics — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img src="../../assets/images/logo/vertex-metals-logo.jpg" alt="" /><div><div class="sidebar-logo-text">Vertex Metals</div><div class="sidebar-logo-sub">Internal Portal</div></div></div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section-label">Overview</div>
+    <a href="../dashboard.html" class="sidebar-link">Dashboard</a>
+    <a href="../financials/index.html" class="sidebar-link">Financials</a>
+    <a href="../metrics/index.html" class="sidebar-link active">Metrics</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Operations</div>
+    <a href="../orders/index.html" class="sidebar-link">Orders</a>
+    <a href="../verification-queue/index.html" class="sidebar-link">Verification Queue</a>
+    <a href="../rfq/index.html" class="sidebar-link">RFQs</a>
+    <a href="../quotes/index.html" class="sidebar-link">Supplier Quotes</a>
+    <a href="../product-lines/index.html" class="sidebar-link">Product Lines</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Suppliers</div>
+    <a href="../suppliers/index.html" class="sidebar-link">Supplier Register</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Compliance</div>
+    <a href="../kyc/index.html" class="sidebar-link">KYC Records</a>
+    <a href="../contacts/index.html" class="sidebar-link">Contacts</a>
+    <a href="../sanctions/log.html" class="sidebar-link">Sanctions Log</a>
+    <a href="../cbam/index.html" class="sidebar-link">CBAM Tracker</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Post-Trade</div>
+    <a href="../disputes/index.html" class="sidebar-link">Disputes</a>
+    <a href="../concessions/index.html" class="sidebar-link">Concessions</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Tools</div>
+    <a href="../quotes/calculator.html" class="sidebar-link">Markup Calculator</a>
+  </nav>
+  <div class="sidebar-footer"><div class="sidebar-user"><div class="sidebar-user-email" id="user-email">Loading...</div><div class="sidebar-user-role">Director</div></div><button onclick="signOut()" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center">Sign Out</button><div style="text-align:center;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-4);opacity:.5">Built by Vector Business Solutions</div></div>
+</aside>
+
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <span class="topbar-title">Metrics</span>
+    </div>
+    <button onclick="loadAll()" class="btn btn-ghost btn-sm">↺ Refresh</button>
+  </div>
+
+  <div class="portal-content">
+    <div class="portal-page-header">
+      <div>
+        <h1>Management Metrics</h1>
+        <p>ISO 9001 clause 9.1 — process performance monitoring. Data populates as orders flow through the system.</p>
+      </div>
+    </div>
+
+    <!-- 1. Verification Turnaround -->
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header">
+        <h3>Verification Turnaround Time</h3>
+        <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Median and P90 hours from submission to decision, by queue type and month</span>
+      </div>
+      <div class="panel-body" id="m-turnaround">
+        <div style="color:var(--color-text-muted);font-size:var(--text-sm)">Loading…</div>
+      </div>
+    </div>
+
+    <!-- 2. Rejection Rates -->
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header">
+        <h3>Rejection Rates by Reason Code</h3>
+        <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Tracks which error types are most common at each verification gate</span>
+      </div>
+      <div class="panel-body" id="m-rejections">
+        <div style="color:var(--color-text-muted);font-size:var(--text-sm)">Loading…</div>
+      </div>
+    </div>
+
+    <!-- 3. SLA Breaches -->
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header">
+        <h3>SLA Breach Summary</h3>
+        <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Active and historical SLA breaches by queue type and week</span>
+      </div>
+      <div class="panel-body" id="m-sla">
+        <div style="color:var(--color-text-muted);font-size:var(--text-sm)">Loading…</div>
+      </div>
+    </div>
+
+    <!-- 4. Payment Days -->
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header">
+        <h3>Payment Settlement Days</h3>
+        <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Average days from invoice date to customer receipt and supplier payment</span>
+      </div>
+      <div class="panel-body" id="m-payment-days">
+        <div style="color:var(--color-text-muted);font-size:var(--text-sm)">Loading…</div>
+      </div>
+    </div>
+
+    <!-- 5. Concession Rate -->
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header">
+        <h3>Concession Rate by Supplier</h3>
+        <span style="font-size:var(--text-xs);color:var(--color-text-muted)">% of orders per supplier per quarter that triggered a customer concession — flags quality issues</span>
+      </div>
+      <div class="panel-body" id="m-concession-rate">
+        <div style="color:var(--color-text-muted);font-size:var(--text-sm)">Loading…</div>
+      </div>
+    </div>
+
+    <!-- 6. Dispute Rate -->
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header">
+        <h3>Dispute Rate by Supplier</h3>
+        <span style="font-size:var(--text-xs);color:var(--color-text-muted)">% of orders per supplier per quarter that generated a post-delivery dispute</span>
+      </div>
+      <div class="panel-body" id="m-dispute-rate">
+        <div style="color:var(--color-text-muted);font-size:var(--text-sm)">Loading…</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/portal/auth-roles.js"></script>
+<script src="../../js/portal-guard.js"></script>
+<script src="../../js/portal/state-machine.js"></script>
+<script src="../../js/portal/metrics.js"></script>
+</body></html>

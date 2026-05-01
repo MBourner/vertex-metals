@@ -1,0 +1,14 @@
+-- ============================================================
+-- Vertex Metals Portal — Phase 1 Schema Migration (v3)
+-- Addendum to v2 schema (supabase-schema.md)
+-- Already applied to Supabase. Kept here for reference.
+-- ============================================================
+-- See full migration in the project conversation history.
+-- Tables created: order_states, order_state_transitions, reason_codes,
+-- user_roles, order_events, verification_queue, order_documents,
+-- inbound_emails, concessions, disputes, supplier_audits,
+-- sanctions_screens, access_log
+-- Tables altered: contacts (approval lifecycle), trades (current_state)
+-- Functions: transition_order_state, decide_verification_queue_item,
+--            request_release_approval
+-- Triggers: append-only on order_events, state-change audit on trades

@@ -9,7 +9,9 @@
  * Load order in every portal HTML page:
  *   <script src="/js/supabase-client.js"></script>
  *   <script src="/js/auth.js"></script>
+ *   <script src="/js/portal/auth-roles.js"></script>
  *   <script src="/js/portal-guard.js"></script>
+ *   <script src="/js/portal/state-machine.js"></script>
  *   <!-- page-specific script last -->
  *
  * The body should have visibility:hidden until auth is confirmed.
@@ -21,7 +23,8 @@
 
   try {
     await requireAuth();
-    // Auth confirmed — show page
+    // Only init roles if auth-roles.js is loaded (new pages only — old pages safe to omit it)
+    if (typeof PortalRoles !== 'undefined') await PortalRoles.init();
     document.body.style.visibility = 'visible';
   } catch {
     // requireAuth() already redirects — keep body hidden

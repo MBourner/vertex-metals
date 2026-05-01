@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<!-- SHARED: update portal sidebar in all portal pages if changed -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Order — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .new-order-layout { display:flex; gap:var(--space-6); align-items:flex-start; }
+    .new-order-left { flex:0 0 340px; position:sticky; top:var(--space-4); }
+    .new-order-right { flex:1; min-width:0; }
+    .email-drop-zone { border:2px dashed var(--color-border); border-radius:var(--radius-md); padding:var(--space-8) var(--space-6); text-align:center; color:var(--color-text-muted); background:var(--color-surface); }
+    .email-drop-zone:hover { border-color:var(--color-accent); }
+    @media (max-width:900px) { .new-order-layout { flex-direction:column; } .new-order-left { flex:none; width:100%; position:static; } }
+  </style>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img src="../../assets/images/logo/vertex-metals-logo.jpg" alt="" /><div><div class="sidebar-logo-text">Vertex Metals</div><div class="sidebar-logo-sub">Internal Portal</div></div></div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section-label">Overview</div>
+    <a href="../dashboard.html" class="sidebar-link">Dashboard</a>
+    <a href="../financials/index.html" class="sidebar-link">Financials</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Operations</div>
+    <a href="../orders/index.html" class="sidebar-link active">Orders</a>
+    <a href="../verification-queue/index.html" class="sidebar-link">Verification Queue</a>
+    <a href="../rfq/index.html" class="sidebar-link">RFQs</a>
+    <a href="../quotes/index.html" class="sidebar-link">Supplier Quotes</a>
+    <a href="../product-lines/index.html" class="sidebar-link">Product Lines</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Suppliers</div>
+    <a href="../suppliers/index.html" class="sidebar-link">Supplier Register</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Compliance</div>
+    <a href="../kyc/index.html" class="sidebar-link">KYC Records</a>
+    <a href="../contacts/index.html" class="sidebar-link">Contacts</a>
+    <a href="../sanctions/log.html" class="sidebar-link">Sanctions Log</a>
+    <a href="../cbam/index.html" class="sidebar-link">CBAM Tracker</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Post-Trade</div>
+    <a href="../disputes/index.html" class="sidebar-link">Disputes</a>
+    <a href="../concessions/index.html" class="sidebar-link">Concessions</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Tools</div>
+    <a href="../quotes/calculator.html" class="sidebar-link">Markup Calculator</a>
+  </nav>
+  <div class="sidebar-footer"><div class="sidebar-user"><div class="sidebar-user-email" id="user-email">Loading...</div><div class="sidebar-user-role">Director</div></div><button onclick="signOut()" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center">Sign Out</button><div style="text-align:center;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-4);opacity:.5">Built by Vector Business Solutions</div></div>
+</aside>
+
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <span class="topbar-title">New Order</span>
+    </div>
+    <a href="index.html" class="btn btn-ghost btn-sm">← Back to Orders</a>
+  </div>
+
+  <div class="portal-content">
+    <div class="portal-page-header"><div><h1>New Order</h1><p>Translate a customer PO into a portal order. The order will be submitted to the verification queue on save.</p></div></div>
+
+    <div class="new-order-layout">
+
+      <!-- Left: email context only -->
+      <div class="new-order-left">
+        <div class="panel">
+          <div class="panel-header"><h3>Customer Email (context)</h3></div>
+          <div class="panel-body">
+            <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4)">Optionally attach the original customer email (.eml or .msg) so the verifier can read the full conversation. The PO document itself is uploaded separately in the form.</p>
+            <div class="email-drop-zone">
+              <label style="cursor:pointer;display:block">
+                <span style="display:inline-block;padding:var(--space-2) var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-sm);font-size:var(--text-sm);background:var(--color-surface-raised)">Choose email file</span>
+                <input type="file" id="f-email-file" accept=".eml,.msg" style="display:none" />
+              </label>
+              <div id="email-file-label" style="font-size:var(--text-xs);margin-top:var(--space-3);color:var(--color-text-muted)">No file selected</div>
+            </div>
+            <div style="margin-top:var(--space-5)">
+              <p style="font-size:var(--text-xs);font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--color-text-muted);margin-bottom:var(--space-3)">Checklist before saving</p>
+              <ul style="font-size:var(--text-sm);color:var(--color-text-muted);padding-left:var(--space-4);line-height:1.8">
+                <li>Customer's PO reference matches exactly</li>
+                <li>Specification copied verbatim from PO</li>
+                <li>Quantity and unit correct</li>
+                <li>Agreed price confirmed in writing</li>
+                <li>Incoterms match the PO</li>
+                <li>PO document uploaded below</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: order entry form -->
+      <div class="new-order-right">
+        <form onsubmit="submitNewOrder(event)" autocomplete="off">
+
+          <!-- Internal reference & priority -->
+          <div class="panel" style="margin-bottom:var(--space-4)">
+            <div class="panel-header"><h3>Internal</h3></div>
+            <div class="panel-body">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Order Reference <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" class="form-input" id="f-reference" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Verification Priority</label>
+                  <select class="form-select" id="f-priority">
+                    <option value="routine">Routine (24-hour SLA)</option>
+                    <option value="expedite">Expedite (4-hour SLA)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Customer PO details -->
+          <div class="panel" style="margin-bottom:var(--space-4)">
+            <div class="panel-header"><h3>Customer &amp; PO</h3></div>
+            <div class="panel-body">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Customer <span style="color:var(--color-danger)">*</span></label>
+                  <select class="form-select" id="f-buyer" required>
+                    <option value="">— Select buyer —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Customer PO Reference <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" class="form-input" id="f-customer-po-ref" placeholder="e.g. PO-00000203" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Customer PO Date</label>
+                  <input type="date" class="form-input" id="f-customer-po-date" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Payment Terms</label>
+                  <input type="text" class="form-input" id="f-payment-terms" placeholder="e.g. Net 30 days" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Product & spec -->
+          <div class="panel" style="margin-bottom:var(--space-4)">
+            <div class="panel-header"><h3>Product</h3></div>
+            <div class="panel-body">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Product Line <span style="color:var(--color-danger)">*</span></label>
+                  <select class="form-select" id="f-product-line" required>
+                    <option value="">— Select product —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Quantity (MT) <span style="color:var(--color-danger)">*</span></label>
+                  <input type="number" class="form-input" id="f-quantity" step="0.001" min="0" required />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Specification <span style="color:var(--color-danger)">*</span></label>
+                <textarea class="form-textarea" id="f-specification" rows="3" placeholder="Copy the exact specification from the customer's PO" required></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Commercial terms -->
+          <div class="panel" style="margin-bottom:var(--space-4)">
+            <div class="panel-header"><h3>Commercial Terms</h3></div>
+            <div class="panel-body">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Agreed Price (GBP) <span style="color:var(--color-danger)">*</span></label>
+                  <input type="number" class="form-input" id="f-agreed-price" step="0.01" min="0" placeholder="Total value ex-VAT" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Incoterms <span style="color:var(--color-danger)">*</span></label>
+                  <select class="form-select" id="f-incoterms" required>
+                    <option value="">— Select —</option>
+                    <option>FOB</option><option>CIF</option><option>DAP</option>
+                    <option>DDP</option><option>EXW</option><option>CPT</option>
+                    <option>FCA</option><option>CIP</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Delivery Destination</label>
+                  <input type="text" class="form-input" id="f-delivery-dest" placeholder="e.g. Birmingham, UK" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Required Delivery Date</label>
+                  <input type="date" class="form-input" id="f-delivery-date" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Special Conditions</label>
+                <textarea class="form-textarea" id="f-special-conditions" rows="2" placeholder="Any special conditions from the PO"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- PO document upload -->
+          <div class="panel" style="margin-bottom:var(--space-4)">
+            <div class="panel-header"><h3>PO Document</h3></div>
+            <div class="panel-body">
+              <div class="form-group">
+                <label class="form-label">Attach Customer PO (PDF recommended)</label>
+                <div style="display:flex;align-items:center;gap:var(--space-3)">
+                  <label style="cursor:pointer">
+                    <span style="display:inline-block;padding:var(--space-2) var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-sm);font-size:var(--text-sm);background:var(--color-surface-raised)">Choose file</span>
+                    <input type="file" id="f-po-doc" accept=".pdf,.png,.jpg,.jpeg,.msg,.eml" style="display:none" />
+                  </label>
+                  <span id="po-doc-label" style="font-size:var(--text-sm);color:var(--color-text-muted)">No file selected</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Operator notes -->
+          <div class="panel" style="margin-bottom:var(--space-6)">
+            <div class="panel-header"><h3>Notes for Verifier</h3></div>
+            <div class="panel-body">
+              <div class="form-group">
+                <textarea class="form-textarea" id="f-operator-notes" rows="3" placeholder="Anything the verifier should know — unusual terms, customer context, urgency"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div id="form-error" style="color:var(--color-danger);font-size:var(--text-sm);margin-bottom:var(--space-4)"></div>
+          <div style="display:flex;justify-content:flex-end;gap:var(--space-3)">
+            <a href="index.html" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" id="submit-btn">Save &amp; Submit for Verification</button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/portal/auth-roles.js"></script>
+<script src="../../js/portal-guard.js"></script>
+<script src="../../js/portal/state-machine.js"></script>
+<script src="../../js/portal/orders-new.js"></script>
+</body></html>

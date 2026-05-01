@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Record Audit — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img src="../../assets/images/logo/vertex-metals-logo.jpg" alt="" /><div><div class="sidebar-logo-text">Vertex Metals</div><div class="sidebar-logo-sub">Internal Portal</div></div></div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section-label">Overview</div>
+    <a href="../dashboard.html" class="sidebar-link">Dashboard</a><a href="../financials/index.html" class="sidebar-link">Financials</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Operations</div>
+    <a href="../orders/index.html" class="sidebar-link">Orders</a><a href="../verification-queue/index.html" class="sidebar-link">Verification Queue</a><a href="../rfq/index.html" class="sidebar-link">RFQs</a><a href="../quotes/index.html" class="sidebar-link">Supplier Quotes</a><a href="../product-lines/index.html" class="sidebar-link">Product Lines</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Suppliers</div>
+    <a href="../suppliers/index.html" class="sidebar-link active">Supplier Register</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Compliance</div>
+    <a href="../kyc/index.html" class="sidebar-link">KYC Records</a><a href="../contacts/index.html" class="sidebar-link">Contacts</a><a href="../sanctions/log.html" class="sidebar-link">Sanctions Log</a><a href="../cbam/index.html" class="sidebar-link">CBAM Tracker</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Post-Trade</div>
+    <a href="../disputes/index.html" class="sidebar-link">Disputes</a><a href="../concessions/index.html" class="sidebar-link">Concessions</a>
+    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Tools</div>
+    <a href="../quotes/calculator.html" class="sidebar-link">Markup Calculator</a>
+  </nav>
+  <div class="sidebar-footer"><div class="sidebar-user"><div class="sidebar-user-email" id="user-email">Loading...</div><div class="sidebar-user-role">Director</div></div><button onclick="signOut()" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center">Sign Out</button><div style="text-align:center;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-4);opacity:.5">Built by Vector Business Solutions</div></div>
+</aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)"><button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="topbar-title">Record Audit</span></div>
+    <button onclick="history.back()" class="btn btn-ghost btn-sm">← Back</button>
+  </div>
+  <div class="portal-content" style="max-width:640px">
+    <div class="portal-page-header"><div><h1>Record On-Site Audit</h1><p id="supplier-name-display" style="color:var(--color-text-muted)">Loading supplier…</p></div></div>
+    <form onsubmit="submitAudit(event)" autocomplete="off">
+      <div class="panel" style="margin-bottom:var(--space-4)">
+        <div class="panel-header"><h3>Audit Details</h3></div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Audit Date <span style="color:var(--color-danger)">*</span></label>
+              <input type="date" class="form-input" id="f-audit-date" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Audit Type <span style="color:var(--color-danger)">*</span></label>
+              <select class="form-select" id="f-audit-type" required>
+                <option value="initial_approval">Initial Approval</option>
+                <option value="periodic">Periodic</option>
+                <option value="triggered">Triggered</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Auditor Name(s) <span style="color:var(--color-danger)">*</span></label>
+            <input type="text" class="form-input" id="f-auditor-name" placeholder="e.g. Jackson Paul, External Auditor Ltd" required />
+          </div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:var(--space-4)">
+        <div class="panel-header"><h3>Outcome</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Outcome <span style="color:var(--color-danger)">*</span></label>
+            <select class="form-select" id="f-outcome" required>
+              <option value="approved">Approved</option>
+              <option value="approved_with_conditions">Approved with Conditions</option>
+              <option value="not_approved">Not Approved</option>
+            </select>
+          </div>
+          <div class="form-group" id="conditions-group" style="display:none">
+            <label class="form-label">Conditions</label>
+            <textarea class="form-textarea" id="f-conditions" rows="3" placeholder="Describe any conditions the supplier must meet"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Next Audit Due Date <span style="color:var(--color-danger)">*</span></label>
+            <input type="date" class="form-input" id="f-next-audit-due" required />
+          </div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:var(--space-6)">
+        <div class="panel-header"><h3>Documentation</h3></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label">Audit Report (PDF)</label>
+            <div style="display:flex;align-items:center;gap:var(--space-3)">
+              <label style="cursor:pointer">
+                <span style="display:inline-block;padding:var(--space-2) var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-sm);font-size:var(--text-sm);background:var(--color-surface-raised)">Choose file</span>
+                <input type="file" id="f-audit-report" accept=".pdf" style="display:none" onchange="document.getElementById('report-label').textContent=this.files[0]?.name||'No file selected'" />
+              </label>
+              <span id="report-label" style="font-size:var(--text-sm);color:var(--color-text-muted)">No file selected</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea class="form-textarea" id="f-notes" rows="3" placeholder="Any additional observations or follow-up actions"></textarea>
+          </div>
+        </div>
+      </div>
+      <div id="form-error" style="color:var(--color-danger);font-size:var(--text-sm);margin-bottom:var(--space-4)"></div>
+      <div style="display:flex;gap:var(--space-3);justify-content:flex-end">
+        <button type="button" onclick="history.back()" class="btn btn-secondary">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="submit-btn">Save Audit Record</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal/auth-roles.js"></script><script src="../../js/portal-guard.js"></script><script src="../../js/portal/state-machine.js"></script><script src="../../js/portal/suppliers-audit.js"></script>
+</body></html>

@@ -151,9 +151,10 @@ function renderSummary(trade) {
 
 async function renderActionPanel(trade) {
   const el = document.getElementById('action-content');
+  if (!el) return;
   const currentUserId = PortalRoles.getUserId();
 
-  // Load active queue item (if any) so we can check four-eyes
+  // Load active queue item (if any)
   const { data: queueItems } = await supabaseClient
     .from('verification_queue')
     .select('id, queue_type, drafted_by, status, sla_due_at')
@@ -161,17 +162,19 @@ async function renderActionPanel(trade) {
     .in('status', ['pending','in_review'])
     .order('created_at', { ascending: false })
     .limit(1);
-
   _queueItem = queueItems?.[0] || null;
 
-  const allowed = await StateMachine.getAllowedTransitions(trade.current_state);
-
-  if (trade.current_state === 'complete' || trade.current_state === 'cancelled') {
-    el.innerHTML = `<p style="color:var(--color-text-muted);font-size:var(--text-sm)">This order is ${esc(trade.current_state)}. No further actions available.</p>`;
+  // Terminal states
+  if (trade.current_state === 'complete') {
+    el.innerHTML = `<p style="color:var(--color-text-muted);font-size:var(--text-sm)">Order complete. No further actions.</p>`;
+    return;
+  }
+  if (trade.current_state === 'cancelled') {
+    el.innerHTML = `<p style="color:var(--color-danger);font-size:var(--text-sm)">Order cancelled${trade.cancelled_reason ? ': ' + esc(trade.cancelled_reason) : ''}.</p>`;
     return;
   }
 
-  // If there's a pending verification queue item, show its status
+  // Queue item in flight
   if (_queueItem) {
     const isYourDraft = _queueItem.drafted_by === currentUserId;
     const sla = StateMachine.slaBadge(_queueItem.sla_due_at);
@@ -179,53 +182,515 @@ async function renderActionPanel(trade) {
       el.innerHTML = `
         <div class="alert alert-info" style="margin-bottom:var(--space-4)">
           <strong>Awaiting verification</strong><br>
-          <span style="font-size:var(--text-sm)">This order is in the ${esc(StateMachine.queueTypeLabel(_queueItem.queue_type))} queue. Another user must verify it before it can proceed.</span>
+          <span style="font-size:var(--text-sm)">In the ${esc(StateMachine.queueTypeLabel(_queueItem.queue_type))} queue — another user must verify before it can proceed.</span>
         </div>
         <div style="font-size:var(--text-sm);color:var(--color-text-muted)">SLA: ${sla}</div>
-        <div style="margin-top:var(--space-3)"><a href="../verification-queue/index.html" class="btn btn-ghost btn-sm">View Queue →</a></div>
-      `;
+        <div style="margin-top:var(--space-3)"><a href="../verification-queue/index.html" class="btn btn-ghost btn-sm">View Queue →</a></div>`;
     } else {
-      // This user can potentially approve (if they have the role)
       el.innerHTML = `
-        <div style="margin-bottom:var(--space-4)">
-          <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)">
-            Pending ${esc(StateMachine.queueTypeLabel(_queueItem.queue_type))} · SLA: ${sla}
-          </p>
-          <a href="../verification-queue/index.html?highlight=${esc(_queueItem.id)}" class="btn btn-primary btn-sm">Open in Verification Queue →</a>
-        </div>
-      `;
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)">
+          Pending ${esc(StateMachine.queueTypeLabel(_queueItem.queue_type))} · SLA: ${sla}
+        </p>
+        <a href="../verification-queue/index.html?highlight=${esc(_queueItem.id)}" class="btn btn-primary btn-sm">Open in Verification Queue →</a>`;
     }
     return;
   }
 
-  // Special: release approval for docs_under_review
-  if (trade.current_state === 'docs_under_review' && PortalRoles.hasRole('quality')) {
-    const releaseBtn = `<button onclick="handleRequestRelease()" class="btn btn-primary btn-sm">Recommend Release →</button>`;
-    el.innerHTML = `<div style="margin-bottom:var(--space-3)">${releaseBtn}</div>`;
-  }
-
-  if (allowed.length === 0) {
-    el.innerHTML = (el.innerHTML || '') + `<p style="color:var(--color-text-muted);font-size:var(--text-sm)">No actions available for your current role.</p>`;
+  // States with fully custom panels (no generic transition buttons needed)
+  if (trade.current_state === 'supplier_po_approved') {
+    el.innerHTML = `
+      <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)">
+        The supplier PO has been approved. Confirm when it has been sent to the supplier.
+      </p>
+      <button onclick="showPoSentForm()" class="btn btn-primary btn-sm">Mark PO as Sent to Supplier →</button>`;
     return;
   }
 
-  let html = el.innerHTML;
-  html += `<div style="display:flex;flex-direction:column;gap:var(--space-2)">`;
-  allowed.forEach(t => {
-    html += `<button onclick="openTransitionModal('${esc(t.toState)}','${esc(t.displayName)}')" class="btn btn-secondary btn-sm">${esc(t.displayName)}</button>`;
-  });
-  html += `</div>`;
+  if (trade.current_state === 'invoice_drafted') {
+    el.innerHTML = `
+      <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)">
+        Invoice drafted. Submit for review before issuing to the customer.
+      </p>
+      <button onclick="submitInvoiceReview(this)" class="btn btn-primary btn-sm">Submit for Invoice Review →</button>`;
+    return;
+  }
+
+  // Get allowed transitions for generic rendering
+  const allowed = await StateMachine.getAllowedTransitions(trade.current_state);
+
+  let html = '';
+
+  // State-specific additions that sit alongside generic transition buttons
+  if (trade.current_state === 'order_drafted') {
+    html += `<div style="margin-bottom:var(--space-2)"><a href="new.html?id=${esc(tradeId)}" class="btn btn-primary btn-sm">Edit Draft & Resubmit →</a></div>`;
+  }
+  if (trade.current_state === 'supplier_po_drafted') {
+    html += `<div style="margin-bottom:var(--space-2)"><a href="supplier-po.html?id=${esc(tradeId)}" class="btn btn-primary btn-sm">Edit Supplier PO →</a></div>`;
+  }
+  if (trade.current_state === 'docs_under_review') {
+    html += `<div style="margin-bottom:var(--space-2)"><button onclick="handleRequestRelease()" class="btn btn-primary btn-sm">Recommend Release →</button></div>`;
+  }
+  if (trade.current_state === 'awaiting_supplier_docs') {
+    html += `<p style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-3)">
+      Upload the mill certificate and certificate of conformity in the <strong>Documents</strong> tab before proceeding.
+    </p>`;
+  }
+
+  if (allowed.length === 0 && !html) {
+    el.innerHTML = `<p style="color:var(--color-text-muted);font-size:var(--text-sm)">No actions available for your current role.</p>`;
+    return;
+  }
+
+  if (allowed.length > 0) {
+    html += `<div style="display:flex;flex-direction:column;gap:var(--space-2)">`;
+    allowed.forEach(t => {
+      // Custom handlers for transitions that need data capture
+      if (t.toState === 'supplier_po_drafted') {
+        html += `<a href="supplier-po.html?id=${esc(tradeId)}" class="btn btn-primary btn-sm">Draft Supplier PO →</a>`;
+      } else if (t.toState === 'awaiting_supplier_docs') {
+        html += `<button onclick="confirmTransition('awaiting_supplier_docs','Confirm — shipping has been booked and the order is now awaiting supplier documents.')" class="btn btn-primary btn-sm">Confirm Shipping Booked →</button>`;
+      } else if (t.toState === 'docs_under_review') {
+        html += `<button onclick="confirmTransition('docs_under_review','Confirm — supplier documents have been received and are ready for review.')" class="btn btn-primary btn-sm">Confirm Documents Received →</button>`;
+      } else if (t.toState === 'awaiting_rework') {
+        html += `<button onclick="confirmTransition('awaiting_rework','Confirm — supplier has been notified and the order is awaiting rework.')" class="btn btn-secondary btn-sm">Confirm Awaiting Rework →</button>`;
+      } else if (t.toState === 'concession_granted') {
+        html += `<button onclick="confirmTransition('concession_granted','Customer has signed the concession. Goods proceed to shipment.')" class="btn btn-primary btn-sm">Confirm Concession Granted →</button>`;
+      } else if (t.toState === 'concession_declined') {
+        html += `<button onclick="confirmTransition('concession_declined','Customer has declined the concession. Supplier must re-make to original spec.')" class="btn btn-secondary btn-sm">Confirm Concession Declined →</button>`;
+      } else if (t.toState === 'non_conforming') {
+        html += `<button onclick="showNonConformingForm()" class="btn btn-secondary btn-sm">Mark Non-Conforming…</button>`;
+      } else if (t.toState === 'concession_requested') {
+        html += `<button onclick="showConcessionRequestForm()" class="btn btn-secondary btn-sm">Request Customer Concession…</button>`;
+      } else if (t.toState === 'in_transit') {
+        html += `<button onclick="showShipmentForm()" class="btn btn-primary btn-sm">Confirm Shipment In Transit →</button>`;
+      } else if (t.toState === 'delivered') {
+        html += `<button onclick="showDeliveryForm()" class="btn btn-primary btn-sm">Confirm Delivery Received →</button>`;
+      } else if (t.toState === 'invoice_drafted') {
+        html += `<button onclick="showInvoiceForm()" class="btn btn-primary btn-sm">Draft Invoice →</button>`;
+      } else if (t.toState === 'customer_paid') {
+        html += `<button onclick="showPaymentForm('customer')" class="btn btn-primary btn-sm">Record Customer Payment →</button>`;
+      } else if (t.toState === 'supplier_paid') {
+        html += `<button onclick="showPaymentForm('supplier')" class="btn btn-primary btn-sm">Record Supplier Payment →</button>`;
+      } else if (t.toState === 'complete') {
+        html += `<button onclick="openTransitionModal('complete','Mark Order Complete')" class="btn btn-primary btn-sm">Mark Order Complete ✓</button>`;
+      } else {
+        html += `<button onclick="openTransitionModal('${esc(t.toState)}','${esc(t.displayName)}')" class="btn btn-secondary btn-sm">${esc(t.displayName)}</button>`;
+      }
+    });
+    html += `</div>`;
+  }
   el.innerHTML = html;
+}
+
+// Lightweight confirmation for transitions that need no data capture or reason codes.
+// Shows a simple inline confirm/cancel — no modal, no reason code dropdown.
+function confirmTransition(toState, confirmText) {
+  showActionForm(`
+    <p style="font-size:var(--text-sm);margin-bottom:var(--space-4)">${esc(confirmText)}</p>
+    <div style="display:flex;gap:var(--space-2)">
+      <button onclick="executeConfirmTransition('${esc(toState)}')" class="btn btn-primary btn-sm">Confirm</button>
+      ${_FORM_CANCEL}
+    </div>
+    ${_FORM_ERR}`);
+}
+
+async function executeConfirmTransition(toState) {
+  const errEl = document.getElementById('action-form-error');
+  const btn   = document.querySelector('#action-content .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  const result = await StateMachine.transition(tradeId, toState, {});
+  if (result.ok) {
+    location.reload();
+  } else {
+    if (errEl) errEl.textContent = result.error;
+    if (btn)   { btn.disabled = false; btn.textContent = 'Confirm'; }
+  }
 }
 
 async function handleRequestRelease() {
   const notes = prompt('Notes for the approver (optional):');
-  const result = await StateMachine.requestRelease(tradeId, { notes });
+  if (notes === null) return; // user cancelled
+  const result = await StateMachine.requestRelease(tradeId, { notes: notes || null });
   if (result.ok) {
     showAlert('Release approval requested. An approver will review in the verification queue.', 'success');
     setTimeout(() => location.reload(), 1500);
   } else {
     showAlert(result.error, 'error');
+  }
+}
+
+// ── Inline action forms ───────────────────────────────────────────────────────
+
+function showActionForm(html) {
+  const el = document.getElementById('action-content');
+  if (el) el.innerHTML = html;
+}
+
+function actionFormError(msg) {
+  const el = document.getElementById('action-form-error');
+  if (el) el.textContent = msg;
+}
+
+function cancelActionForm() { renderActionPanel(_trade); }
+
+const _FORM_CANCEL = `<button type="button" class="btn btn-ghost btn-sm" onclick="cancelActionForm()">Cancel</button>`;
+const _FORM_ERR    = `<div id="action-form-error" style="color:var(--color-danger);font-size:var(--text-sm);margin-top:var(--space-2)"></div>`;
+
+// ── Supplier PO sent (supplier_po_approved → supplier_po_issued) ──────────────
+
+function showPoSentForm() {
+  const today = new Date().toISOString().split('T')[0];
+  showActionForm(`
+    <form onsubmit="submitPoSent(event)">
+      <div class="form-group" style="margin-bottom:var(--space-3)">
+        <label class="form-label">Date PO sent to supplier <span style="color:var(--color-danger)">*</span></label>
+        <input type="date" class="form-input" id="aff-po-sent-date" value="${today}" required />
+      </div>
+      <div class="form-group" style="margin-bottom:var(--space-4)">
+        <label class="form-label">Notes (optional)</label>
+        <input type="text" class="form-input" id="aff-po-sent-notes" placeholder="e.g. Sent via email, awaiting acknowledgement" />
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <button type="submit" class="btn btn-primary btn-sm">Confirm Sent</button>
+        ${_FORM_CANCEL}
+      </div>${_FORM_ERR}
+    </form>`);
+}
+
+async function submitPoSent(e) {
+  e.preventDefault();
+  const btn      = e.target.querySelector('button[type="submit"]');
+  const sentDate = document.getElementById('aff-po-sent-date').value;
+  const notes    = document.getElementById('aff-po-sent-notes').value.trim() || null;
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    // Update supplier_pos record if one exists for this trade
+    await supabaseClient.from('supplier_pos').update({ status: 'sent', sent_date: sentDate })
+      .eq('trade_id', tradeId);
+    // Write po_sent_date to trades (best-effort, column added in phase-7 migration)
+    await supabaseClient.from('trades').update({ po_sent_date: sentDate }).eq('id', tradeId);
+    const result = await StateMachine.transition(tradeId, 'supplier_po_issued', { notes });
+    if (!result.ok) throw new Error(result.error);
+    location.reload();
+  } catch (err) {
+    actionFormError(err.message);
+    btn.disabled = false; btn.textContent = 'Confirm Sent';
+  }
+}
+
+// ── Non-conforming (docs_under_review → non_conforming) ──────────────────────
+
+function showNonConformingForm() {
+  showActionForm(`
+    <form onsubmit="submitNonConforming(event)">
+      <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)">
+        Describe how the supplier's product or documents deviate from the PO specification.
+      </p>
+      <div class="form-group" style="margin-bottom:var(--space-4)">
+        <label class="form-label">Non-conformance description <span style="color:var(--color-danger)">*</span></label>
+        <textarea class="form-textarea" id="aff-nc-desc" rows="3"
+          placeholder="e.g. Wall thickness measured at 2.1mm, PO specified 2.0mm ±0.05mm" required></textarea>
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <button type="submit" class="btn btn-secondary btn-sm">Mark Non-Conforming</button>
+        ${_FORM_CANCEL}
+      </div>${_FORM_ERR}
+    </form>`);
+}
+
+async function submitNonConforming(e) {
+  e.preventDefault();
+  const btn  = e.target.querySelector('button[type="submit"]');
+  const desc = document.getElementById('aff-nc-desc').value.trim();
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const result = await StateMachine.transition(tradeId, 'non_conforming', { notes: desc });
+    if (!result.ok) throw new Error(result.error);
+    location.reload();
+  } catch (err) {
+    actionFormError(err.message);
+    btn.disabled = false; btn.textContent = 'Mark Non-Conforming';
+  }
+}
+
+// ── Concession request (non_conforming → concession_requested) ───────────────
+
+function showConcessionRequestForm() {
+  showActionForm(`
+    <form onsubmit="submitConcessionRequest(event)">
+      <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)">
+        Record the deviation details and contact the customer to request a formal concession.
+      </p>
+      <div class="form-group" style="margin-bottom:var(--space-3)">
+        <label class="form-label">Original specification (from PO) <span style="color:var(--color-danger)">*</span></label>
+        <input type="text" class="form-input" id="aff-cq-orig" value="${esc(_trade?.specification || '')}" required />
+      </div>
+      <div class="form-group" style="margin-bottom:var(--space-3)">
+        <label class="form-label">Actual specification received <span style="color:var(--color-danger)">*</span></label>
+        <textarea class="form-textarea" id="aff-cq-actual" rows="2" required
+          placeholder="e.g. Wall thickness 2.1mm, tensile strength 185 MPa"></textarea>
+      </div>
+      <div class="form-group" style="margin-bottom:var(--space-4)">
+        <label class="form-label">Delta summary <span style="color:var(--color-danger)">*</span></label>
+        <input type="text" class="form-input" id="aff-cq-delta" required
+          placeholder="e.g. Wall thickness 5% above nominal, within CQ tolerance" />
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <button type="submit" class="btn btn-secondary btn-sm">Create Concession Request</button>
+        ${_FORM_CANCEL}
+      </div>${_FORM_ERR}
+    </form>`);
+}
+
+async function submitConcessionRequest(e) {
+  e.preventDefault();
+  const btn   = e.target.querySelector('button[type="submit"]');
+  const orig  = document.getElementById('aff-cq-orig').value.trim();
+  const actual= document.getElementById('aff-cq-actual').value.trim();
+  const delta = document.getElementById('aff-cq-delta').value.trim();
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const { error: cErr } = await supabaseClient.from('concessions').insert({
+      trade_id: tradeId,
+      original_specification: orig,
+      actual_specification:   actual,
+      delta_summary:          delta,
+    });
+    if (cErr) throw new Error('Failed to save concession record: ' + cErr.message);
+    const result = await StateMachine.transition(tradeId, 'concession_requested', {
+      notes: `Non-conformance: ${delta}`,
+    });
+    if (!result.ok) throw new Error(result.error);
+    location.reload();
+  } catch (err) {
+    actionFormError(err.message);
+    btn.disabled = false; btn.textContent = 'Create Concession Request';
+  }
+}
+
+// ── Shipment confirmation (release_approved → in_transit) ────────────────────
+
+function showShipmentForm() {
+  showActionForm(`
+    <form onsubmit="submitShipment(event)">
+      <div class="form-group" style="margin-bottom:var(--space-3)">
+        <label class="form-label">Bill of Lading reference <span style="color:var(--color-danger)">*</span></label>
+        <input type="text" class="form-input" id="aff-sh-bl" required placeholder="e.g. HLCU123456789" />
+      </div>
+      <div class="form-group" style="margin-bottom:var(--space-3)">
+        <label class="form-label">Carrier / vessel name</label>
+        <input type="text" class="form-input" id="aff-sh-carrier" placeholder="e.g. Hapag-Lloyd / MV Atlantic Star" />
+      </div>
+      <div class="form-group" style="margin-bottom:var(--space-4)">
+        <label class="form-label">Estimated arrival date</label>
+        <input type="date" class="form-input" id="aff-sh-eta" />
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <button type="submit" class="btn btn-primary btn-sm">Confirm Shipment In Transit</button>
+        ${_FORM_CANCEL}
+      </div>${_FORM_ERR}
+    </form>`);
+}
+
+async function submitShipment(e) {
+  e.preventDefault();
+  const btn     = e.target.querySelector('button[type="submit"]');
+  const bl      = document.getElementById('aff-sh-bl').value.trim();
+  const carrier = document.getElementById('aff-sh-carrier').value.trim() || null;
+  const eta     = document.getElementById('aff-sh-eta').value || null;
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const { error: uErr } = await supabaseClient.from('trades').update({
+      bl_reference: bl, carrier_name: carrier, estimated_arrival: eta,
+    }).eq('id', tradeId);
+    if (uErr) throw new Error(uErr.message);
+    const result = await StateMachine.transition(tradeId, 'in_transit', { notes: `BL: ${bl}` });
+    if (!result.ok) throw new Error(result.error);
+    location.reload();
+  } catch (err) {
+    actionFormError(err.message);
+    btn.disabled = false; btn.textContent = 'Confirm Shipment In Transit';
+  }
+}
+
+// ── Delivery confirmation (in_transit → delivered) ───────────────────────────
+
+function showDeliveryForm() {
+  const today = new Date().toISOString().split('T')[0];
+  showActionForm(`
+    <form onsubmit="submitDelivery(event)">
+      <div class="form-group" style="margin-bottom:var(--space-3)">
+        <label class="form-label">Delivery confirmed date <span style="color:var(--color-danger)">*</span></label>
+        <input type="date" class="form-input" id="aff-del-date" value="${today}" required />
+      </div>
+      <div class="form-group" style="margin-bottom:var(--space-4)">
+        <label class="form-label">Notes</label>
+        <input type="text" class="form-input" id="aff-del-notes" placeholder="e.g. Customer confirmed via email, POD attached" />
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <button type="submit" class="btn btn-primary btn-sm">Confirm Delivery</button>
+        ${_FORM_CANCEL}
+      </div>${_FORM_ERR}
+    </form>`);
+}
+
+async function submitDelivery(e) {
+  e.preventDefault();
+  const btn   = e.target.querySelector('button[type="submit"]');
+  const date  = document.getElementById('aff-del-date').value;
+  const notes = document.getElementById('aff-del-notes').value.trim() || null;
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const { error: uErr } = await supabaseClient.from('trades').update({
+      delivery_confirmed_date: date,
+    }).eq('id', tradeId);
+    if (uErr) throw new Error(uErr.message);
+    const result = await StateMachine.transition(tradeId, 'delivered', { notes });
+    if (!result.ok) throw new Error(result.error);
+    location.reload();
+  } catch (err) {
+    actionFormError(err.message);
+    btn.disabled = false; btn.textContent = 'Confirm Delivery';
+  }
+}
+
+// ── Invoice drafting (delivered → invoice_drafted) ───────────────────────────
+
+function showInvoiceForm() {
+  const today   = new Date().toISOString().split('T')[0];
+  const now     = new Date();
+  const ym      = now.getFullYear().toString() + String(now.getMonth() + 1).padStart(2, '0');
+  const suffix  = (tradeId || '').replace(/-/g, '').slice(-4).toUpperCase();
+  const invNum  = `VM-INV-${ym}-${suffix}`;
+  const sellGBP = _trade?.sell_price_gbp ?? '';
+  const vatRate = _trade?.vat_rate ?? 0.20;
+  const vatAmt  = sellGBP ? (parseFloat(sellGBP) * parseFloat(vatRate)).toFixed(2) : '';
+
+  showActionForm(`
+    <form onsubmit="submitInvoice(event)">
+      <div class="form-group" style="margin-bottom:var(--space-3)">
+        <label class="form-label">Invoice number <span style="color:var(--color-danger)">*</span></label>
+        <input type="text" class="form-input" id="aff-inv-num" value="${esc(invNum)}" required />
+      </div>
+      <div class="form-group" style="margin-bottom:var(--space-3)">
+        <label class="form-label">Invoice date <span style="color:var(--color-danger)">*</span></label>
+        <input type="date" class="form-input" id="aff-inv-date" value="${today}" required />
+      </div>
+      <div class="form-group" style="margin-bottom:var(--space-3)">
+        <label class="form-label">Invoice amount (£) <span style="color:var(--color-danger)">*</span></label>
+        <input type="number" class="form-input" id="aff-inv-amount" value="${esc(String(sellGBP))}" step="0.01" min="0" required />
+      </div>
+      <div class="form-group" style="margin-bottom:var(--space-4)">
+        <label class="form-label">VAT amount (£)</label>
+        <input type="number" class="form-input" id="aff-inv-vat" value="${esc(vatAmt)}" step="0.01" min="0" />
+        <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Auto-calculated from sell price × VAT rate; adjust if needed</span>
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <button type="submit" class="btn btn-primary btn-sm">Save Invoice Draft</button>
+        ${_FORM_CANCEL}
+      </div>${_FORM_ERR}
+    </form>`);
+}
+
+async function submitInvoice(e) {
+  e.preventDefault();
+  const btn    = e.target.querySelector('button[type="submit"]');
+  const invNum = document.getElementById('aff-inv-num').value.trim();
+  const invDate= document.getElementById('aff-inv-date').value;
+  const amount = parseFloat(document.getElementById('aff-inv-amount').value) || null;
+  const vat    = parseFloat(document.getElementById('aff-inv-vat').value)    || null;
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const { error: uErr } = await supabaseClient.from('trades').update({
+      invoice_number: invNum, invoice_date: invDate, vat_amount_gbp: vat,
+    }).eq('id', tradeId);
+    if (uErr) throw new Error(uErr.message);
+    const result = await StateMachine.transition(tradeId, 'invoice_drafted', {
+      notes: `Invoice ${invNum} drafted`,
+    });
+    if (!result.ok) throw new Error(result.error);
+    location.reload();
+  } catch (err) {
+    actionFormError(err.message);
+    btn.disabled = false; btn.textContent = 'Save Invoice Draft';
+  }
+}
+
+// ── Invoice review queue gate (invoice_drafted → invoice_issued) ──────────────
+
+async function submitInvoiceReview(btn) {
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    const { error } = await supabaseClient.from('verification_queue').insert({
+      trade_id:   tradeId,
+      queue_type: 'invoice_review',
+      drafted_by: PortalRoles.getUserId(),
+      priority:   'routine',
+      sla_due_at: new Date(Date.now() + 24 * 3600_000).toISOString(),
+      status:     'pending',
+    });
+    if (error) throw new Error(error.message);
+    showAlert('Invoice sent for review. An approver will sign off in the verification queue.', 'success');
+    setTimeout(() => location.reload(), 1500);
+  } catch (err) {
+    showAlert(err.message, 'error');
+    btn.disabled = false; btn.textContent = 'Submit for Invoice Review →';
+  }
+}
+
+// ── Payment recording (invoice_issued → customer_paid, customer_paid → supplier_paid) ──
+
+function showPaymentForm(type) {
+  const isCustomer = type === 'customer';
+  const today      = new Date().toISOString().split('T')[0];
+  const preAmount  = isCustomer
+    ? (_trade?.sell_price_gbp ?? '')
+    : (_trade?.cost_price_gbp ?? '');
+  const label      = isCustomer ? 'Customer payment received' : 'Supplier payment sent';
+  const toState    = isCustomer ? 'customer_paid' : 'supplier_paid';
+
+  showActionForm(`
+    <form onsubmit="submitPayment(event,'${type}','${toState}')">
+      <div class="form-group" style="margin-bottom:var(--space-3)">
+        <label class="form-label">Payment date <span style="color:var(--color-danger)">*</span></label>
+        <input type="date" class="form-input" id="aff-pay-date" value="${today}" required />
+      </div>
+      <div class="form-group" style="margin-bottom:var(--space-3)">
+        <label class="form-label">Amount (£) <span style="color:var(--color-danger)">*</span></label>
+        <input type="number" class="form-input" id="aff-pay-amount" value="${esc(String(preAmount))}" step="0.01" min="0" required />
+      </div>
+      <div class="form-group" style="margin-bottom:var(--space-4)">
+        <label class="form-label">Bank / payment reference</label>
+        <input type="text" class="form-input" id="aff-pay-ref" placeholder="e.g. CHAPS ref 12345" />
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <button type="submit" class="btn btn-primary btn-sm">Record ${esc(label)}</button>
+        ${_FORM_CANCEL}
+      </div>${_FORM_ERR}
+    </form>`);
+}
+
+async function submitPayment(e, type, toState) {
+  e.preventDefault();
+  const btn    = e.target.querySelector('button[type="submit"]');
+  const date   = document.getElementById('aff-pay-date').value;
+  const amount = parseFloat(document.getElementById('aff-pay-amount').value) || null;
+  const ref    = document.getElementById('aff-pay-ref').value.trim() || null;
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const update = type === 'customer'
+      ? { payment_received_date: date, payment_received_gbp: amount }
+      : { supplier_payment_date: date, supplier_payment_gbp: amount };
+    const { error: uErr } = await supabaseClient.from('trades').update(update).eq('id', tradeId);
+    if (uErr) throw new Error(uErr.message);
+    const result = await StateMachine.transition(tradeId, toState, {
+      notes: ref ? `Payment ref: ${ref}` : null,
+    });
+    if (!result.ok) throw new Error(result.error);
+    location.reload();
+  } catch (err) {
+    actionFormError(err.message);
+    btn.disabled = false; btn.textContent = 'Saving…'.replace('…', ''); btn.textContent = 'Retry';
   }
 }
 

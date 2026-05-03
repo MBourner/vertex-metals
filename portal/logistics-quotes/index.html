@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<!-- SHARED: update portal sidebar in all portal pages if changed -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Logistics Quotes — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar"></aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <span class="topbar-title">Logistics Quotes</span>
+    </div>
+    <button onclick="document.getElementById('add-lq-modal').classList.add('open')" class="btn btn-primary btn-sm">+ Add Quote</button>
+  </div>
+  <div class="portal-content">
+    <div class="portal-page-header">
+      <div><h1>Logistics Quotes</h1><p>Freight quotes from logistics providers — used to calculate landed cost in the pricing calculator</p></div>
+    </div>
+    <div class="filter-bar" style="display:flex;gap:var(--space-3);flex-wrap:wrap">
+      <select class="form-select" id="filter-status" onchange="loadLogisticsQuotes()" style="min-width:140px">
+        <option value="">All statuses</option>
+        <option value="active">Active</option>
+        <option value="expired">Expired</option>
+        <option value="used">Used</option>
+      </select>
+      <select class="form-select" id="filter-mode" onchange="loadLogisticsQuotes()" style="min-width:130px">
+        <option value="">All modes</option>
+        <option value="sea">Sea</option>
+        <option value="air">Air</option>
+        <option value="road">Road</option>
+        <option value="rail">Rail</option>
+      </select>
+    </div>
+    <div class="table-wrapper"><table>
+      <thead><tr><th>Provider</th><th>Route</th><th>Mode</th><th>Container</th><th>Price (USD/MT)</th><th>Min Qty (MT)</th><th>Validity</th><th>Status</th></tr></thead>
+      <tbody id="lq-body"><tr><td colspan="8" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- Add Modal -->
+<div class="modal-overlay" id="add-lq-modal">
+  <div class="modal-box" style="max-width:680px">
+    <button class="modal-close" onclick="document.getElementById('add-lq-modal').classList.remove('open')">✕</button>
+    <h3>Add Logistics Quote</h3>
+    <div id="add-lq-form-container"></div>
+  </div>
+</div>
+
+<!-- Edit / Detail Modal -->
+<div class="modal-overlay" id="edit-lq-modal">
+  <div class="modal-box" style="max-width:680px">
+    <button class="modal-close" onclick="document.getElementById('edit-lq-modal').classList.remove('open')">✕</button>
+    <h3>Edit Logistics Quote</h3>
+    <div id="edit-lq-form-container"></div>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal/sidebar.js"></script>
+<script src="../../js/portal-guard.js"></script><script src="../../js/portal/logistics-quotes.js"></script>
+</body></html>

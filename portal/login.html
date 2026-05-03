@@ -49,7 +49,7 @@
   // If already authenticated, go straight to dashboard
   (async () => {
     const session = await getSession();
-    if (session) window.location.replace('/portal/dashboard.html');
+    if (session) window.location.replace(resolvePortalPath('dashboard.html'));
   })();
 
   document.getElementById('login-form').addEventListener('submit', async (e) => {

@@ -24,7 +24,17 @@
   try {
     await requireAuth();
     // Only init roles if auth-roles.js is loaded (new pages only — old pages safe to omit it)
-    if (typeof PortalRoles !== 'undefined') await PortalRoles.init();
+    if (typeof PortalRoles !== 'undefined') {
+      await PortalRoles.init();
+      const roles   = PortalRoles.getRoles();
+      const roleEl  = document.getElementById('user-role');
+      if (roleEl) {
+        const label = roles.length
+          ? roles.map(r => r.charAt(0).toUpperCase() + r.slice(1).replace(/_/g,' ')).join(', ')
+          : 'Director'; // fallback if user_roles table not yet populated
+        roleEl.textContent = label;
+      }
+    }
     document.body.style.visibility = 'visible';
   } catch {
     // requireAuth() already redirects — keep body hidden

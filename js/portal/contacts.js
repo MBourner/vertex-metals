@@ -8,7 +8,7 @@ function esc(s) {
 }
 
 function typeBadge(type) {
-  const map = { buyer: 'info', supplier: 'success', other: 'neutral' };
+  const map = { buyer: 'info', supplier: 'success', logistics: 'accent', other: 'neutral' };
   return `<span class="badge badge-${map[type] || 'neutral'}">${esc(type || '—')}</span>`;
 }
 
@@ -18,7 +18,7 @@ function kycBadge(status) {
   return `<span class="badge badge-${map[status] || 'neutral'}">${esc(status.replace('_',' '))}</span>`;
 }
 
-const CONTACT_TYPES = ['buyer', 'supplier', 'other'];
+const CONTACT_TYPES = ['buyer', 'supplier', 'logistics', 'other'];
 
 // ── List ────────────────────────────────────────────────────────────────────
 

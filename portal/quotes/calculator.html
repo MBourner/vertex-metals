@@ -3,120 +3,293 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Markup Calculator — Vertex Metals Portal</title>
+  <title>Pricing Calculator — Vertex Metals Portal</title>
   <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .calc-grid { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-6); align-items:start; }
+    @media(max-width:900px){ .calc-grid { grid-template-columns:1fr; } }
+    .source-radio { display:flex; gap:var(--space-3); margin-bottom:var(--space-3); flex-wrap:wrap; }
+    .source-radio label { display:flex; align-items:center; gap:var(--space-2); cursor:pointer; font-size:var(--text-sm); }
+    .model-options { display:flex; flex-direction:column; gap:var(--space-3); }
+    .model-option { display:flex; align-items:flex-start; gap:var(--space-3); padding:var(--space-3); border:1px solid var(--color-border); border-radius:var(--radius); cursor:pointer; }
+    .model-option.selected { border-color:var(--color-steel); background:color-mix(in srgb,var(--color-steel) 8%,transparent); }
+    .model-option input[type=radio] { margin-top:2px; flex-shrink:0; }
+    .result-row { display:flex; justify-content:space-between; align-items:center; padding:var(--space-2) 0; border-bottom:1px solid var(--color-border); }
+    .result-row:last-child { border-bottom:none; }
+    .result-label { font-size:var(--text-sm); color:var(--color-text-muted); }
+    .result-val { font-family:var(--font-display); font-weight:600; }
+    .result-val.highlight { font-size:var(--text-xl); color:var(--color-steel); }
+    .result-val.profit { color:var(--color-success,#22c55e); }
+    .divider { border:none; border-top:2px solid var(--color-border); margin:var(--space-3) 0; }
+    .product-strip { background:var(--color-navy); color:#fff; border-radius:var(--radius); padding:var(--space-3) var(--space-4); display:none; gap:var(--space-6); flex-wrap:wrap; font-size:var(--text-sm); }
+    .product-strip.visible { display:flex; }
+    .product-strip-item { display:flex; flex-direction:column; gap:2px; }
+    .product-strip-item span:first-child { font-size:var(--text-xs); opacity:.6; text-transform:uppercase; letter-spacing:.06em; }
+    .product-strip-item span:last-child { font-family:var(--font-display); font-weight:600; color:var(--color-steel); }
+    .slider-wrap { display:flex; flex-direction:column; gap:var(--space-2); }
+    .slider-wrap input[type=range] { width:100%; accent-color:var(--color-steel); }
+    .variance-badge { display:inline-flex; align-items:center; gap:var(--space-1); font-size:var(--text-xs); font-weight:700; padding:2px 8px; border-radius:999px; }
+    .variance-pos { background:color-mix(in srgb,#22c55e 15%,transparent); color:#15803d; }
+    .variance-neg { background:color-mix(in srgb,#ef4444 15%,transparent); color:#b91c1c; }
+    .hidden { display:none !important; }
+  </style>
 </head>
 <body class="portal-body">
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-logo"><img src="../../assets/images/logo/vertex-metals-logo.jpg" alt="" /><div><div class="sidebar-logo-text">Vertex Metals</div><div class="sidebar-logo-sub">Internal Portal</div></div></div>
-  <nav class="sidebar-nav">
-    <div class="sidebar-section-label">Overview</div>
-    <a href="../dashboard.html" class="sidebar-link">Dashboard</a>
-    <a href="../financials/index.html" class="sidebar-link">Financials</a>
-    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Operations</div>
-    <a href="../orders/index.html" class="sidebar-link">Orders</a>
-    <a href="../verification-queue/index.html" class="sidebar-link">Verification Queue</a>
-    <a href="../rfq/index.html" class="sidebar-link">RFQs</a>
-    <a href="../quotes/index.html" class="sidebar-link">Supplier Quotes</a>
-    <a href="../product-lines/index.html" class="sidebar-link">Product Lines</a>
-    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Suppliers</div>
-    <a href="../suppliers/index.html" class="sidebar-link">Supplier Register</a>
-    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Compliance</div>
-    <a href="../kyc/index.html" class="sidebar-link">KYC Records</a>
-    <a href="../contacts/index.html" class="sidebar-link">Contacts</a>
-    <a href="../sanctions/log.html" class="sidebar-link">Sanctions Log</a>
-    <a href="../cbam/index.html" class="sidebar-link">CBAM Tracker</a>
-    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Post-Trade</div>
-    <a href="../disputes/index.html" class="sidebar-link">Disputes</a>
-    <a href="../concessions/index.html" class="sidebar-link">Concessions</a>
-    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Tools</div>
-    <a href="../quotes/calculator.html" class="sidebar-link active">Markup Calculator</a>
-  </nav>
-  <div class="sidebar-footer"><div class="sidebar-user"><div class="sidebar-user-email" id="user-email">Loading...</div><div class="sidebar-user-role">Director</div></div><button onclick="signOut()" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center">Sign Out</button><div style="text-align:center;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-4);opacity:.5">Built by Vector Business Solutions</div></div>
-</aside>
+<aside class="sidebar" id="sidebar"></aside>
 
 <div class="portal-main">
-  <div class="topbar"><div style="display:flex;align-items:center;gap:var(--space-3)"><button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="topbar-title">Markup Calculator</span></div></div>
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title">Pricing Calculator</span>
+    </div>
+    <a href="index.html" class="btn btn-ghost btn-sm">Supplier Quotes →</a>
+  </div>
+
   <div class="portal-content">
-    <div class="portal-page-header"><div><h1>Markup Calculator</h1><p>Calculate landed cost and target sell price from an FOB supplier quote</p></div></div>
+    <div class="portal-page-header">
+      <div><h1>Pricing Calculator</h1><p>Build a sell price from supplier and logistics costs — save a standard price back to the product line</p></div>
+    </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-8);align-items:start">
-
-      <!-- Inputs -->
-      <div class="panel">
-        <div class="panel-header"><h3>Inputs</h3></div>
-        <div class="panel-body">
-          <div style="display:flex;flex-direction:column;gap:var(--space-6)">
-            <div class="form-group">
-              <label class="form-label">FOB Price (USD per MT)</label>
-              <input class="form-input" id="fob" type="number" step="0.01" placeholder="e.g. 2400" oninput="calculate()" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Quantity (MT)</label>
-              <input class="form-input" id="qty" type="number" step="0.01" placeholder="e.g. 20" oninput="calculate()" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Freight estimate (USD total)</label>
-              <input class="form-input" id="freight" type="number" step="0.01" placeholder="e.g. 1200" oninput="calculate()" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Insurance estimate (USD total)</label>
-              <input class="form-input" id="insurance" type="number" step="0.01" placeholder="e.g. 150" oninput="calculate()" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">GBP/USD exchange rate</label>
-              <input class="form-input" id="rate" type="number" step="0.0001" placeholder="e.g. 1.27" oninput="calculate()" />
-              <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Enter manually — live rate requires API key</span>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Target margin (%)</label>
-              <input class="form-input" id="margin" type="number" step="0.1" value="20" oninput="calculate()" />
-            </div>
+    <!-- ── Product Selection ────────────────────────────────────────────── -->
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header"><h3>Product Selection</h3></div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-4)">
+          <div class="form-group">
+            <label class="form-label">Metal Family</label>
+            <select class="form-select" id="sel-family" onchange="onFamilyChange()">
+              <option value="">— Select family —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Subtype</label>
+            <select class="form-select" id="sel-subtype" onchange="onSubtypeChange()" disabled>
+              <option value="">— Select subtype —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Product Line</label>
+            <select class="form-select" id="sel-product" onchange="onProductChange();" disabled>
+              <option value="">— Select product —</option>
+            </select>
           </div>
         </div>
-      </div>
-
-      <!-- Outputs -->
-      <div>
-        <div class="panel" style="margin-bottom:var(--space-6)">
-          <div class="panel-header"><h3>Results</h3></div>
-          <div class="panel-body">
-            <div style="display:flex;flex-direction:column;gap:var(--space-4)" id="results">
-              <div style="color:var(--color-text-muted);font-size:var(--text-sm)">Enter values on the left to see results.</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Save as quote -->
-        <div class="panel">
-          <div class="panel-header"><h3>Save as Supplier Quote</h3></div>
-          <div class="panel-body">
-            <div style="display:flex;flex-direction:column;gap:var(--space-4)">
-              <div class="form-group">
-                <label class="form-label">Supplier</label>
-                <select class="form-select" id="save-supplier"><option value="">Select supplier...</option></select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Product / Specification</label>
-                <input class="form-input" id="save-product" type="text" placeholder="e.g. EC Grade 1350 — 2mm diameter" />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Validity date</label>
-                <input class="form-input" id="save-validity" type="date" />
-              </div>
-              <div id="save-alert" style="display:none"></div>
-              <button class="btn btn-primary btn-sm" onclick="saveQuote()">Save Quote to Supabase</button>
-            </div>
-          </div>
+        <div class="product-strip" id="product-strip">
+          <div class="product-strip-item"><span>Default Markup</span><span id="strip-markup">—</span></div>
+          <div class="product-strip-item"><span>Standard Price</span><span id="strip-std">—</span></div>
+          <div class="product-strip-item"><span>Market Ref Price</span><span id="strip-mkt">—</span></div>
+          <div class="product-strip-item"><span>Default Route</span><span id="strip-route">—</span></div>
         </div>
       </div>
     </div>
+
+    <!-- ── Main Calculator Grid ──────────────────────────────────────────── -->
+    <div class="calc-grid">
+
+      <!-- LEFT: Cost Inputs -->
+      <div style="display:flex;flex-direction:column;gap:var(--space-5)">
+
+        <!-- Supplier Cost -->
+        <div class="panel">
+          <div class="panel-header"><h3>Supplier Cost</h3></div>
+          <div class="panel-body">
+            <div class="source-radio">
+              <label><input type="radio" name="supplier-source" value="quote" checked onchange="onSupplierSourceChange()"> Specific quote</label>
+              <label><input type="radio" name="supplier-source" value="average" onchange="onSupplierSourceChange()"> Average of recent quotes</label>
+              <label><input type="radio" name="supplier-source" value="manual" onchange="onSupplierSourceChange()"> Manual entry</label>
+            </div>
+            <div id="supplier-quote-row" class="form-group">
+              <label class="form-label">Supplier Quote</label>
+              <select class="form-select" id="sel-supplier-quote" onchange="onSupplierQuoteSelect()">
+                <option value="">— Select a quote —</option>
+              </select>
+              <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Select a product line first to see matching quotes</span>
+            </div>
+            <div id="supplier-avg-row" class="form-group hidden">
+              <label class="form-label">Average FOB (USD/MT) — last 5 quotes</label>
+              <div id="supplier-avg-display" style="font-family:var(--font-display);font-size:var(--text-lg);font-weight:700;color:var(--color-steel);padding:var(--space-2) 0">—</div>
+            </div>
+            <div id="supplier-manual-row" class="form-group hidden">
+              <label class="form-label">FOB Price (USD/MT)</label>
+              <input type="number" class="form-input" id="supplier-manual-fob" step="0.01" min="0" placeholder="e.g. 2400" oninput="calculate()" />
+            </div>
+            <div id="fob-used-display" style="display:none;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1)">
+              Using FOB: <strong id="fob-used-val">—</strong> USD/MT
+            </div>
+          </div>
+        </div>
+
+        <!-- Logistics Cost -->
+        <div class="panel">
+          <div class="panel-header"><h3>Logistics (Freight)</h3></div>
+          <div class="panel-body">
+            <div class="source-radio">
+              <label><input type="radio" name="logistics-source" value="quote" checked onchange="onLogisticsSourceChange()"> Specific quote</label>
+              <label><input type="radio" name="logistics-source" value="manual" onchange="onLogisticsSourceChange()"> Manual entry</label>
+            </div>
+            <div id="logistics-quote-row" class="form-group">
+              <label class="form-label">Logistics Quote</label>
+              <select class="form-select" id="sel-logistics-quote" onchange="calculate()">
+                <option value="">— Select a quote —</option>
+              </select>
+              <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Filtered by the product line's default route</span>
+            </div>
+            <div id="logistics-manual-row" class="form-group hidden">
+              <label class="form-label">Freight Cost (USD/MT)</label>
+              <input type="number" class="form-input" id="logistics-manual-freight" step="0.01" min="0" placeholder="e.g. 60" oninput="calculate()" />
+            </div>
+            <div id="freight-used-display" style="display:none;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1)">
+              Using freight: <strong id="freight-used-val">—</strong> USD/MT
+            </div>
+          </div>
+        </div>
+
+        <!-- Overheads & Rate -->
+        <div class="panel">
+          <div class="panel-header"><h3>Overheads &amp; Exchange Rate</h3></div>
+          <div class="panel-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
+              <div class="form-group">
+                <label class="form-label">Insurance (% of FOB value)</label>
+                <input type="number" class="form-input" id="inp-insurance" step="0.001" min="0" value="0.125" oninput="calculate()" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Other Overheads (USD/MT)</label>
+                <input type="number" class="form-input" id="inp-overheads" step="0.01" min="0" value="0" placeholder="Duties, handling…" oninput="calculate()" />
+              </div>
+              <div class="form-group" style="grid-column:1/-1">
+                <label class="form-label">GBP/USD Exchange Rate</label>
+                <input type="number" class="form-input" id="inp-rate" step="0.0001" min="0" placeholder="e.g. 1.27" oninput="calculate()" />
+                <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Enter manually — check xe.com for current rate</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quantity -->
+        <div class="panel">
+          <div class="panel-header"><h3>Estimated Quantity</h3></div>
+          <div class="panel-body">
+            <div class="form-group" style="margin-bottom:var(--space-3)">
+              <label class="form-label">Quantity (MT)</label>
+              <input type="number" class="form-input" id="inp-qty" step="0.1" min="0.1" value="20" oninput="syncQtySlider();calculate()" />
+            </div>
+            <div class="slider-wrap">
+              <input type="range" id="qty-slider" min="1" max="500" step="1" value="20" oninput="syncQtyInput();calculate()" />
+              <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--color-text-muted)"><span>1 MT</span><span>500 MT</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /LEFT -->
+
+      <!-- RIGHT: Pricing Model + Output -->
+      <div style="display:flex;flex-direction:column;gap:var(--space-5)">
+
+        <!-- Pricing Model -->
+        <div class="panel">
+          <div class="panel-header"><h3>Pricing Model</h3></div>
+          <div class="panel-body">
+            <div class="model-options" id="model-options">
+              <label class="model-option selected" id="model-opt-standard" onclick="selectModel('standard')">
+                <input type="radio" name="pricing-model" value="standard" checked>
+                <div>
+                  <div style="font-weight:600;font-size:var(--text-sm)">Standard</div>
+                  <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">Applies the product line's default markup % to landed cost</div>
+                </div>
+              </label>
+              <label class="model-option" id="model-opt-best" onclick="selectModel('best')">
+                <input type="radio" name="pricing-model" value="best">
+                <div>
+                  <div style="font-weight:600;font-size:var(--text-sm)">Best Price</div>
+                  <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">Minimum viable margin — use to win competitive bids</div>
+                </div>
+              </label>
+              <div id="min-margin-row" class="hidden" style="padding:0 var(--space-2)">
+                <label class="form-label" style="font-size:var(--text-xs)">Minimum margin (%)</label>
+                <input type="number" class="form-input" id="inp-min-margin" value="5" step="0.5" min="0" max="50" oninput="calculate()" style="width:120px" />
+              </div>
+              <label class="model-option" id="model-opt-market" onclick="selectModel('market')">
+                <input type="radio" name="pricing-model" value="market">
+                <div>
+                  <div style="font-weight:600;font-size:var(--text-sm)">Market Rate</div>
+                  <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">Uses the market reference price set on the product line</div>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Output -->
+        <div class="panel">
+          <div class="panel-header"><h3>Results</h3></div>
+          <div class="panel-body">
+            <div id="calc-output">
+              <div style="color:var(--color-text-muted);font-size:var(--text-sm)">Select a product and enter costs to see results.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sell Price Override -->
+        <div class="panel" id="override-panel" style="display:none">
+          <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center">
+            <h3>Sell Price Override</h3>
+            <span id="override-variance-badge" class="variance-badge variance-pos">+0%</span>
+          </div>
+          <div class="panel-body">
+            <div class="slider-wrap" style="margin-bottom:var(--space-4)">
+              <input type="range" id="override-slider" min="0" max="200" step="1" value="100" oninput="onOverrideSlide()" />
+              <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--color-text-muted)">
+                <span>Cost price</span><span id="override-slider-max-label">—</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:var(--space-4);flex-wrap:wrap">
+              <div>
+                <div style="font-size:var(--text-xs);color:var(--color-text-muted)">Override price (£/MT)</div>
+                <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:var(--color-steel)" id="override-price-display">—</div>
+              </div>
+              <div>
+                <div style="font-size:var(--text-xs);color:var(--color-text-muted)">Resulting margin</div>
+                <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700" id="override-margin-display">—</div>
+              </div>
+              <div>
+                <div style="font-size:var(--text-xs);color:var(--color-text-muted)">vs Standard price</div>
+                <div style="font-size:var(--text-sm);font-weight:600" id="override-vs-std">—</div>
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="margin-top:var(--space-3)" onclick="resetOverride()">Reset to model price</button>
+          </div>
+        </div>
+
+        <!-- Save as Standard -->
+        <div class="panel" id="save-panel" style="display:none">
+          <div class="panel-header"><h3>Save Standard Price</h3></div>
+          <div class="panel-body">
+            <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4)">Save the current calculated sell price as the standard price for this product line. This will be shown as the recommended price on RFQs.</p>
+            <div style="display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap">
+              <div>
+                <div style="font-size:var(--text-xs);color:var(--color-text-muted)">Price to save</div>
+                <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:var(--color-steel)" id="save-price-display">—</div>
+              </div>
+              <button class="btn btn-primary" onclick="saveAsStandard()">Save as Standard Price</button>
+            </div>
+            <div id="save-standard-alert" class="alert" style="display:none;margin-top:var(--space-3)"></div>
+          </div>
+        </div>
+
+      </div><!-- /RIGHT -->
+    </div><!-- /calc-grid -->
+
   </div>
 </div>
 
 <script src="../../js/supabase-client.js"></script>
 <script src="../../js/auth.js"></script>
+<script src="../../js/portal/sidebar.js"></script>
 <script src="../../js/portal-guard.js"></script>
 <script src="../../js/portal/calculator.js"></script>
 </body>

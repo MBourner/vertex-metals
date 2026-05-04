@@ -19,8 +19,9 @@
     .timeline-connector { flex:1; height:2px; background:var(--color-border); min-width:16px; margin-top:5px; flex-shrink:0; }
     .timeline-connector.done { background:var(--color-accent); }
     /* ── Tabs ── */
-    .tab-bar { display:flex; gap:0; border-bottom:2px solid var(--color-border); margin-bottom:var(--space-6); overflow-x:auto; }
-    .tab-btn { background:none; border:none; padding:var(--space-3) var(--space-5); font-family:var(--font-display); font-size:var(--text-sm); font-weight:500; color:var(--color-text-muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:color .15s,border-color .15s; white-space:nowrap; }
+    .tab-bar { display:flex; gap:0; border-bottom:2px solid var(--color-border); margin-bottom:var(--space-6); overflow-x:auto; scrollbar-width:none; }
+    .tab-bar::-webkit-scrollbar { display:none; }
+    .tab-btn { background:none; border:none; padding:var(--space-2) var(--space-4); font-family:var(--font-display); font-size:13px; font-weight:500; color:var(--color-text-muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:color .15s,border-color .15s; white-space:nowrap; flex-shrink:0; }
     .tab-btn:hover { color:var(--color-text); }
     .tab-btn.active { color:var(--color-accent); border-bottom-color:var(--color-accent); }
     .tab-pane { display:none; }
@@ -31,33 +32,7 @@
   </style>
 </head>
 <body class="portal-body">
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-logo"><img src="../../assets/images/logo/vertex-metals-logo.jpg" alt="" /><div><div class="sidebar-logo-text">Vertex Metals</div><div class="sidebar-logo-sub">Internal Portal</div></div></div>
-  <nav class="sidebar-nav">
-    <div class="sidebar-section-label">Overview</div>
-    <a href="../dashboard.html" class="sidebar-link">Dashboard</a>
-    <a href="../financials/index.html" class="sidebar-link">Financials</a>
-    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Operations</div>
-    <a href="../orders/index.html" class="sidebar-link active">Orders</a>
-    <a href="../verification-queue/index.html" class="sidebar-link">Verification Queue</a>
-    <a href="../rfq/index.html" class="sidebar-link">RFQs</a>
-    <a href="../quotes/index.html" class="sidebar-link">Supplier Quotes</a>
-    <a href="../product-lines/index.html" class="sidebar-link">Product Lines</a>
-    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Suppliers</div>
-    <a href="../suppliers/index.html" class="sidebar-link">Supplier Register</a>
-    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Compliance</div>
-    <a href="../kyc/index.html" class="sidebar-link">KYC Records</a>
-    <a href="../contacts/index.html" class="sidebar-link">Contacts</a>
-    <a href="../sanctions/log.html" class="sidebar-link">Sanctions Log</a>
-    <a href="../cbam/index.html" class="sidebar-link">CBAM Tracker</a>
-    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Post-Trade</div>
-    <a href="../disputes/index.html" class="sidebar-link">Disputes</a>
-    <a href="../concessions/index.html" class="sidebar-link">Concessions</a>
-    <div class="sidebar-section-label" style="margin-top:var(--space-4)">Tools</div>
-    <a href="../quotes/calculator.html" class="sidebar-link">Markup Calculator</a>
-  </nav>
-  <div class="sidebar-footer"><div class="sidebar-user"><div class="sidebar-user-email" id="user-email">Loading...</div><div class="sidebar-user-role">Director</div></div><button onclick="signOut()" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center">Sign Out</button><div style="text-align:center;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-4);opacity:.5">Built by Vector Business Solutions</div></div>
-</aside>
+<aside class="sidebar" id="sidebar"></aside>
 
 <div class="portal-main">
   <div class="topbar">
@@ -136,6 +111,8 @@
 <script src="../../js/supabase-client.js"></script>
 <script src="../../js/auth.js"></script>
 <script src="../../js/portal/auth-roles.js"></script>
+<script src="../../js/portal/sidebar.js"></script>
+
 <script src="../../js/portal-guard.js"></script>
 <script src="../../js/portal/state-machine.js"></script>
 <script src="../../js/portal/orders-detail.js"></script>

@@ -6,6 +6,20 @@
  */
 
 /**
+ * Resolves a portal root-relative filename to a path that works regardless
+ * of what subdirectory the site is hosted in (e.g. /vertex-metals/ on GitHub Pages).
+ * Counts directory levels between the current page and the portal/ folder and
+ * prefixes with the right number of ../ steps.
+ */
+function resolvePortalPath(page) {
+  const parts = window.location.pathname.replace(/^\//, '').split('/').filter(Boolean);
+  const portalIdx = parts.indexOf('portal');
+  if (portalIdx === -1) return page; // fallback: same directory
+  const dirsAfterPortal = parts.slice(portalIdx + 1, -1).length;
+  return '../'.repeat(dirsAfterPortal) + page;
+}
+
+/**
  * Sign in with email and password.
  * On success redirects to portal/dashboard.html.
  * On failure returns the error object.
@@ -13,7 +27,7 @@
 async function signIn(email, password) {
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
   if (error) return { error };
-  window.location.href = '/portal/dashboard.html';
+  window.location.href = resolvePortalPath('dashboard.html');
   return { data };
 }
 
@@ -21,8 +35,9 @@ async function signIn(email, password) {
  * Sign out the current user and redirect to login.
  */
 async function signOut() {
+  if (typeof PortalRoles !== 'undefined') PortalRoles.clear();
   await supabaseClient.auth.signOut();
-  window.location.href = '/portal/login.html';
+  window.location.href = resolvePortalPath('login.html');
 }
 
 /**
@@ -53,7 +68,7 @@ async function getCurrentUser() {
 async function requireAuth() {
   const session = await getSession();
   if (!session) {
-    window.location.replace('/portal/login.html');
+    window.location.replace(resolvePortalPath('login.html'));
     // Throw to prevent any further code execution while redirect happens
     throw new Error('Unauthenticated — redirecting to login');
   }

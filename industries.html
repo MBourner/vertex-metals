@@ -44,23 +44,15 @@
   <a href="contact.html" class="btn btn-primary">Submit Enquiry</a>
 </div>
 
-<!-- ═══ PAGE VIDEO BANNER ══════════════════════════════════════ -->
-<div class="page-video-banner" style="margin-top:var(--nav-height)">
-  <!-- <video autoplay muted loop playsinline poster="assets/images/video-poster-industries.jpg">
-    <source src="assets/video/industries.mp4" type="video/mp4">
-  </video> -->
-  <div class="hero-video-placeholder" aria-hidden="true">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
-    </svg>
-    <span>Video — footage to follow</span>
-  </div>
-  <div class="hero-video-overlay"></div>
-</div>
-
-<!-- ═══ PAGE HERO ═════════════════════════════════════════════ -->
-<section class="page-hero bg-dark">
-  <div class="container" style="position:relative;z-index:1">
+<!-- ═══ PAGE HERO WITH VIDEO ══════════════════════════════════ -->
+<section style="position:relative;overflow:hidden;min-height:540px;display:flex;align-items:center;margin-top:var(--nav-height)">
+  <video autoplay muted loop playsinline
+    style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0">
+    <source src="assets/video/sectors.mp4" type="video/mp4">
+  </video>
+  <!-- Dark overlay: navy at 65% keeps the video visible while making text legible -->
+  <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(10,23,40,0.70) 0%,rgba(10,23,40,0.55) 100%);z-index:1"></div>
+  <div class="container" style="position:relative;z-index:2;padding-top:var(--space-16);padding-bottom:var(--space-16)">
     <span class="section-label">Industry Sectors</span>
     <h1 class="text-white" style="max-width:700px;margin-bottom:var(--space-4)">The industries our metals power</h1>
     <div class="divider-steel"></div>
@@ -93,7 +85,7 @@
             <li>Substation and switchgear components (copper)</li>
             <li>Solar farm cabling (copper &amp; aluminium)</li>
           </ul>
-          <a href="contact.html?sector=energy" class="btn btn-primary btn-sm">Enquire for this sector</a>
+          <a href="contact.html?sector=energy" class="btn btn-primary btn-sm">Submit an enquiry</a>
         </div>
         <div>
           <div style="background:var(--color-primary);border-radius:var(--radius);padding:var(--space-8);margin-bottom:var(--space-4)">
@@ -131,11 +123,11 @@
           <ul class="check-list" style="margin-bottom:var(--space-6)">
             <li>EV wiring harnesses (aluminium alloy wire, copper)</li>
             <li>Power cable manufacture for EV charging infrastructure</li>
-            <li>Aluminium structural components (body-in-white, battery enclosures)</li>
+            <li>Aluminium structural components</li>
             <li>Copper busbars and connectors</li>
-            <li>Lithium battery precursor materials (forward capability)</li>
+            <li>Lithium battery precursor materials</li>
           </ul>
-          <a href="contact.html?sector=automotive" class="btn btn-primary btn-sm">Enquire for this sector</a>
+          <a href="contact.html?sector=automotive" class="btn btn-primary btn-sm">Submit an enquiry</a>
         </div>
         <div>
           <div style="background:var(--color-primary);border-radius:var(--radius);padding:var(--space-8);margin-bottom:var(--space-4)">
@@ -144,7 +136,7 @@
               <li style="font-size:var(--text-sm);color:rgba(255,255,255,0.6);display:flex;gap:var(--space-2);align-items:center"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);flex-shrink:0"></span>Aluminium alloy core wire (EC / 6XXX)</li>
               <li style="font-size:var(--text-sm);color:rgba(255,255,255,0.6);display:flex;gap:var(--space-2);align-items:center"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);flex-shrink:0"></span>Aluminium bars and profiles</li>
               <li style="font-size:var(--text-sm);color:rgba(255,255,255,0.6);display:flex;gap:var(--space-2);align-items:center"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);flex-shrink:0"></span>Copper rod and wire</li>
-              <li style="font-size:var(--text-sm);color:rgba(255,255,255,0.6);display:flex;gap:var(--space-2);align-items:center"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);flex-shrink:0"></span>Lithium battery precursors (enquiry)</li>
+              <li style="font-size:var(--text-sm);color:rgba(255,255,255,0.6);display:flex;gap:var(--space-2);align-items:center"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);flex-shrink:0"></span>Lithium battery precursors</li>
             </ul>
           </div>
         </div>
@@ -174,7 +166,7 @@
             <li>Copper tube and sheet (heat exchangers, data centre cooling)</li>
             <li>Lithium battery precursors (battery backup systems)</li>
           </ul>
-          <a href="contact.html?sector=telecoms" class="btn btn-primary btn-sm">Enquire for this sector</a>
+          <a href="contact.html?sector=telecoms" class="btn btn-primary btn-sm">Submit an enquiry</a>
         </div>
         <div>
           <div style="background:var(--color-primary);border-radius:var(--radius);padding:var(--space-8)">
@@ -212,7 +204,7 @@
             <li>Brass and bronze for architectural and specialist applications</li>
             <li>Tool steel and bright steel for fabrication</li>
           </ul>
-          <a href="contact.html?sector=construction" class="btn btn-primary btn-sm">Enquire for this sector</a>
+          <a href="contact.html?sector=construction" class="btn btn-primary btn-sm">Submit an enquiry</a>
         </div>
         <div>
           <div style="background:var(--color-primary);border-radius:var(--radius);padding:var(--space-8)">
@@ -251,7 +243,7 @@
             <li>Nickel superalloys for high-temperature applications</li>
             <li>Manganese, chromite, and other minerals for specialist industrial processes</li>
           </ul>
-          <a href="contact.html?sector=manufacturing" class="btn btn-primary btn-sm">Enquire for this sector</a>
+          <a href="contact.html?sector=manufacturing" class="btn btn-primary btn-sm">Submit an enquiry</a>
         </div>
         <div>
           <div style="background:var(--color-primary);border-radius:var(--radius);padding:var(--space-8)">

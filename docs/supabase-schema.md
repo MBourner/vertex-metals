@@ -207,7 +207,27 @@
 | `vat_rate` | `numeric` |  Nullable |
 | `insurance_pct` | `numeric` |  Nullable |
 | `active` | `bool` |  Nullable |
+| `metal_family` | `text` |  Nullable |
+| `sub_type` | `text` |  Nullable |
+| `standard_sell_price_gbp` | `numeric(14,2)` |  Nullable |
+| `pricing_last_reviewed` | `date` |  Nullable |
+| `market_reference_price_gbp` | `numeric(14,2)` |  Nullable |
+| `market_price_updated_date` | `date` |  Nullable |
+| `default_origin_country` | `text` |  Nullable |
+| `default_destination` | `text` |  Nullable |
 | `notes` | `text` |  Nullable |
+| `created_at` | `timestamptz` |  |
+
+## Table `product_families`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `name` | `text` |  |
+| `description` | `text` |  Nullable |
+| `active` | `bool` |  Nullable |
 | `created_at` | `timestamptz` |  |
 
 ## Table `reason_codes`

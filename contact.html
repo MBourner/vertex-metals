@@ -18,7 +18,7 @@
 <!-- ═══ NAVIGATION ═══════════════════════════════════════════ -->
 <nav class="nav scrolled" id="nav">
   <div class="nav-inner">
-    <a href="index.html" class="nav-logo"><img src="assets/images/logo/vertex-metals-logo.jpg" alt="Vertex Metals" /><span class="nav-logo-text">Vertex Metals</span></a>
+    <a href="index.html" class="nav-logo"><img src="assets/images/logo/Vertex%20logo%20emblem.png" alt="Vertex Metals" /><span class="nav-logo-text">Vertex Metals</span></a>
     <ul class="nav-links" role="list">
       <li><a href="products.html">Products</a></li>
       <li><a href="industries.html">Sectors</a></li>
@@ -57,7 +57,7 @@
     <div class="grid-sidebar">
 
       <!-- Form -->
-      <div>
+      <div id="form-section">
         <h2 style="margin-bottom:var(--space-2)">Complete the enquiry form</h2>
         <div class="divider-steel"></div>
 
@@ -94,33 +94,42 @@
               <input class="form-input" id="field-phone" type="tel" placeholder="Optional" autocomplete="tel" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="field-product">Product interest</label>
-              <select class="form-select" id="field-product">
-                <option value="">Select a product or enquiry type</option>
-                <option value="aluminium-alloy-core-wire">Aluminium — Core Wire (EC / 6XXX)</option>
-                <option value="aluminium">Aluminium — Other forms (bar, plate, coil, etc.)</option>
-                <option value="copper">Copper &amp; Copper Products</option>
-                <option value="stainless-steel">Stainless Steel</option>
-                <option value="mild-steel">Mild Steel</option>
-                <option value="other-metals">Other Metals (brass, bronze, tool steel, Inconel, etc.)</option>
-                <option value="critical-minerals">Critical Minerals (mica, lithium, manganese, etc.)</option>
-                <option value="general">General enquiry</option>
+              <label class="form-label" for="field-family">Product family</label>
+              <select class="form-select" id="field-family">
+                <option value="">Loading products…</option>
+              </select>
+            </div>
+            <div class="form-group" id="product-line-group" style="display:none">
+              <label class="form-label" for="field-product-line">Specific product / grade <span style="font-weight:400;color:var(--color-text-muted)">(optional)</span></label>
+              <select class="form-select" id="field-product-line">
+                <option value="">— Select a product line —</option>
               </select>
             </div>
           </div>
 
           <div class="form-group" style="margin-top:var(--space-6)">
-            <label class="form-label" for="field-quantity">Estimated annual volume</label>
-            <input class="form-input" id="field-quantity" type="text" placeholder="e.g. 50 MT/year" />
+            <label class="form-label" for="field-quantity">Estimated quantity</label>
+            <div style="display:flex;gap:var(--space-2)">
+              <input class="form-input" id="field-quantity" type="number" placeholder="e.g. 25" min="0" step="any" style="flex:1" />
+              <select class="form-select" id="field-quantity-unit" style="width:100px;flex-shrink:0">
+                <option value="MT">MT</option>
+                <option value="kg">kg</option>
+                <option value="pieces">pieces</option>
+                <option value="m">m</option>
+                <option value="m²">m²</option>
+              </select>
+            </div>
           </div>
 
           <div class="form-group" style="margin-top:var(--space-6)">
-            <label class="form-label" for="field-message">Message</label>
-            <textarea class="form-textarea" id="field-message" rows="5" placeholder="Describe your requirements, specification, delivery timeline, or any other relevant details..."></textarea>
+            <label class="form-label" for="field-specifications">Specification / Requirements <span style="font-weight:400;color:var(--color-text-muted)">(optional)</span></label>
+            <textarea class="form-textarea" id="field-specifications" rows="3" placeholder="Grade, dimensions, tolerances, surface finish, certifications required, delivery location, timeline…"></textarea>
           </div>
 
-          <!-- Alert area -->
-          <div id="form-alert" style="display:none;margin-top:var(--space-6)"></div>
+          <div class="form-group" style="margin-top:var(--space-6)">
+            <label class="form-label" for="field-message">Additional message</label>
+            <textarea class="form-textarea" id="field-message" rows="4" placeholder="Any other context, questions, or requirements…"></textarea>
+          </div>
 
           <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-4);margin-top:var(--space-6)">
             <p style="font-size:var(--text-xs);color:var(--color-text-muted);max-width:320px;line-height:1.6">All enquiries subject to our <a href="compliance.html" style="color:var(--color-accent)">AML/KYC policy</a>. We do not share your details with third parties.</p>
@@ -186,7 +195,7 @@
   <div class="container">
     <div class="footer-grid">
       <div class="footer-brand">
-        <a href="index.html" class="nav-logo"><img src="assets/images/logo/vertex-metals-logo.jpg" alt="Vertex Metals" /><span class="nav-logo-text">Vertex Metals</span></a>
+        <a href="index.html" class="nav-logo"><img src="assets/images/logo/Vertex%20logo%20emblem.png" alt="Vertex Metals" /><span class="nav-logo-text">Vertex Metals</span></a>
         <p>A global sourcer of critical metals and minerals to the UK. Utilising responsible and vetted mills around the world, trust us to keep your supply chain moving efficiently.</p>
         <div style="margin-top:var(--space-6)">
           <address style="font-style:normal;font-size:var(--text-sm);color:rgba(255,255,255,0.4);line-height:1.8">No 3 Falcon Cliff<br>9–10 Palace Road, Douglas<br>Isle of Man, IM2 4LD</address>
@@ -239,15 +248,18 @@
     hamburger.setAttribute('aria-expanded', String(open));
   });
 
-  // Pre-select product from URL query param
-  const urlParams = new URLSearchParams(window.location.search);
-  const productParam = urlParams.get('product');
-  if (productParam) {
-    const sel = document.getElementById('field-product');
-    for (let i = 0; i < sel.options.length; i++) {
-      if (sel.options[i].value === productParam) { sel.selectedIndex = i; break; }
-    }
-  }
+  // Pre-select family from URL query param (?product=mild-steel etc.)
+  const _productSlugMap = {
+    'aluminium-alloy-core-wire': 'Aluminium Products',
+    'aluminium':                 'Aluminium Products',
+    'copper':                    'Copper & Copper Products',
+    'stainless-steel':           'Stainless Steel',
+    'mild-steel':                'Mild Steel',
+    'other-metals':              'Other Metals & Alloys',
+    'critical-minerals':         'Critical Minerals & Concentrates',
+  };
+  const _preselect = _productSlugMap[new URLSearchParams(window.location.search).get('product')];
+  if (_preselect) window._preselectFamily = _preselect;
 </script>
 </body>
 </html>

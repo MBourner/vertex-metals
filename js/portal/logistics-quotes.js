@@ -67,12 +67,16 @@ async function loadLogisticsQuotes() {
     const validity = q.validity_date
       ? fmtDate(q.validity_date) + (expired ? ' <span style="color:var(--color-warning);font-size:var(--text-xs)">(expired)</span>' : '')
       : '—';
+    const isFlat   = q.pricing_type === 'flat';
+    const price    = isFlat
+      ? `<span class="badge badge-neutral" style="margin-right:var(--space-1)">Flat</span>£${fmt(q.price_flat_gbp)}`
+      : `$${fmt(q.price_per_mt_usd)}/MT`;
     return `<tr style="cursor:pointer" onclick="openEditModal('${esc(q.id)}')">
       <td style="font-weight:600">${esc(q.contacts?.company_name || '—')}</td>
       <td style="font-size:var(--text-sm)">${route}</td>
       <td>${modeBadge(q.mode)}</td>
       <td>${esc(q.container_type || '—')}</td>
-      <td style="font-family:var(--font-display);font-weight:600">$${fmt(q.price_per_mt_usd)}</td>
+      <td style="font-family:var(--font-display);font-weight:600">${price}</td>
       <td>${q.min_qty_mt != null ? fmt(q.min_qty_mt, 0) : '—'}</td>
       <td>${validity}</td>
       <td>${statusBadge(q.status)}</td>
@@ -133,9 +137,24 @@ async function buildLqForm(lq = {}, formId, submitFn, cancelModal) {
             <option value="20ft"><option value="40ft"><option value="40ft HC"><option value="Bulk"><option value="Flexi-bag">
           </datalist>
         </div>
-        <div class="form-group">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Pricing Type <span style="color:var(--color-danger)">*</span></label>
+          <div style="display:flex;gap:var(--space-4);margin-top:var(--space-2)">
+            <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
+              <input type="radio" name="${formId}-pricing" value="per_mt" ${(lq.pricing_type||'per_mt')==='per_mt'?'checked':''} onchange="toggleLqPricingType('${formId}',this.value)" /> Per MT (USD)
+            </label>
+            <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
+              <input type="radio" name="${formId}-pricing" value="flat" ${lq.pricing_type==='flat'?'checked':''} onchange="toggleLqPricingType('${formId}',this.value)" /> Flat fee (GBP)
+            </label>
+          </div>
+        </div>
+        <div class="form-group" id="${formId}-price-permt-group" ${lq.pricing_type==='flat'?'style="display:none"':''}>
           <label class="form-label">Price (USD/MT) <span style="color:var(--color-danger)">*</span></label>
-          <input type="number" class="form-input" id="${formId}-price" value="${lq.price_per_mt_usd ?? ''}" required step="0.01" min="0" placeholder="0.00" />
+          <input type="number" class="form-input" id="${formId}-price-permt" value="${lq.price_per_mt_usd ?? ''}" step="0.01" min="0" placeholder="0.00" />
+        </div>
+        <div class="form-group" id="${formId}-price-flat-group" ${lq.pricing_type!=='flat'?'style="display:none"':''}>
+          <label class="form-label">Flat Fee (GBP) <span style="color:var(--color-danger)">*</span></label>
+          <input type="number" class="form-input" id="${formId}-price-flat" value="${lq.price_flat_gbp ?? ''}" step="0.01" min="0" placeholder="0.00" />
         </div>
         <div class="form-group">
           <label class="form-label">Min Quantity (MT)</label>
@@ -166,21 +185,29 @@ async function buildLqForm(lq = {}, formId, submitFn, cancelModal) {
     </form>`;
 }
 
+function toggleLqPricingType(formId, val) {
+  document.getElementById(`${formId}-price-permt-group`).style.display = val === 'per_mt' ? '' : 'none';
+  document.getElementById(`${formId}-price-flat-group`).style.display  = val === 'flat'   ? '' : 'none';
+}
+
 function getLqPayload(formId) {
   const v = id => document.getElementById(`${formId}-${id}`)?.value ?? '';
+  const pricingType = document.querySelector(`input[name="${formId}-pricing"]:checked`)?.value || 'per_mt';
   return {
-    provider_id:         v('provider')        || null,
+    provider_id:         v('provider')              || null,
     origin_country:      v('origin-country').trim(),
     destination_country: v('dest-country').trim(),
-    origin_port:         v('origin-port').trim()  || null,
-    destination_port:    v('dest-port').trim()    || null,
-    mode:                v('mode')                || 'sea',
-    container_type:      v('container').trim()    || null,
-    price_per_mt_usd:    parseFloat(v('price'))   || null,
+    origin_port:         v('origin-port').trim()    || null,
+    destination_port:    v('dest-port').trim()       || null,
+    mode:                v('mode')                  || 'sea',
+    container_type:      v('container').trim()      || null,
+    pricing_type:        pricingType,
+    price_per_mt_usd:    pricingType === 'per_mt' ? (parseFloat(v('price-permt')) || null) : null,
+    price_flat_gbp:      pricingType === 'flat'   ? (parseFloat(v('price-flat'))  || null) : null,
     min_qty_mt:          parseFloat(v('min-qty')) || null,
-    validity_date:       v('validity')            || null,
-    status:              v('status')              || 'active',
-    notes:               v('notes').trim()        || null,
+    validity_date:       v('validity')              || null,
+    status:              v('status')                || 'active',
+    notes:               v('notes').trim()          || null,
   };
 }
 
@@ -191,7 +218,8 @@ async function submitAddLq(e) {
   const alertEl = document.getElementById('add-lq-form-alert');
   const payload = getLqPayload('add-lq-form');
 
-  if (!payload.origin_country || !payload.destination_country || !payload.price_per_mt_usd) {
+  const priceOk = payload.pricing_type === 'flat' ? !!payload.price_flat_gbp : !!payload.price_per_mt_usd;
+  if (!payload.origin_country || !payload.destination_country || !priceOk) {
     alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
     alertEl.textContent = 'Origin country, destination country, and price are required.'; return;
   }
@@ -221,7 +249,8 @@ async function submitEditLq(e, id) {
   const alertEl = document.getElementById('edit-lq-form-alert');
   const payload = getLqPayload('edit-lq-form');
 
-  if (!payload.origin_country || !payload.destination_country || !payload.price_per_mt_usd) {
+  const priceOk = payload.pricing_type === 'flat' ? !!payload.price_flat_gbp : !!payload.price_per_mt_usd;
+  if (!payload.origin_country || !payload.destination_country || !priceOk) {
     alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
     alertEl.textContent = 'Origin country, destination country, and price are required.'; return;
   }

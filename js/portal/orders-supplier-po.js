@@ -27,6 +27,7 @@ let _productLine  = null;
 let _activeQuotes = [];
 let _savedPoId    = null;   // set after successful supplier_pos insert
 let _savedPoRef   = null;
+let _pricingBasis = 'per_mt'; // tracks selected quote's pricing basis
 
 // ── Live pricing calculator ───────────────────────────────────────────────────
 
@@ -38,15 +39,18 @@ function recalculate() {
   const rate      = parseFloat(document.getElementById('f-rate').value)      || 0;
   const sellGBP   = _trade?.sell_price_gbp || 0;
 
-  const totalCostUSD   = (fob * qty) + freight + insurance;
+  // For 'total' basis, fob IS the total; for per_mt/per_piece, fob × qty = total
+  const totalFobUSD    = _pricingBasis === 'total' ? fob : fob * qty;
+  const totalCostUSD   = totalFobUSD + freight + insurance;
   const totalCostGBP   = rate > 0 ? totalCostUSD / rate : 0;
-  const costPerMtGBP   = qty > 0 ? totalCostGBP / qty : 0;
+  const costPerUnitGBP = qty > 0 ? totalCostGBP / qty : 0;
   const marginGBP      = sellGBP > 0 ? sellGBP - totalCostGBP : null;
   const marginPct      = sellGBP > 0 && totalCostGBP > 0 ? ((sellGBP - totalCostGBP) / sellGBP) * 100 : null;
+  const unitLabel      = _pricingBasis === 'per_piece' ? '/pc' : _pricingBasis === 'total' ? '' : '/MT';
 
   document.getElementById('calc-cost-usd').textContent  = totalCostUSD > 0 ? '$' + fmt(totalCostUSD)  : '—';
   document.getElementById('calc-cost-gbp').textContent  = totalCostGBP > 0 ? '£' + fmt(totalCostGBP)  : '—';
-  document.getElementById('calc-cost-mt').textContent   = costPerMtGBP > 0 ? '£' + fmt(costPerMtGBP) + '/MT' : '—';
+  document.getElementById('calc-cost-mt').textContent   = costPerUnitGBP > 0 && unitLabel ? '£' + fmt(costPerUnitGBP) + unitLabel : '—';
 
   const marginEl = document.getElementById('calc-margin');
   if (marginGBP != null) {
@@ -62,8 +66,9 @@ function autoInsurance() {
   const fob = parseFloat(document.getElementById('f-fob').value) || 0;
   const qty = parseFloat(document.getElementById('f-qty').value) || 0;
   const insPct = _productLine?.insurance_pct || 0.00125;
-  if (fob && qty) {
-    document.getElementById('f-insurance').value = (fob * qty * insPct).toFixed(2);
+  const fobTotal = _pricingBasis === 'total' ? fob : fob * qty;
+  if (fobTotal) {
+    document.getElementById('f-insurance').value = (fobTotal * insPct).toFixed(2);
     recalculate();
   }
 }
@@ -86,7 +91,7 @@ async function loadQuotesForSupplier(supplierId, productLineId) {
   const today = new Date().toISOString().split('T')[0];
   let query = supabaseClient
     .from('supplier_quotes')
-    .select('id, fob_price_usd, quantity_mt, incoterm, validity_date, specification, notes')
+    .select('id, fob_price_usd, price_per_piece, quantity_pieces, quantity_mt, pricing_basis, incoterm, validity_date, specification, notes')
     .eq('supplier_id', supplierId)
     .eq('status', 'active');
 
@@ -103,9 +108,18 @@ async function loadQuotesForSupplier(supplierId, productLineId) {
     const isExpired = q.validity_date && q.validity_date < today;
     const opt = document.createElement('option');
     opt.value          = q.id;
-    opt.dataset.fob    = q.fob_price_usd;
-    opt.dataset.incoterm = q.incoterm || '';
-    opt.textContent    = `$${fmt(q.fob_price_usd)}/MT · ${esc(q.incoterm || 'FOB')} · valid to ${q.validity_date || 'no date'} · ${fmt(q.quantity_mt, 0)}MT`;
+    opt.dataset.fob           = q.fob_price_usd     || '';
+    opt.dataset.pricePerPiece = q.price_per_piece   || '';
+    opt.dataset.qtyPieces     = q.quantity_pieces   || '';
+    opt.dataset.qtyMt         = q.quantity_mt       || '';
+    opt.dataset.basis         = q.pricing_basis     || 'per_mt';
+    opt.dataset.incoterm      = q.incoterm          || '';
+    const priceLabel = q.pricing_basis === 'per_piece'
+      ? `$${fmt(q.price_per_piece, 4)}/pc · ${q.quantity_pieces ?? '?'} pcs`
+      : q.pricing_basis === 'total'
+        ? `$${fmt(q.fob_price_usd)} total`
+        : `$${fmt(q.fob_price_usd)}/MT · ${fmt(q.quantity_mt, 0)} MT`;
+    opt.textContent = `${priceLabel} · ${q.incoterm || 'FOB'} · valid to ${q.validity_date || 'no date'}`;
     if (isExpired) { expiredGroup.appendChild(opt); hasExpired = true; }
     else           sel.appendChild(opt);
   });
@@ -117,21 +131,41 @@ async function loadQuotesForSupplier(supplierId, productLineId) {
 }
 
 function onQuoteSelected() {
-  const sel    = document.getElementById('f-quote');
-  const opt    = sel.options[sel.selectedIndex];
+  const sel = document.getElementById('f-quote');
+  const opt = sel.options[sel.selectedIndex];
   if (!opt || !opt.value) return;
 
-  const fob     = opt.dataset.fob;
-  const incoterm = opt.dataset.incoterm;
+  const basis    = opt.dataset.basis    || 'per_mt';
+  const incoterm = opt.dataset.incoterm || '';
+  _pricingBasis  = basis;
 
-  if (fob) {
-    document.getElementById('f-fob').value = fob;
-    autoInsurance();
+  // Update field labels
+  const fobLabel = document.getElementById('fob-price-label');
+  const qtyLabel = document.getElementById('qty-label');
+  const req      = ' <span style="color:var(--color-danger)">*</span>';
+  if (fobLabel) fobLabel.innerHTML = (basis === 'per_piece' ? 'Price per Piece (USD)' : basis === 'total' ? 'Total FOB Price (USD)' : 'FOB Price (USD / MT)') + req;
+  if (qtyLabel) qtyLabel.innerHTML = (basis === 'per_piece' ? 'Quantity (pieces)' : basis === 'total' ? 'Quantity (for reference)' : 'Quantity (MT)') + req;
+
+  // Fill price field
+  if (basis === 'per_piece' && opt.dataset.pricePerPiece) {
+    document.getElementById('f-fob').value = opt.dataset.pricePerPiece;
+  } else if (opt.dataset.fob) {
+    document.getElementById('f-fob').value = opt.dataset.fob;
   }
+
+  // Fill quantity field
+  if (basis === 'per_piece' && opt.dataset.qtyPieces) {
+    document.getElementById('f-qty').value = opt.dataset.qtyPieces;
+  } else if (opt.dataset.qtyMt) {
+    document.getElementById('f-qty').value = opt.dataset.qtyMt;
+  }
+
   if (incoterm) {
     const incSel = document.getElementById('f-incoterms');
     if (incSel) incSel.value = incoterm;
   }
+
+  autoInsurance();
   recalculate();
 }
 
@@ -161,7 +195,10 @@ async function submitSupplierPo(e) {
   const insurance     = parseFloat(document.getElementById('f-insurance').value) || 0;
   const rate          = parseFloat(document.getElementById('f-rate').value);
   const notes         = document.getElementById('f-notes').value.trim()          || null;
-  const paymentTerms  = document.getElementById('f-payment-terms')?.value.trim() || null;
+  const ptSel         = document.getElementById('f-payment-terms');
+  const paymentTerms  = ptSel?.value === 'other'
+    ? (document.getElementById('f-payment-terms-other')?.value.trim() || null)
+    : (ptSel?.value || null);
   const conditions    = document.getElementById('f-conditions')?.value.trim()    || null;
   const incoterm      = document.getElementById('f-incoterms')?.value            || null;
   const origin        = document.getElementById('f-origin')?.value.trim()        || null;
@@ -411,7 +448,10 @@ async function init() {
   `;
 
   // Pre-fill quantity from trade
-  document.getElementById('f-qty').value = trade.quantity_mt || '';
+  // Pre-fill quantity — only for MT orders; other units are filled when a quote is selected
+  if (!trade.quantity_unit || trade.quantity_unit === 'MT') {
+    document.getElementById('f-qty').value = trade.quantity_mt || '';
+  }
 
   // Load approved suppliers
   const { data: suppliers } = await supabaseClient

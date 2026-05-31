@@ -22,6 +22,7 @@
       </button>
       <span class="topbar-title">RFQ Inbox</span>
     </div>
+    <button onclick="openNewRfqModal()" class="btn btn-primary btn-sm">+ New RFQ</button>
   </div>
   <div class="portal-content">
     <div class="portal-page-header">
@@ -31,8 +32,10 @@
       <select class="form-select" id="filter-status" style="min-width:140px">
         <option value="">All statuses</option>
         <option value="new">New</option>
-        <option value="in_review">In Review</option>
+        <option value="reviewing">Reviewing</option>
         <option value="quoted">Quoted</option>
+        <option value="accepted">Accepted</option>
+        <option value="responded">Responded</option>
         <option value="closed">Closed</option>
       </select>
       <select class="form-select" id="filter-type" style="min-width:140px">
@@ -48,6 +51,68 @@
         <tbody id="rfq-table-body"><tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading...</td></tr></tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- New RFQ Modal -->
+<div class="modal-overlay" id="new-rfq-modal">
+  <div class="modal-box" style="max-width:600px">
+    <button class="modal-close" onclick="document.getElementById('new-rfq-modal').classList.remove('open')">✕</button>
+    <h3>New RFQ</h3>
+    <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-5)">Manually log an enquiry received by email or phone.</p>
+    <form id="new-rfq-form" onsubmit="submitNewRfq(event)">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Contact Name <span style="color:var(--color-danger)">*</span></label>
+          <input type="text" class="form-input" id="nrfq-name" required placeholder="e.g. John Smith" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Company <span style="color:var(--color-danger)">*</span></label>
+          <input type="text" class="form-input" id="nrfq-company" required placeholder="e.g. Acme Manufacturing Ltd" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email <span style="color:var(--color-danger)">*</span></label>
+          <input type="email" class="form-input" id="nrfq-email" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input type="text" class="form-input" id="nrfq-phone" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select class="form-select" id="nrfq-type">
+            <option value="buyer">Buyer</option>
+            <option value="supplier">Supplier</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role / Job Title</label>
+          <input type="text" class="form-input" id="nrfq-role" placeholder="e.g. Procurement Manager" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Product Interest</label>
+          <input type="text" class="form-input" id="nrfq-product" placeholder="e.g. Aluminium Alloy Core Wire" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Estimated Quantity (MT)</label>
+          <input type="number" class="form-input" id="nrfq-qty" step="0.1" min="0" placeholder="e.g. 25" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Country</label>
+          <input type="text" class="form-input" id="nrfq-country" placeholder="e.g. United Kingdom" />
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:var(--space-3)">
+        <label class="form-label">Message / Enquiry Detail</label>
+        <textarea class="form-textarea" id="nrfq-message" rows="4" placeholder="Paste the email content or summarise the enquiry..."></textarea>
+      </div>
+      <div id="new-rfq-alert" class="alert" style="display:none;margin-top:var(--space-3)"></div>
+      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5)">
+        <button type="submit" class="btn btn-primary" id="new-rfq-btn">Create RFQ</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('new-rfq-modal').classList.remove('open')">Cancel</button>
+      </div>
+    </form>
   </div>
 </div>
 

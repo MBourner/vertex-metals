@@ -74,12 +74,12 @@
             <div class="panel-body">
               <div class="form-grid">
                 <div class="form-group">
-                  <label class="form-label">FOB Price (USD / MT) <span style="color:var(--color-danger)">*</span></label>
-                  <input type="number" class="form-input" id="f-fob" step="0.01" min="0" placeholder="e.g. 2400" oninput="autoInsurance();recalculate()" required />
+                  <label class="form-label" id="fob-price-label">FOB Price (USD / MT) <span style="color:var(--color-danger)">*</span></label>
+                  <input type="number" class="form-input" id="f-fob" step="any" min="0" placeholder="e.g. 2400" oninput="autoInsurance();recalculate()" required />
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Quantity (MT) <span style="color:var(--color-danger)">*</span></label>
-                  <input type="number" class="form-input" id="f-qty" step="0.001" min="0" oninput="autoInsurance();recalculate()" required />
+                  <label class="form-label" id="qty-label">Quantity (MT) <span style="color:var(--color-danger)">*</span></label>
+                  <input type="number" class="form-input" id="f-qty" step="any" min="0" oninput="autoInsurance();recalculate()" required />
                 </div>
                 <div class="form-group">
                   <label class="form-label">Freight (USD total)</label>
@@ -140,14 +140,18 @@
               <div class="form-grid">
                 <div class="form-group">
                   <label class="form-label">Payment Terms <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" class="form-input" id="f-payment-terms" placeholder="e.g. 30% advance, 70% on BL" list="f-payment-terms-list" required />
-                  <datalist id="f-payment-terms-list">
-                    <option value="100% TT in advance">
-                    <option value="30% advance, 70% against documents">
-                    <option value="50% advance, 50% on BL">
-                    <option value="Net 30 days from BL date">
-                    <option value="LC at sight">
-                  </datalist>
+                  <select class="form-select" id="f-payment-terms" required onchange="document.getElementById('f-payment-terms-other').style.display=this.value==='other'?'block':'none'">
+                    <option value="">— Select payment terms —</option>
+                    <option value="100% TT in advance">100% TT in advance</option>
+                    <option value="30% advance, 70% against documents">30% advance, 70% against documents</option>
+                    <option value="50% advance, 50% on BL">50% advance, 50% on BL</option>
+                    <option value="LC at sight (irrevocable)">LC at sight (irrevocable)</option>
+                    <option value="DP at sight">DP at sight (Documents against Payment)</option>
+                    <option value="DA 30 days">DA 30 days (Documents against Acceptance)</option>
+                    <option value="Net 30 days from BL date">Net 30 days from BL date</option>
+                    <option value="other">Other (specify)</option>
+                  </select>
+                  <input type="text" class="form-input" id="f-payment-terms-other" placeholder="Specify payment terms…" style="margin-top:var(--space-2);display:none" />
                 </div>
                 <div class="form-group">
                   <label class="form-label">Special Conditions</label>

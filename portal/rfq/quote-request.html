@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quote Request — Vertex Metals Portal</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .qr-layout { display:flex; gap:var(--space-6); align-items:flex-start; }
+    .qr-left   { flex:0 0 280px; position:sticky; top:var(--space-4); }
+    .qr-right  { flex:1; min-width:0; }
+    @media (max-width:860px) { .qr-layout { flex-direction:column; } .qr-left { flex:none; width:100%; position:static; } }
+
+    /* Print template styles */
+    #qr-print-template { background:#fff; padding:32px 40px; font-family:'DM Sans',sans-serif; font-size:13px; color:#0a1728; max-width:780px; }
+    .qr-doc-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; padding-bottom:20px; border-bottom:2px solid #0a1728; }
+    .qr-doc-logo { font-family:'Syne',sans-serif; font-size:22px; font-weight:700; letter-spacing:-.02em; color:#0a1728; }
+    .qr-doc-logo span { color:#7ab8d4; }
+    .qr-doc-contact { font-size:11px; color:#555; line-height:1.7; text-align:right; }
+    .qr-doc-heading { font-family:'Syne',sans-serif; font-size:26px; font-weight:700; color:#7ab8d4; margin-bottom:24px; letter-spacing:-.01em; }
+    .qr-meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+    .qr-meta-item label { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#888; margin-bottom:3px; }
+    .qr-meta-item p { font-size:13px; font-weight:600; color:#0a1728; margin:0; }
+    .qr-section { margin-bottom:20px; }
+    .qr-section-title { font-family:'Syne',sans-serif; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#7ab8d4; border-bottom:1px solid #e5e7eb; padding-bottom:6px; margin-bottom:12px; }
+    .qr-details-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; }
+    .qr-detail-item label { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#888; margin-bottom:2px; }
+    .qr-detail-item p { font-size:13px; color:#0a1728; margin:0; }
+    .qr-notes-box { background:#f4f5f7; border-radius:4px; padding:12px 16px; font-size:12px; color:#444; white-space:pre-wrap; margin-top:8px; }
+    .qr-respond-box { background:#0a1728; color:#fff; border-radius:4px; padding:14px 18px; margin-top:24px; font-size:12px; }
+    .qr-respond-box strong { display:block; margin-bottom:4px; font-family:'Syne',sans-serif; letter-spacing:.04em; }
+    .qr-footer { margin-top:32px; padding-top:14px; border-top:1px solid #e5e7eb; font-size:10px; color:#aaa; display:flex; justify-content:space-between; }
+  </style>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar"></aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <span class="topbar-title" id="topbar-title">Quote Request</span>
+    </div>
+    <a id="back-to-rfq-btn" href="detail.html" class="btn btn-ghost btn-sm">← Back to RFQ</a>
+    <span style="font-size:var(--text-xs);color:var(--color-text-muted);margin-left:var(--space-3)">Safe to close this tab after downloading the PDF — nothing is saved here.</span>
+  </div>
+
+  <div class="portal-content">
+    <div class="portal-page-header"><div><h1 id="page-heading">Quote Request</h1><p id="page-sub" style="color:var(--color-text-muted)">Edit the details below, then download as PDF to email to the counterparty.</p></div></div>
+
+    <div class="qr-layout">
+
+      <!-- Left: edit panel -->
+      <div class="qr-left">
+        <div class="panel"><div class="panel-body">
+          <h4 style="margin-bottom:var(--space-4)">Edit Details</h4>
+          <div id="edit-form-container">
+            <div style="color:var(--color-text-muted);font-size:var(--text-sm)">Loading...</div>
+          </div>
+        </div></div>
+        <button onclick="generatePdf()" class="btn btn-primary" style="width:100%;margin-top:var(--space-4)">Download PDF</button>
+      </div>
+
+      <!-- Right: live preview -->
+      <div class="qr-right">
+        <div class="panel"><div class="panel-body" style="padding:0">
+          <div id="qr-print-template">
+            <!-- populated by JS -->
+          </div>
+        </div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/portal/sidebar.js"></script>
+<script src="../../js/portal-guard.js"></script>
+<script src="../../js/portal/rfq-quote-request.js"></script>
+</body>
+</html>

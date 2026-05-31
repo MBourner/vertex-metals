@@ -86,10 +86,6 @@ function buildContactFormHtml(c = {}, formId = 'contact-form', submitFn = 'submi
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Country</label>
-          <input type="text" class="form-input" id="${formId}-country" value="${esc(c.country || '')}" placeholder="e.g. India" />
-        </div>
-        <div class="form-group">
           <label class="form-label">Primary Contact Name</label>
           <input type="text" class="form-input" id="${formId}-contact-name" value="${esc(c.primary_contact_name || '')}" />
         </div>
@@ -104,6 +100,30 @@ function buildContactFormHtml(c = {}, formId = 'contact-form', submitFn = 'submi
         <div class="form-group">
           <label class="form-label">Website</label>
           <input type="url" class="form-input" id="${formId}-website" value="${esc(c.website || '')}" placeholder="https://" />
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Address Line 1</label>
+          <input type="text" class="form-input" id="${formId}-address1" value="${esc(c.address_line_1 || '')}" placeholder="e.g. Unit 4A, Victor Business Centre" />
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Address Line 2</label>
+          <input type="text" class="form-input" id="${formId}-address2" value="${esc(c.address_line_2 || '')}" placeholder="Street, area" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">City</label>
+          <input type="text" class="form-input" id="${formId}-city" value="${esc(c.city || '')}" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Postcode</label>
+          <input type="text" class="form-input" id="${formId}-postcode" value="${esc(c.postcode || '')}" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Country</label>
+          <input type="text" class="form-input" id="${formId}-country" value="${esc(c.country || '')}" placeholder="e.g. United Kingdom" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">VAT Number</label>
+          <input type="text" class="form-input" id="${formId}-vat" value="${esc(c.vat_number || '')}" placeholder="e.g. GB 432 4723 14" />
         </div>
       </div>
       <div class="form-group" style="margin-top:var(--space-2)">
@@ -184,11 +204,16 @@ function getFormPayload(formId) {
   return {
     company_name:         document.getElementById(`${formId}-company`)?.value.trim() || null,
     type:                 document.getElementById(`${formId}-type`)?.value || 'buyer',
-    country:              document.getElementById(`${formId}-country`)?.value.trim() || null,
     primary_contact_name: document.getElementById(`${formId}-contact-name`)?.value.trim() || null,
     email:                document.getElementById(`${formId}-email`)?.value.trim() || null,
     phone:                document.getElementById(`${formId}-phone`)?.value.trim() || null,
     website:              document.getElementById(`${formId}-website`)?.value.trim() || null,
+    address_line_1:       document.getElementById(`${formId}-address1`)?.value.trim() || null,
+    address_line_2:       document.getElementById(`${formId}-address2`)?.value.trim() || null,
+    city:                 document.getElementById(`${formId}-city`)?.value.trim() || null,
+    postcode:             document.getElementById(`${formId}-postcode`)?.value.trim() || null,
+    country:              document.getElementById(`${formId}-country`)?.value.trim() || null,
+    vat_number:           document.getElementById(`${formId}-vat`)?.value.trim() || null,
     notes:                document.getElementById(`${formId}-notes`)?.value.trim() || null,
   };
 }

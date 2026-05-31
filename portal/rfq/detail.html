@@ -6,6 +6,30 @@
   <title>RFQ Detail — Vertex Metals Portal</title>
   <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    .tab-bar { display:flex; gap:0; border-bottom:2px solid var(--color-border); margin-bottom:var(--space-6); overflow-x:auto; scrollbar-width:none; }
+    .tab-bar::-webkit-scrollbar { display:none; }
+    .tab-btn { background:none; border:none; padding:var(--space-2) var(--space-4); font-family:var(--font-display); font-size:13px; font-weight:500; color:var(--color-text-muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:color .15s,border-color .15s; white-space:nowrap; flex-shrink:0; }
+    .tab-btn:hover { color:var(--color-text); }
+    .tab-btn.active { color:var(--color-accent); border-bottom-color:var(--color-accent); }
+    .tab-pane { display:none; }
+    .tab-pane.active { display:block; }
+    .cost-section { margin-bottom:var(--space-8); }
+    .cost-section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--space-3); }
+    .cost-section-header h4 { margin:0; }
+    .line-editor-table { width:100%; border-collapse:collapse; font-size:var(--text-sm); }
+    .line-editor-table th { background:var(--color-surface); padding:var(--space-2) var(--space-3); text-align:left; font-family:var(--font-display); font-size:var(--text-xs); font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--color-text-muted); border-bottom:2px solid var(--color-border); white-space:nowrap; }
+    .line-editor-table td { padding:var(--space-1) var(--space-2); vertical-align:middle; border-bottom:1px solid var(--color-border); }
+    .line-editor-table .line-input { width:100%; border:1px solid var(--color-border); border-radius:var(--radius-sm); padding:var(--space-1) var(--space-2); font-size:var(--text-sm); background:#fff; color:var(--color-text-primary); min-width:60px; }
+    .line-editor-table .line-input:focus { outline:2px solid var(--color-accent); outline-offset:-1px; }
+    .line-alt-badge { font-family:var(--font-display); font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; background:rgba(122,184,212,.15); color:var(--color-accent); border-radius:3px; padding:1px 5px; white-space:nowrap; }
+    .totals-box { background:var(--color-surface); border-radius:var(--radius); padding:var(--space-5); margin-top:var(--space-5); }
+    .totals-row { display:flex; justify-content:space-between; align-items:center; padding:var(--space-1) 0; font-size:var(--text-sm); }
+    .totals-row.total-final { border-top:2px solid var(--color-border); margin-top:var(--space-2); padding-top:var(--space-3); font-family:var(--font-display); font-size:var(--text-lg); font-weight:700; color:var(--color-text-primary); }
+    .magic-link-box { background:var(--color-navy); border-radius:var(--radius); padding:var(--space-5); display:flex; align-items:center; gap:var(--space-4); flex-wrap:wrap; margin-bottom:var(--space-5); }
+    .magic-link-url { font-family:monospace; font-size:var(--text-sm); color:var(--color-steel); word-break:break-all; flex:1; }
+  </style>
 </head>
 <body class="portal-body">
 <aside class="sidebar" id="sidebar"></aside>
@@ -19,16 +43,80 @@
   </div>
   <div class="portal-content">
     <div class="portal-page-header"><div><h1 id="rfq-title">Loading...</h1></div></div>
-    <div class="panel"><div class="panel-body"><div id="rfq-detail"><div style="color:var(--color-text-muted)">Loading...</div></div></div></div>
-  </div>
-</div>
 
-<!-- Create Customer Quote Modal -->
-<div class="modal-overlay" id="create-quote-modal">
-  <div class="modal-box" style="max-width:640px">
-    <button class="modal-close" onclick="document.getElementById('create-quote-modal').classList.remove('open')">✕</button>
-    <h3>Create Customer Quote</h3>
-    <div id="create-quote-form-container"></div>
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('enquiry')">Enquiry</button>
+      <button class="tab-btn" onclick="switchTab('costs')">Cost Inputs</button>
+      <button class="tab-btn" onclick="switchTab('build')">Build Quote</button>
+      <button class="tab-btn" onclick="switchTab('customer')">Customer</button>
+    </div>
+
+    <!-- Tab 1: Enquiry -->
+    <div class="tab-pane active" id="tab-enquiry">
+      <div class="panel"><div class="panel-body"><div id="rfq-detail"><div style="color:var(--color-text-muted)">Loading...</div></div></div></div>
+      <div class="panel" style="margin-top:var(--space-4)"><div class="panel-body"><div id="rfq-lines-section"><div style="color:var(--color-text-muted)">Loading...</div></div></div></div>
+    </div>
+
+    <!-- Tab 2: Cost Inputs -->
+    <div class="tab-pane" id="tab-costs">
+
+      <!-- Supplier Quotes -->
+      <div class="panel"><div class="panel-body">
+        <div class="cost-section">
+          <div class="cost-section-header">
+            <h4>Supplier Quotes</h4>
+            <div style="display:flex;gap:var(--space-2)">
+              <a id="supplier-quote-request-btn" href="#" target="_blank" class="btn btn-secondary btn-sm">Request Quote PDF →</a>
+              <button class="btn btn-primary btn-sm" onclick="openAddSupplierQuoteModal()">+ Add Quote</button>
+              <button class="btn btn-secondary btn-sm" onclick="openLinkSupplierQuoteModal()">Link Existing</button>
+            </div>
+          </div>
+          <div id="supplier-quotes-section"><div style="color:var(--color-text-muted);font-size:var(--text-sm);padding:var(--space-3) 0">Loading...</div></div>
+        </div>
+
+        <!-- Logistics Quotes -->
+        <div class="cost-section">
+          <div class="cost-section-header">
+            <h4>Logistics Quotes</h4>
+            <div style="display:flex;gap:var(--space-2)">
+              <a id="logistics-quote-request-btn" href="#" target="_blank" class="btn btn-secondary btn-sm">Request Quote PDF →</a>
+              <button class="btn btn-primary btn-sm" onclick="openAddLogisticsQuoteModal()">+ Add Quote</button>
+              <button class="btn btn-secondary btn-sm" onclick="openLinkLogisticsQuoteModal()">Link Existing</button>
+            </div>
+          </div>
+          <div id="logistics-quotes-section"><div style="color:var(--color-text-muted);font-size:var(--text-sm);padding:var(--space-3) 0">Loading...</div></div>
+        </div>
+
+        <!-- Other Costs -->
+        <div class="cost-section" style="margin-bottom:0">
+          <div class="cost-section-header">
+            <h4>Other Costs <span style="font-size:var(--text-xs);font-weight:400;color:var(--color-text-muted)">(flat fees: import duty, customs, etc.)</span></h4>
+            <button class="btn btn-primary btn-sm" onclick="openAddOverheadModal()">+ Add Cost</button>
+          </div>
+          <div id="overhead-costs-section"><div style="color:var(--color-text-muted);font-size:var(--text-sm);padding:var(--space-3) 0">Loading...</div></div>
+        </div>
+
+        <!-- Pricing Calculator -->
+        <div id="pricing-calculator-section"></div>
+
+      </div></div>
+    </div>
+
+    <!-- Tab 3: Build Quote -->
+    <div class="tab-pane" id="tab-build">
+      <div class="panel"><div class="panel-body">
+        <div id="build-quote-content"><div style="color:var(--color-text-muted)">Loading...</div></div>
+      </div></div>
+    </div>
+
+    <!-- Tab 4: Customer -->
+    <div class="tab-pane" id="tab-customer">
+      <div class="panel"><div class="panel-body">
+        <div id="customer-tab-content"><div style="color:var(--color-text-muted)">Loading...</div></div>
+      </div></div>
+    </div>
+
   </div>
 </div>
 

@@ -93,7 +93,9 @@ async function init() {
       if (selected) selected.dataset.name = trade.product || selected.dataset.name;
     }
     document.getElementById('f-specification').value = trade.specification || '';
-    document.getElementById('f-quantity').value = trade.quantity_mt || '';
+    document.getElementById('f-quantity').value      = trade.quantity_mt || '';
+    const unitEl = document.getElementById('f-quantity-unit');
+    if (unitEl) unitEl.value = trade.quantity_unit || 'MT';
     document.getElementById('f-agreed-price').value = trade.sell_price_gbp || '';
     document.getElementById('f-incoterms').value = trade.incoterms || '';
     document.getElementById('f-delivery-dest').value = trade.delivery_destination || '';
@@ -156,6 +158,7 @@ async function submitNewOrder(e) {
       product:                productName,
       specification:          document.getElementById('f-specification').value.trim() || null,
       quantity_mt:            parseFloat(document.getElementById('f-quantity').value) || null,
+      quantity_unit:          document.getElementById('f-quantity-unit')?.value || 'MT',
       sell_price_gbp:         parseFloat(document.getElementById('f-agreed-price').value) || null,
       incoterms:              document.getElementById('f-incoterms').value || null,
       delivery_destination:   document.getElementById('f-delivery-dest').value.trim() || null,

@@ -53,7 +53,8 @@ async function loadQueue() {
       id, created_at, queue_type, drafted_by, priority, sla_due_at, status,
       trade:trades(
         id, reference, current_state, product, specification,
-        quantity_mt, sell_price_gbp, cost_price_gbp,
+        quantity_mt, quantity_unit, sell_price_gbp, cost_price_gbp,
+        rfq_id, customer_quote_id,
         customer_po_reference, incoterms, delivery_destination,
         required_delivery_date, payment_terms, notes,
         buyer:contacts!trades_buyer_id_fkey(id, company_name, country),
@@ -319,9 +320,10 @@ async function renderPoTranslation(item, el) {
         ${kv('Order Reference',    esc(trade.reference || '—'))}
         ${kv('Customer PO Ref',   `<strong>${esc(trade.customer_po_reference || '—')}</strong>`)}
         ${kv('Buyer',              esc(trade.buyer?.company_name || '—') + (trade.buyer?.country ? ` (${esc(trade.buyer.country)})` : ''))}
+        ${trade.rfq_id ? kv('Source RFQ', `<a href="../rfq/detail.html?id=${esc(trade.rfq_id)}" target="_blank" style="color:var(--color-accent)">View accepted RFQ →</a>`) : ''}
         ${kv('Product',            esc(trade.product || '—'))}
         ${kv('Specification',     `<span style="font-family:monospace;font-size:11px">${esc(trade.specification || '—')}</span>`)}
-        ${kv('Quantity',           trade.quantity_mt != null ? fmt(trade.quantity_mt, 0) + ' MT' : '—')}
+        ${kv('Quantity',           trade.quantity_mt != null ? fmt(trade.quantity_mt, trade.quantity_unit === 'MT' ? 3 : 0) + ' ' + esc(trade.quantity_unit || 'MT') : '—')}
         ${kv('Agreed Price (GBP)', trade.sell_price_gbp != null ? '£' + fmt(trade.sell_price_gbp) : '—')}
         ${kv('Incoterms',          esc(trade.incoterms || '—'))}
         ${kv('Delivery To',        esc(trade.delivery_destination || '—'))}
@@ -430,7 +432,7 @@ async function renderSupplierPo(item, el) {
       ${kv('Customer', esc(trade.buyer?.company_name || '—'))}
       ${kv('Product', esc(trade.product || '—'))}
       ${kv('Specification', `<span style="font-family:monospace;font-size:11px">${esc(trade.specification || '—')}</span>`)}
-      ${kv('Quantity', trade.quantity_mt != null ? fmt(trade.quantity_mt, 0) + ' MT' : '—')}
+      ${kv('Quantity', trade.quantity_mt != null ? fmt(trade.quantity_mt, trade.quantity_unit === 'MT' ? 3 : 0) + ' ' + esc(trade.quantity_unit || 'MT') : '—')}
       ${kv('Sell Price (GBP)', trade.sell_price_gbp != null ? '£' + fmt(trade.sell_price_gbp) : '—')}
       ${kv('Incoterms', esc(trade.incoterms || '—'))}
       ${kv('Delivery To', esc(trade.delivery_destination || '—'))}
@@ -530,7 +532,7 @@ async function renderReleaseApproval(item, el) {
     <div class="panel-body"><table style="width:100%"><tbody>
       ${kv('Product', esc(trade.product || '—'))}
       ${kv('Specification', `<span style="font-family:monospace;font-size:11px">${esc(trade.specification || '—')}</span>`)}
-      ${kv('Quantity', trade.quantity_mt != null ? fmt(trade.quantity_mt, 0) + ' MT' : '—')}
+      ${kv('Quantity', trade.quantity_mt != null ? fmt(trade.quantity_mt, trade.quantity_unit === 'MT' ? 3 : 0) + ' ' + esc(trade.quantity_unit || 'MT') : '—')}
       ${kv('Incoterms', esc(trade.incoterms || '—'))}
     </tbody></table></div>
   </div>`;
@@ -574,7 +576,7 @@ async function renderInvoiceReview(item, el) {
       ${kv('Reference', esc(trade.reference || '—'))}
       ${kv('Buyer', esc(trade.buyer?.company_name || '—'))}
       ${kv('Product', esc(trade.product || '—'))}
-      ${kv('Quantity', trade.quantity_mt != null ? fmt(trade.quantity_mt, 0) + ' MT' : '—')}
+      ${kv('Quantity', trade.quantity_mt != null ? fmt(trade.quantity_mt, trade.quantity_unit === 'MT' ? 3 : 0) + ' ' + esc(trade.quantity_unit || 'MT') : '—')}
       ${kv('Invoice Value (GBP)', trade.sell_price_gbp != null ? '<strong>£' + fmt(trade.sell_price_gbp) + '</strong>' : '—')}
       ${kv('Gross Margin', margin != null ? '£' + fmt(margin) : '—', margin != null && margin < 0)}
       ${kv('Payment Terms', esc(trade.payment_terms || '—'))}

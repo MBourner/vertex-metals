@@ -111,7 +111,7 @@ function renderSummary(trade) {
             <tr><td style="color:var(--color-text-muted);padding:var(--space-2) 0">Supplier</td><td>${esc(trade.supplier?.company_name || 'Not yet assigned')}</td></tr>
             <tr><td style="color:var(--color-text-muted);padding:var(--space-2) 0">Product</td><td>${esc(trade.product || '—')}</td></tr>
             <tr><td style="color:var(--color-text-muted);padding:var(--space-2) 0">Specification</td><td>${esc(trade.specification || '—')}</td></tr>
-            <tr><td style="color:var(--color-text-muted);padding:var(--space-2) 0">Quantity</td><td>${fmt(trade.quantity_mt, 0)} MT</td></tr>
+            <tr><td style="color:var(--color-text-muted);padding:var(--space-2) 0">Quantity</td><td>${fmt(trade.quantity_mt, trade.quantity_unit === 'MT' ? 3 : 0)} ${esc(trade.quantity_unit || 'MT')}</td></tr>
             <tr><td style="color:var(--color-text-muted);padding:var(--space-2) 0">Incoterms</td><td>${esc(trade.incoterms || '—')}</td></tr>
             <tr><td style="color:var(--color-text-muted);padding:var(--space-2) 0">Delivery To</td><td>${esc(trade.delivery_destination || '—')}</td></tr>
             <tr><td style="color:var(--color-text-muted);padding:var(--space-2) 0">Required Delivery</td><td>${fmtDate(trade.required_delivery_date)}</td></tr>
@@ -222,7 +222,15 @@ async function renderActionPanel(trade) {
 
   // State-specific additions that sit alongside generic transition buttons
   if (trade.current_state === 'order_drafted') {
-    html += `<div style="margin-bottom:var(--space-2)"><a href="new.html?id=${esc(tradeId)}" class="btn btn-primary btn-sm">Edit Draft & Resubmit →</a></div>`;
+    html += `
+      <div style="background:var(--color-surface);border-radius:var(--radius);padding:var(--space-4);margin-bottom:var(--space-4)">
+        <p style="font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-1)">Order in Draft</p>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4)">Complete all order details and upload required documents, then submit for verification when ready.</p>
+        <div style="display:flex;gap:var(--space-3);flex-wrap:wrap">
+          <a href="new.html?id=${esc(tradeId)}" class="btn btn-secondary btn-sm">Edit Order Details</a>
+          <button onclick="openSubmitForVerificationModal()" class="btn btn-primary btn-sm">Submit for Verification →</button>
+        </div>
+      </div>`;
   }
   if (trade.current_state === 'supplier_po_drafted') {
     html += `<div style="margin-bottom:var(--space-2)"><a href="supplier-po.html?id=${esc(tradeId)}" class="btn btn-primary btn-sm">Edit Supplier PO →</a></div>`;
@@ -617,6 +625,65 @@ async function submitInvoice(e) {
 }
 
 // ── Invoice review queue gate (invoice_drafted → invoice_issued) ──────────────
+
+function openSubmitForVerificationModal() {
+  // Inline confirmation modal (no extra HTML needed — uses dynamic creation)
+  const existing = document.getElementById('submit-verif-modal');
+  if (existing) existing.remove();
+
+  const el = document.createElement('div');
+  el.id = 'submit-verif-modal';
+  el.className = 'modal-overlay open';
+  el.innerHTML = `
+    <div class="modal-box" style="max-width:480px">
+      <button class="modal-close" onclick="document.getElementById('submit-verif-modal').remove()">✕</button>
+      <h3>Submit for Verification</h3>
+      <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-5)">
+        This will submit the order to the PO translation verification queue. Make sure all key details and documents are complete before proceeding.
+      </p>
+      <div class="form-group" style="margin-bottom:var(--space-4)">
+        <label class="form-label">Priority</label>
+        <select class="form-select" id="verif-priority">
+          <option value="routine">Routine (24 h SLA)</option>
+          <option value="expedite">Expedite (4 h SLA)</option>
+        </select>
+      </div>
+      <div id="verif-alert" class="alert" style="display:none;margin-bottom:var(--space-3)"></div>
+      <div style="display:flex;gap:var(--space-3)">
+        <button id="verif-submit-btn" onclick="submitForVerification()" class="btn btn-primary">Submit for Verification</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('submit-verif-modal').remove()">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+async function submitForVerification() {
+  const btn      = document.getElementById('verif-submit-btn');
+  const alertEl  = document.getElementById('verif-alert');
+  const priority = document.getElementById('verif-priority').value || 'routine';
+  const slaHours = priority === 'expedite' ? 4 : 24;
+
+  btn.disabled = true; btn.textContent = 'Submitting…';
+
+  try {
+    const { error } = await supabaseClient.from('verification_queue').insert({
+      trade_id:   tradeId,
+      queue_type: 'po_translation',
+      drafted_by: PortalRoles.getUserId(),
+      priority,
+      sla_due_at: new Date(Date.now() + slaHours * 3600_000).toISOString(),
+      status:     'pending',
+    });
+    if (error) throw new Error(error.message);
+    document.getElementById('submit-verif-modal').remove();
+    showAlert('Order submitted for verification.', 'success');
+    setTimeout(() => location.reload(), 1500);
+  } catch (err) {
+    alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
+    alertEl.textContent = err.message;
+    btn.disabled = false; btn.textContent = 'Submit for Verification';
+  }
+}
 
 async function submitInvoiceReview(btn) {
   btn.disabled = true; btn.textContent = 'Submitting…';

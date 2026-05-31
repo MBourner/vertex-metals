@@ -99,7 +99,7 @@
 
   el.innerHTML = `
     <div class="sidebar-logo">
-      <img src="${lp}assets/images/logo/vertex-metals-logo.jpg" alt="" />
+      <img src="${lp}assets/images/logo/Vertex%20logo%20emblem.png" alt="" />
       <div>
         <div class="sidebar-logo-text">Vertex Metals</div>
         <div class="sidebar-logo-sub">Internal Portal</div>

@@ -1998,7 +1998,18 @@ async function submitConvertOrder(e, quoteId) {
 // ── Auto-detect page ──────────────────────────────────────────────────────────
 
 if (document.getElementById('rfq-table-body')) {
-  (async () => { const u = await getCurrentUser(); const el = document.getElementById('user-email'); if (el) el.textContent = u?.email || ''; loadRfqs(); })();
+  (async () => {
+    const u = await getCurrentUser();
+    const el = document.getElementById('user-email');
+    if (el) el.textContent = u?.email || '';
+    loadRfqs();
+
+    // Deep-link support: ?action=new opens the New RFQ modal directly
+    // (used by the Customers/Sales homepage "+ New Customer RFQ" shortcuts)
+    if (new URLSearchParams(location.search).get('action') === 'new') {
+      openNewRfqModal();
+    }
+  })();
 }
 if (document.getElementById('rfq-detail') !== null) {
   (async () => { const u = await getCurrentUser(); const el = document.getElementById('user-email'); if (el) el.textContent = u?.email || ''; loadRfqDetail(); })();

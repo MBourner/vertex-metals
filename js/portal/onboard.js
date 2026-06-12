@@ -116,17 +116,19 @@ async function handleSubmit(e) {
   try {
     const user = await getCurrentUser();
 
-    // Map supplier_type → contacts.type so logistics/service providers
-    // are stored under the correct contact category in the CRM.
+    // Map supplier_type → contacts.type so logistics/packaging/service
+    // providers are stored under the correct contact category in the CRM.
     const CONTACT_TYPE_MAP = {
       manufacturing:         'supplier',
       materials_commodities: 'supplier',
       logistics:             'logistics',
+      packaging:             'other',
       service_provider:      'other',
     };
     const contactType = CONTACT_TYPE_MAP[supplierType] || 'supplier';
     const contactTypeLabel = contactType === 'logistics' ? 'logistics provider'
-                           : contactType === 'other'     ? 'service provider'
+                           : supplierType === 'packaging' ? 'packaging supplier'
+                           : contactType === 'other'      ? 'service provider'
                            : 'supplier';
 
     // ── 1. Create or update contact record ──────────────────────────────

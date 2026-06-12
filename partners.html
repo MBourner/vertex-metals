@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/components.css" />
   <link rel="stylesheet" href="css/layout.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -402,6 +403,7 @@
   </div>
 </footer>
 
+<script src="js/supabase-client.js"></script>
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -427,10 +429,36 @@
       btn.disabled = true;
       btn.textContent = 'Submitting…';
 
+      const formData = new FormData(partnerForm);
+      const field = (name) => (formData.get(name) || '').toString().trim() || null;
+
+      // Record the enquiry in the Supplier Enquiry Queue
+      supabaseClient.from('supplier_enquiries').insert([{
+        source: 'website_form',
+        status: 'new',
+        company_name: field('company_name'),
+        country: field('country'),
+        hq_address: field('hq_address'),
+        website: field('website'),
+        contact_name: field('contact_name'),
+        position_title: field('position_title'),
+        email: field('email'),
+        phone: field('phone'),
+        products_of_interest: field('products_of_interest'),
+        supply_capacity_mt: field('supply_capacity_mt'),
+        export_markets: field('export_markets'),
+        certifications: field('certifications'),
+        testing_procedures: field('testing_procedures'),
+        shipping_terms: field('shipping_terms'),
+        submitted_at: new Date().toISOString(),
+      }]).then(({ error }) => {
+        if (error) console.warn('Could not add enquiry to supplier queue:', error.message);
+      });
+
       fetch('/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(new FormData(partnerForm)).toString()
+        body: new URLSearchParams(formData).toString()
       })
         .then(() => {
           partnerForm.style.display = 'none';

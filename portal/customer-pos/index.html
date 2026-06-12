@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<!-- SHARED: update portal sidebar in all portal pages if changed -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Customer Purchase Orders — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar"></aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <span class="topbar-title">Customer Purchase Orders</span>
+    </div>
+    <a href="../orders/new.html" class="btn btn-primary btn-sm">+ New Customer PO</a>
+  </div>
+  <div class="portal-content">
+    <div class="portal-page-header"><div><h1>Customer Purchase Orders</h1><p>Purchase orders received from customers — tracked separately from the supplier POs we issue</p></div></div>
+
+    <div class="panel">
+      <div class="panel-body" style="text-align:center;padding:var(--space-10) var(--space-6)">
+        <h3 style="margin-bottom:var(--space-2)">Coming Soon</h3>
+        <p style="color:var(--color-text-muted);font-size:var(--text-sm);max-width:480px;margin:0 auto">
+          A dedicated tracker for customer purchase orders is under development. In the meantime,
+          each order already records the customer's PO reference and date — see
+          <a href="../orders/index.html">Orders</a> for the current list, or use
+          <a href="../orders/new.html">New Order</a> to log a new customer PO.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal/sidebar.js"></script>
+<script src="../../js/portal-guard.js"></script><script src="../../js/portal/customer-pos.js"></script>
+</body></html>

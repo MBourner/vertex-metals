@@ -81,13 +81,13 @@
     <div id="form-error" style="display:none;margin-bottom:var(--space-4);padding:var(--space-3) var(--space-4);background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius-sm);font-size:var(--text-sm);color:var(--color-danger)"></div>
     <div style="display:flex;gap:var(--space-3);justify-content:flex-end;margin-bottom:var(--space-10)">
       <a id="cancel-link" href="index.html" class="btn btn-ghost">Back to Supplier</a>
-      <button class="btn btn-primary" id="advance-btn" onclick="advanceToCompliance()">Advance to Compliance Review →</button>
+      <button class="btn btn-primary" id="advance-btn" onclick="advanceFromDocuments()">Advance to Compliance Review →</button>
     </div>
   </div>
 </div>
 
 <!-- Upload / N/A modal -->
-<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+<div class="modal-overlay" id="modal-overlay">
   <div class="modal-box" id="modal-box"></div>
 </div>
 

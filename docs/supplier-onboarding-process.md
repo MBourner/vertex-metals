@@ -71,6 +71,19 @@ Any stage may result in rejection. The rejection reason is mandatory and recorde
 
 ---
 
+## Diligence Tiers
+
+`contacts.supplier_type` determines which onboarding sections apply:
+
+| Tier | Supplier types | Programme |
+|---|---|---|
+| **Full** | `manufacturing`, `materials_commodities` | Full AML/CFT/KYC — all stages apply, including Compliance Review (Stage 4). A current (≤12 month) sanctions screen is mandatory before Documents and before Recommendation, and a non-pending KYC record is mandatory before Recommendation. |
+| **Simplified** | `logistics`, `packaging`, `service_provider` | Simplified track — these are not counterparties to the traded product itself. Stage 4 (Compliance Review) is skipped entirely; Stage 3 (Documents) advances straight to Stage 5 (Recommendation). Sanctions screening is offered at Stage 2 but is recommended, not a hard gate. |
+
+The tier is fixed by the supplier type selected at Stage 1 — the same person (Martyn) still performs the Screening & Risk Assessment and Document Collection stages for every supplier, just without the full-diligence checks where they don't apply.
+
+---
+
 ## Pre-Stage: Supplier Enquiry
 
 ### Source 1 — Website contact form (Partners/Suppliers page)
@@ -98,7 +111,7 @@ Jackson completes the supplier record with the mandatory fields required to begi
 - Company name
 - Legal registration / company number
 - Country of registration
-- Supplier type (`manufacturing` | `materials_commodities` | `logistics` | `service_provider`)
+- Supplier type (`manufacturing` | `materials_commodities` | `logistics` | `packaging` | `service_provider`) — see [Diligence Tiers](#diligence-tiers) for how this affects the stages below
 - Primary contact name, email, phone
 - Initial risk category (Jackson's commercial assessment: `low` | `medium` | `high`)
 
@@ -118,6 +131,8 @@ Martyn performs the initial screening and formal risk assessment.
 - Result recorded in `sanctions_screens` (existing table) linked to this supplier
 - A `sanctions_linked` audit event is written to `supplier_audit_trail`
 - If a confirmed match: supplier is rejected at this stage with full documentation
+- **Full-diligence suppliers** (manufacturing, materials/commodities): a current (≤12 month) screen is mandatory before advancing to Documents
+- **Simplified-track suppliers** (logistics, packaging, service providers): screening is offered but optional — the stage can advance without one
 
 ### Risk assessment
 
@@ -153,19 +168,19 @@ The portal presents a mandatory document checklist based on supplier type. Marty
 
 ### Document types by supplier type
 
-| Document | Manufacturing | Materials / Commodities | Logistics | Service Provider |
-|---|:---:|:---:|:---:|:---:|
-| Business registration certificate | ✓ | ✓ | ✓ | ✓ |
-| Beneficial owner declaration | ✓ | ✓ | ✓ | ✓ |
-| Bank details | ✓ | ✓ | ✓ | ✓ |
-| Data Processing Agreement (DPA/GDPR) | ✓ | ✓ | ✓ | ✓ |
-| Tax certificate (VAT/GST/jurisdiction) | ✓ | ✓ | ✓ | ✓ |
-| Quality certificate (ISO/BIS/IATF) | ✓ | ✓ | — | — |
-| Test / mill certificates | ✓ | ✓ | — | — |
-| Insurance — cargo | — | ✓ | ✓ | — |
-| Insurance — liability | ✓ | ✓ | ✓ | ✓ |
-| Audit report | ✓ | — | — | — |
-| W-9 (US suppliers only) | N/A* | N/A* | N/A* | N/A* |
+| Document | Manufacturing | Materials / Commodities | Logistics | Packaging | Service Provider |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Business registration certificate | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Beneficial owner declaration | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Bank details | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Data Processing Agreement (DPA/GDPR) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Tax certificate (VAT/GST/jurisdiction) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Quality certificate (ISO/BIS/IATF) | ✓ | ✓ | — | — | — |
+| Test / mill certificates | ✓ | ✓ | — | — | — |
+| Insurance — cargo | — | ✓ | ✓ | — | — |
+| Insurance — liability | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Audit report | ✓ | — | — | — | — |
+| W-9 (US suppliers only) | N/A* | N/A* | N/A* | N/A* | N/A* |
 
 *W-9 is available as a document type but should be marked Not Applicable for non-US suppliers.
 
@@ -187,6 +202,8 @@ Documents with an `expiry_date` are flagged 30 days before expiry. An expired re
 ---
 
 ## Stage 4 — Compliance Review (Martyn)
+
+> **Simplified-track suppliers** (`logistics`, `packaging`, `service_provider`) skip this stage entirely — Stage 3 (Documents) advances directly to Stage 5 (Recommendation). The KYC and final sanctions confirmation described below apply only to full-diligence suppliers (`manufacturing`, `materials_commodities`). See [Diligence Tiers](#diligence-tiers).
 
 Martyn completes the KYC and final compliance confirmation.
 

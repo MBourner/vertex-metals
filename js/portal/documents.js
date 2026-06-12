@@ -40,6 +40,7 @@ const REQUIRED_DOCS = {
   manufacturing:       ['business_registration','beneficial_owner_declaration','bank_details','dpa','tax_certificate','quality_cert','test_certificate','insurance_liability','audit_report'],
   materials_commodities:['business_registration','beneficial_owner_declaration','bank_details','dpa','tax_certificate','quality_cert','test_certificate','insurance_cargo','insurance_liability'],
   logistics:           ['business_registration','beneficial_owner_declaration','bank_details','dpa','tax_certificate','insurance_cargo','insurance_liability'],
+  packaging:           ['business_registration','beneficial_owner_declaration','bank_details','dpa','tax_certificate','insurance_liability'],
   service_provider:    ['business_registration','beneficial_owner_declaration','bank_details','dpa','tax_certificate','insurance_liability'],
 };
 
@@ -115,6 +116,13 @@ async function loadDocuments() {
   renderMandatory(currentByType);
   renderAdditional(currentByType);
   updateCompleteness(currentByType);
+
+  const advanceBtn = document.getElementById('advance-btn');
+  if (advanceBtn) {
+    advanceBtn.textContent = OnboardingWorkflow.requiresFullDiligence(supplierType)
+      ? 'Advance to Compliance Review →'
+      : 'Advance to Recommendation →';
+  }
 }
 
 function renderMandatory(currentByType) {
@@ -402,13 +410,19 @@ async function submitNa(docType, docLabel) {
   await loadDocuments();
 }
 
-// ── Advance to compliance stage ───────────────────────────────────────────
+// ── Advance from documents stage ──────────────────────────────────────────
+// Full-diligence suppliers go to Compliance Review; simplified-track
+// suppliers (logistics, packaging, service providers) skip straight to
+// Recommendation.
 
-async function advanceToCompliance() {
+async function advanceFromDocuments() {
   const errEl = document.getElementById('form-error');
   errEl.style.display = 'none';
 
-  const result = await OnboardingWorkflow.advanceStage(onboardingId, 'compliance');
+  const fullDiligence = OnboardingWorkflow.requiresFullDiligence(supplierType);
+  const targetStage = fullDiligence ? 'compliance' : 'recommendation';
+
+  const result = await OnboardingWorkflow.advanceStage(onboardingId, targetStage);
   if (!result.ok) {
     errEl.innerHTML = '<strong>Cannot advance yet:</strong><br>' + result.blockers.join('<br>');
     errEl.style.display = 'block';
@@ -417,11 +431,15 @@ async function advanceToCompliance() {
   }
 
   await OnboardingWorkflow.logEvent(supplierId, onboardingId, 'stage_advanced',
-    'Document collection marked complete. Advanced to Compliance Review stage.',
-    { from_stage: 'documents', to_stage: 'compliance' }
+    fullDiligence
+      ? 'Document collection marked complete. Advanced to Compliance Review stage.'
+      : 'Document collection marked complete. Simplified track — Compliance Review stage skipped. Advanced to Recommendation stage.',
+    { from_stage: 'documents', to_stage: targetStage }
   );
 
-  location.href = `compliance-review.html?supplier_id=${supplierId}&onboarding_id=${onboardingId}`;
+  location.href = fullDiligence
+    ? `compliance-review.html?supplier_id=${supplierId}&onboarding_id=${onboardingId}`
+    : `detail.html?id=${supplierId}`;
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────

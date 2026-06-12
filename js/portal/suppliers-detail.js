@@ -48,7 +48,7 @@ async function loadOnboarding() {
   // Load the most recent onboarding record (active or last completed)
   const { data: obs, error: obErr } = await supabaseClient
     .from('supplier_onboarding')
-    .select('*')
+    .select('*, contact:contacts(supplier_type)')
     .eq('contact_id', supplierId)
     .order('created_at', { ascending: false })
     .limit(5);
@@ -158,7 +158,7 @@ async function loadOnboarding() {
           </a>
         </div>
 
-        ${OnboardingWorkflow.renderProgressSteps(ob.workflow_stage)}
+        ${OnboardingWorkflow.renderProgressSteps(ob.workflow_stage, ob.contact?.supplier_type)}
 
         <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4)">
           <span class="badge ${stageBadge}">${esc(stageText)}</span>

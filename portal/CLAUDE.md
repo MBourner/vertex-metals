@@ -56,6 +56,9 @@ await supabaseClient.from('trades').update({ current_state: 'quoted' }).eq('id',
 | Module | Files |
 |---|---|
 | Dashboard | `dashboard.html`, `js/portal/dashboard.js` |
+| Sales Homepage | `sales/index.html`, `js/portal/sales.js` |
+| Customers Homepage | `customers/index.html`, `js/portal/customers.js` |
+| Customer POs (placeholder) | `customer-pos/index.html`, `js/portal/customer-pos.js` |
 | RFQs | `rfq/index.html`, `rfq/detail.html`, `js/portal/rfq.js` |
 | Quotes | `quotes/index.html`, `quotes/calculator.html`, `js/portal/quotes.js`, `js/portal/calculator.js` |
 | Orders | `orders/index.html`, `orders/detail.html`, `orders/new.html`, `orders/supplier-po.html` |

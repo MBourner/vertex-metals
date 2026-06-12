@@ -20,6 +20,7 @@ const onboardingId = params.get('onboarding_id');
 // Track whether a new sanctions screen was entered on this page
 let sanctionsScreenId = null; // set if user enters a new screen here
 let existingScreenConfirmed = false;
+let supplierType = null;
 
 // ── Live score calculation ────────────────────────────────────────────────
 
@@ -94,6 +95,7 @@ async function loadSanctionsSection(supplierName) {
 
   const recent = screens?.find(s => new Date(s.screened_at) >= cutoff);
   const RESULT_CLASS = { clear: 'badge-success', potential_match: 'badge-warning', confirmed_match: 'badge-danger' };
+  const fullDiligence = OnboardingWorkflow.requiresFullDiligence(supplierType);
 
   if (recent) {
     existingScreenConfirmed = true;
@@ -111,13 +113,20 @@ async function loadSanctionsSection(supplierName) {
       </div>
       <p style="font-size:var(--text-sm);color:var(--color-text-muted)">A current screen is on file. You may record a new screen if circumstances have changed.</p>
       ${buildNewScreenForm(supplierName, true)}`;
-  } else {
+  } else if (fullDiligence) {
     badgeEl.innerHTML = `<span class="badge badge-danger">Screen required</span>`;
     el.innerHTML = `
       <div style="padding:var(--space-3) var(--space-4);background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius-sm);margin-bottom:var(--space-4);font-size:var(--text-sm)">
         No sanctions screen dated within the last 12 months. You must record a screen before this stage can be completed.
       </div>
       ${buildNewScreenForm(supplierName, false)}`;
+  } else {
+    badgeEl.innerHTML = `<span class="badge badge-neutral">Optional for this supplier type</span>`;
+    el.innerHTML = `
+      <div style="padding:var(--space-3) var(--space-4);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-sm);margin-bottom:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted)">
+        No sanctions screen on file. This supplier follows the simplified onboarding track, so a sanctions screen is recommended but not required to advance.
+      </div>
+      ${buildNewScreenForm(supplierName, true)}`;
   }
 }
 
@@ -197,7 +206,7 @@ async function submitRiskAssessment() {
     if (result === 'confirmed_match') {
       if (!confirm('A confirmed sanctions match will result in this onboarding being rejected. Proceed?')) return;
     }
-  } else if (!existingScreenConfirmed) {
+  } else if (!existingScreenConfirmed && OnboardingWorkflow.requiresFullDiligence(supplierType)) {
     errEl.textContent = 'A sanctions screen must be recorded before completing this stage.';
     errEl.style.display = 'block';
     return;
@@ -323,10 +332,11 @@ async function submitRiskAssessment() {
   const user = await getCurrentUser();
   if (document.getElementById('user-email')) document.getElementById('user-email').textContent = user?.email || '';
 
-  const { data: supplier } = await supabaseClient.from('contacts').select('company_name').eq('id', supplierId).single();
+  const { data: supplier } = await supabaseClient.from('contacts').select('company_name, supplier_type').eq('id', supplierId).single();
   if (supplier) {
     document.getElementById('topbar-title').textContent = `Risk Assessment — ${supplier.company_name}`;
     document.title = `Risk Assessment — ${supplier.company_name}`;
+    supplierType = supplier.supplier_type;
   }
 
   const detailUrl = `detail.html?id=${supplierId}`;

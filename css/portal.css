@@ -85,6 +85,18 @@
   padding: var(--space-4) var(--space-6) var(--space-2);
 }
 
+.sidebar-section-link {
+  display: block;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--transition);
+}
+
+.sidebar-section-link:hover,
+.sidebar-section-link.active {
+  color: var(--color-accent);
+}
+
 .sidebar-link {
   display: flex;
   align-items: center;
@@ -121,6 +133,24 @@
 .sidebar-link.active svg,
 .sidebar-link.active .icon {
   opacity: 1;
+}
+
+.sidebar-link-soon {
+  justify-content: space-between;
+  color: rgba(255,255,255,0.25);
+  cursor: default;
+}
+
+.sidebar-link-soon-badge {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.25);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
 }
 
 .sidebar-footer {

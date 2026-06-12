@@ -79,7 +79,7 @@
 | `company_registration_number` | `text` |  Nullable |
 | `vat_number` | `text` |  Nullable |
 | `beneficial_owner` | `text` |  Nullable |
-| `supplier_type` | `text` |  Nullable |
+| `supplier_type` | `text` |  Nullable — `manufacturing` \| `materials_commodities` \| `logistics` \| `packaging` \| `service_provider` (enforced at application layer). Determines onboarding diligence tier — see `docs/supplier-onboarding-process.md` |
 
 ## Table `disputes`
 
@@ -474,8 +474,14 @@ Pre-onboarding leads from the website contact form or raised manually by Jackson
 | `export_markets` | `text` |  Nullable |
 | `testing_procedures` | `text` |  Nullable |
 | `shipping_terms` | `text` |  Nullable — incoterm code or `'Open'` |
+| `certifications` | `text` |  Nullable |
 | `created_at` | `timestamptz` |  |
 | `updated_at` | `timestamptz` |  |
+
+### RLS
+
+- `portal_full_access` — authenticated, full CRUD.
+- `Anon insert website partner enquiries` — anon may INSERT where `source = 'website_form'` and `status = 'new'` (used by `partners.html`'s register-interest form).
 
 ---
 

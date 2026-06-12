@@ -225,4 +225,10 @@ function getFormPayload(formId) {
   const emailEl = document.getElementById('user-email');
   if (emailEl) emailEl.textContent = user?.email || '';
   loadContacts();
+
+  // Deep-link support: ?action=new opens the Add Contact modal directly
+  // (used by the Customers homepage's "+ New Customer" shortcut)
+  if (new URLSearchParams(location.search).get('action') === 'new') {
+    openAddModal();
+  }
 })();

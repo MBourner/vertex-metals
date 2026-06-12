@@ -42,25 +42,29 @@
 
   const NAV_HREFS = [
     'dashboard.html',
-    'financials/index.html',
-    'metrics/index.html',
-    'orders/index.html',
-    'verification-queue/index.html',
-    'rfq/index.html',
-    'quotes/index.html',
-    'logistics-quotes/index.html',
-    'product-lines/index.html',
-    'enquiries/index.html',
+    'customers/index.html',
+    'contacts/index.html',
     'suppliers/index.html',
     'suppliers/onboarding-pipeline.html',
     'suppliers/expiry-monitor.html',
-    'kyc/index.html',
-    'contacts/index.html',
-    'sanctions/log.html',
-    'cbam/index.html',
+    'product-lines/index.html',
+    'sales/index.html',
+    'rfq/index.html',
+    'quotes/calculator.html',
+    'customer-pos/index.html',
+    'orders/supplier-po.html',
+    'quotes/index.html',
+    'orders/index.html',
+    'verification-queue/index.html',
+    'enquiries/index.html',
+    'metrics/index.html',
     'disputes/index.html',
     'concessions/index.html',
-    'quotes/calculator.html',
+    'logistics-quotes/index.html',
+    'cbam/index.html',
+    'financials/index.html',
+    'kyc/index.html',
+    'sanctions/log.html',
   ];
 
   // Portal-relative path of the current page (e.g. 'orders/detail.html')
@@ -95,6 +99,17 @@
     return `<div class="sidebar-section-label" style="margin-top:var(--space-4)">${label}</div>`;
   }
 
+  // Section label that also acts as a link to a section landing page.
+  function secLink(href, label) {
+    const cls = isActive(href) ? 'sidebar-section-label sidebar-section-link active' : 'sidebar-section-label sidebar-section-link';
+    return `<a href="${p}${href}" class="${cls}" style="margin-top:var(--space-4)">${label}</a>`;
+  }
+
+  // Placeholder for sub-pages that don't exist yet — shown but not clickable.
+  function soon(label) {
+    return `<span class="sidebar-link sidebar-link-soon">${label}<span class="sidebar-link-soon-badge">Soon</span></span>`;
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   const el = document.getElementById('sidebar');
@@ -110,37 +125,51 @@
     </div>
 
     <nav class="sidebar-nav">
-      <div class="sidebar-section-label">Overview</div>
+      <div class="sidebar-section-label">Dashboard</div>
       ${a('dashboard.html',                 'Dashboard')}
-      ${a('financials/index.html',          'Financials')}
-      ${a('metrics/index.html',             'Metrics')}
+
+      ${secLink('customers/index.html',    'Customer')}
+      ${a('contacts/index.html',           'Customer Details')}
+      ${soon('Customer History')}
+
+      ${sec('Supplier')}
+      ${a('suppliers/index.html',              'Supplier Details')}
+      ${a('suppliers/onboarding-pipeline.html','Supplier Onboarding')}
+      ${soon('Supplier Order History')}
+
+      ${sec('Products')}
+      ${a('product-lines/index.html',      'Product Details')}
+
+      ${secLink('sales/index.html',        'Sales')}
+      ${a('rfq/index.html',                'RFQ / Estimate')}
+      ${a('quotes/calculator.html',        'Pricing Calculator')}
+      ${a('customer-pos/index.html',       'Customer Purchase Orders')}
+      ${soon('Quotes Tracking')}
+
+      ${sec('Purchasing')}
+      ${a('orders/supplier-po.html',       'Purchase Orders')}
+      ${a('quotes/index.html',             'Purchase Tracking')}
 
       ${sec('Operations')}
       ${a('orders/index.html',             'Orders')}
       ${a('verification-queue/index.html', 'Verification Queue')}
-      ${a('rfq/index.html',                'RFQs')}
-      ${a('quotes/index.html',             'Supplier Quotes')}
-      ${a('logistics-quotes/index.html',   'Logistics Quotes')}
-      ${a('product-lines/index.html',      'Product Lines')}
+      ${a('enquiries/index.html',          'Enquiry Queue')}
+      ${a('metrics/index.html',            'Metrics')}
 
-      ${sec('Suppliers')}
-      ${a('enquiries/index.html',              'Enquiry Queue')}
-      ${a('suppliers/onboarding-pipeline.html','Onboarding Pipeline')}
-      ${a('suppliers/index.html',              'Supplier Register')}
-      ${a('suppliers/expiry-monitor.html',     'Document Expiry')}
-
-      ${sec('Compliance')}
-      ${a('kyc/index.html',                'KYC Records')}
-      ${a('contacts/index.html',           'Contacts')}
-      ${a('sanctions/log.html',            'Sanctions Log')}
-      ${a('cbam/index.html',               'CBAM Tracker')}
-
-      ${sec('Post-Trade')}
+      ${sec('Quality')}
       ${a('disputes/index.html',           'Disputes')}
       ${a('concessions/index.html',        'Concessions')}
 
-      ${sec('Tools')}
-      ${a('quotes/calculator.html',        'Pricing Calculator')}
+      ${sec('Logistics')}
+      ${a('logistics-quotes/index.html',   'Logistics Quotes')}
+      ${a('cbam/index.html',               'CBAM Tracker')}
+
+      ${sec('Finance')}
+      ${a('financials/index.html',         'Financials')}
+
+      ${sec('Compliance')}
+      ${a('kyc/index.html',                'KYC Records')}
+      ${a('sanctions/log.html',            'Sanctions Log')}
     </nav>
 
     <div class="sidebar-footer">

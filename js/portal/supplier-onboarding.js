@@ -42,10 +42,24 @@ const OnboardingWorkflow = (() => {
     rejected:         'badge-danger'
   };
 
-  // Stages shown in the 5-step progress bar (activation is the implicit finish)
+  // Stages shown in the progress bar (activation is the implicit finish)
   const PROGRESS_STAGES = [
     'intake', 'screening', 'documents', 'compliance', 'recommendation', 'pending_approval'
   ];
+
+  // ── Diligence tiers ────────────────────────────────────────────────────────
+  //
+  // Supplier types subject to the full AML/CFT/KYC programme — actual
+  // suppliers of traded products (metals, minerals, commodities). All other
+  // types (logistics, packaging, service providers) follow the simplified
+  // track: the Compliance Review stage is skipped (Documents advances
+  // straight to Recommendation) and sanctions screening at the Screening
+  // stage is recommended but not a hard gate.
+  const FULL_DILIGENCE_TYPES = ['manufacturing', 'materials_commodities'];
+
+  function requiresFullDiligence(supplierType) {
+    return FULL_DILIGENCE_TYPES.includes(supplierType);
+  }
 
   // ── Audit trail helper ────────────────────────────────────────────────────
 
@@ -93,15 +107,17 @@ const OnboardingWorkflow = (() => {
       if (!raCount)
         blockers.push('Risk assessment must be completed before collecting documents');
 
-      const cutoff = new Date();
-      cutoff.setFullYear(cutoff.getFullYear() - 1);
-      const { count: ssCount } = await supabaseClient
-        .from('sanctions_screens')
-        .select('id', { count: 'exact', head: true })
-        .eq('subject_id', onboarding.contact_id)
-        .gte('screened_at', cutoff.toISOString());
-      if (!ssCount)
-        blockers.push('A sanctions screen dated within the last 12 months is required');
+      if (requiresFullDiligence(contact.supplier_type)) {
+        const cutoff = new Date();
+        cutoff.setFullYear(cutoff.getFullYear() - 1);
+        const { count: ssCount } = await supabaseClient
+          .from('sanctions_screens')
+          .select('id', { count: 'exact', head: true })
+          .eq('subject_id', onboarding.contact_id)
+          .gte('screened_at', cutoff.toISOString());
+        if (!ssCount)
+          blockers.push('A sanctions screen dated within the last 12 months is required');
+      }
     }
 
     if (targetStage === 'compliance') {
@@ -116,23 +132,25 @@ const OnboardingWorkflow = (() => {
     }
 
     if (targetStage === 'recommendation') {
-      const { count: kycCount } = await supabaseClient
-        .from('kyc_records')
-        .select('id', { count: 'exact', head: true })
-        .eq('contact_id', onboarding.contact_id)
-        .neq('kyc_status', 'pending');
-      if (!kycCount)
-        blockers.push('A completed KYC record must be on file before submitting a recommendation');
+      if (requiresFullDiligence(contact.supplier_type)) {
+        const { count: kycCount } = await supabaseClient
+          .from('kyc_records')
+          .select('id', { count: 'exact', head: true })
+          .eq('contact_id', onboarding.contact_id)
+          .neq('kyc_status', 'pending');
+        if (!kycCount)
+          blockers.push('A completed KYC record must be on file before submitting a recommendation');
 
-      const cutoff = new Date();
-      cutoff.setFullYear(cutoff.getFullYear() - 1);
-      const { count: ssCount } = await supabaseClient
-        .from('sanctions_screens')
-        .select('id', { count: 'exact', head: true })
-        .eq('subject_id', onboarding.contact_id)
-        .gte('screened_at', cutoff.toISOString());
-      if (!ssCount)
-        blockers.push('A current sanctions screen (within 12 months) must be on file');
+        const cutoff = new Date();
+        cutoff.setFullYear(cutoff.getFullYear() - 1);
+        const { count: ssCount } = await supabaseClient
+          .from('sanctions_screens')
+          .select('id', { count: 'exact', head: true })
+          .eq('subject_id', onboarding.contact_id)
+          .gte('screened_at', cutoff.toISOString());
+        if (!ssCount)
+          blockers.push('A current sanctions screen (within 12 months) must be on file');
+      }
     }
 
     if (targetStage === 'pending_approval') {
@@ -213,14 +231,19 @@ const OnboardingWorkflow = (() => {
   function stageBadgeClass(stage) { return STAGE_BADGE[stage]   || 'badge-neutral'; }
   function stageIndex(stage)      { return STAGE_SEQUENCE.indexOf(stage); }
 
-  // Returns an HTML string — progress bar across all 6 active stages
-  function renderProgressSteps(currentStage) {
+  // Returns an HTML string — progress bar across the active stages.
+  // Simplified-track suppliers (logistics, packaging, service providers)
+  // skip the Compliance Review stage entirely, so it's hidden from their bar.
+  function renderProgressSteps(currentStage, supplierType) {
     const rejected  = currentStage === 'rejected';
     const activated = currentStage === 'activated';
-    const currentIdx = PROGRESS_STAGES.indexOf(currentStage);
+    const stages = requiresFullDiligence(supplierType)
+      ? PROGRESS_STAGES
+      : PROGRESS_STAGES.filter(s => s !== 'compliance');
+    const currentIdx = stages.indexOf(currentStage);
 
     return `<div style="display:flex;gap:0;align-items:flex-start;margin:var(--space-4) 0">
-      ${PROGRESS_STAGES.map((stage, i) => {
+      ${stages.map((stage, i) => {
         let state = 'pending';
         if (activated || (currentIdx > i))       state = 'done';
         else if (!rejected && currentIdx === i)   state = 'active';
@@ -262,6 +285,7 @@ const OnboardingWorkflow = (() => {
     advanceStage,
     rejectOnboarding,
     checkGates,
+    requiresFullDiligence,
     stageLabel,
     stageBadgeClass,
     stageIndex,

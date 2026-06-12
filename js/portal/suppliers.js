@@ -40,26 +40,32 @@ function sanctionsBadge(date) {
 }
 
 const APPROVAL_CLASS = {
-  approved:     'badge-success',
-  under_audit:  'badge-warning',
-  prospect:     'badge-neutral',
-  suspended:    'badge-danger',
-  delisted:     'badge-danger',
+  approved:               'badge-success',
+  conditionally_approved: 'badge-warning',
+  under_review:           'badge-info',
+  pending_approval:       'badge-warning',
+  under_audit:            'badge-warning',
+  prospect:               'badge-neutral',
+  rejected:               'badge-danger',
+  suspended:              'badge-danger',
+  delisted:               'badge-danger',
 };
 
 async function loadSuppliers() {
   const filterStatus = document.getElementById('filter-status')?.value || '';
+  const filterType   = document.getElementById('filter-type')?.value   || '';
   const filterSearch = (document.getElementById('filter-search')?.value || '').toLowerCase().trim();
   const tbody = document.getElementById('suppliers-body');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading…</td></tr>';
 
   let query = supabaseClient
     .from('contacts')
-    .select('id, company_name, country, approval_status, approved_at, next_audit_due_date, last_sanctions_screened_at, last_sanctions_result')
-    .eq('type', 'supplier')
+    .select('id, company_name, type, supplier_type, country, approval_status, approved_at, next_audit_due_date, last_sanctions_screened_at, last_sanctions_result')
+    .in('type', ['supplier', 'logistics', 'other'])
     .order('company_name');
 
   if (filterStatus) query = query.eq('approval_status', filterStatus);
+  if (filterType)   query = query.eq('type', filterType);
 
   const { data, error } = await query;
   if (error) {
@@ -73,7 +79,7 @@ async function loadSuppliers() {
   }
 
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">No suppliers found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">No suppliers found.</td></tr>';
     return;
   }
 
@@ -88,13 +94,21 @@ async function loadSuppliers() {
   const countMap = {};
   (orderCounts || []).forEach(t => { countMap[t.supplier_id] = (countMap[t.supplier_id] || 0) + 1; });
 
+  const TYPE_LABEL = {
+    supplier:  { label: 'Supplier',  cls: 'badge-neutral' },
+    logistics: { label: 'Logistics', cls: 'badge-info'    },
+    other:     { label: 'Service',   cls: 'badge-neutral' },
+  };
+
   tbody.innerHTML = rows.map(s => {
-    const approvalCls = APPROVAL_CLASS[s.approval_status] || 'badge-neutral';
+    const approvalCls  = APPROVAL_CLASS[s.approval_status] || 'badge-neutral';
     const activeOrders = countMap[s.id] || 0;
+    const typeInfo     = TYPE_LABEL[s.type] || { label: s.type, cls: 'badge-neutral' };
     return `<tr style="cursor:pointer" onclick="location.href='detail.html?id=${esc(s.id)}'">
       <td><strong>${esc(s.company_name)}</strong></td>
+      <td><span class="badge ${typeInfo.cls}">${esc(typeInfo.label)}</span></td>
       <td style="color:var(--color-text-muted);font-size:var(--text-sm)">${esc(s.country || '—')}</td>
-      <td><span class="badge ${approvalCls}">${esc(s.approval_status || 'prospect')}</span></td>
+      <td><span class="badge ${approvalCls}">${esc((s.approval_status || 'prospect').replace(/_/g, ' '))}</span></td>
       <td style="font-size:var(--text-sm)">${auditDueBadge(s.next_audit_due_date)}</td>
       <td style="font-size:var(--text-sm)">${sanctionsBadge(s.last_sanctions_screened_at)}</td>
       <td style="text-align:center">${activeOrders || '—'}</td>

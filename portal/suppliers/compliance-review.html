@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compliance Review — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .check-item { display:flex; align-items:flex-start; gap:var(--space-4); padding:var(--space-4); border-radius:var(--radius-sm); }
+    .check-icon { flex-shrink:0; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+    .check-icon.pass  { background:rgba(22,163,74,0.1); }
+    .check-icon.fail  { background:rgba(220,38,38,0.1); }
+    .check-icon.warn  { background:rgba(217,119,6,0.1); }
+    .check-icon.pend  { background:var(--color-border); }
+  </style>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar"></aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title" id="topbar-title">Compliance Review</span>
+    </div>
+    <a id="back-link" href="index.html" class="btn btn-ghost btn-sm">← Supplier</a>
+  </div>
+
+  <div class="portal-content" style="max-width:760px">
+    <div class="portal-page-header">
+      <div>
+        <h1>Compliance Review</h1>
+        <p>Stage 4 — confirm KYC record and sanctions screening are complete before submitting your recommendation.</p>
+      </div>
+    </div>
+
+    <!-- ── KYC Record ─────────────────────────────────────── -->
+    <div class="panel" style="margin-bottom:var(--space-5)">
+      <div class="panel-header">
+        <h3>KYC Record</h3>
+        <span id="kyc-badge"></span>
+      </div>
+      <div class="panel-body" id="kyc-section">
+        <div style="color:var(--color-text-muted)">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ── Sanctions Screen ───────────────────────────────── -->
+    <div class="panel" style="margin-bottom:var(--space-5)">
+      <div class="panel-header">
+        <h3>Sanctions Screening</h3>
+        <span id="sanctions-badge"></span>
+      </div>
+      <div class="panel-body" id="sanctions-section">
+        <div style="color:var(--color-text-muted)">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ── Beneficial Owner Verification ─────────────────── -->
+    <div class="panel" style="margin-bottom:var(--space-5)">
+      <div class="panel-header">
+        <h3>Beneficial Owner Verification</h3>
+        <span id="bo-badge"></span>
+      </div>
+      <div class="panel-body" id="bo-section">
+        <div style="color:var(--color-text-muted)">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ── Compliance Summary ─────────────────────────────── -->
+    <div class="panel" style="margin-bottom:var(--space-5)">
+      <div class="panel-header"><h3>Compliance Summary</h3></div>
+      <div class="panel-body" id="summary-section">
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">Loading…</p>
+      </div>
+    </div>
+
+    <!-- Error + Advance -->
+    <div id="form-error" style="display:none;margin-bottom:var(--space-4);padding:var(--space-3) var(--space-4);background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius-sm);font-size:var(--text-sm);color:var(--color-danger)"></div>
+    <div style="display:flex;gap:var(--space-3);justify-content:flex-end;margin-bottom:var(--space-10)">
+      <a id="cancel-link" href="index.html" class="btn btn-ghost">Back to Supplier</a>
+      <button class="btn btn-primary" id="advance-btn" onclick="advanceToRecommendation()">Complete Compliance Review &amp; Submit for Recommendation →</button>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/portal/auth-roles.js"></script>
+<script src="../../js/portal/sidebar.js"></script>
+<script src="../../js/portal-guard.js"></script>
+<script src="../../js/portal/state-machine.js"></script>
+<script src="../../js/portal/supplier-onboarding.js"></script>
+<script src="../../js/portal/compliance-review.js"></script>
+</body>
+</html>

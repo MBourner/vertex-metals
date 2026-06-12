@@ -219,52 +219,138 @@
 <!-- ═══ REGISTER ═══════════════════════════════════════════════ -->
 <section id="register" class="section bg-surface" style="scroll-margin-top:var(--nav-height)">
   <div class="container">
-    <div style="max-width:680px;margin:0 auto">
+    <div style="max-width:720px;margin:0 auto">
       <span class="section-label" style="display:block">Register Your Interest</span>
       <h2 style="margin-bottom:var(--space-4)">Ready to partner with Vertex Metals?</h2>
       <div class="divider-steel"></div>
-      <p style="margin-bottom:var(--space-8);font-size:var(--text-lg)">Introduce your business using the form below or email us directly. Tell us what you produce, your capacity and location, and the certifications and quality standards your products carry. We will respond within two business days.</p>
+      <p style="margin-bottom:var(--space-8);font-size:var(--text-lg)">Complete the form below to introduce your business. We review every submission and respond within two business days.</p>
 
-      <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius);padding:var(--space-10)">
-        <div style="display:flex;flex-direction:column;gap:var(--space-6)">
-          <div>
-            <label style="display:block;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-2)" for="partner-company">Company name</label>
-            <input type="text" id="partner-company" name="company" placeholder="Your company name" style="width:100%;padding:0.75rem 1rem;border:1px solid var(--color-border);border-radius:var(--radius);font-family:var(--font-body);font-size:var(--text-sm);color:var(--color-text-primary);background:#fff;transition:border-color var(--transition);outline:none" onfocus="this.style.borderColor='var(--color-accent)'" onblur="this.style.borderColor='var(--color-border)'" />
+      <!-- Netlify form: data-netlify="true" enables Netlify Forms detection and email notifications -->
+      <form
+        id="partner-form"
+        name="supplier-enquiry"
+        method="POST"
+        data-netlify="true"
+        style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius);padding:var(--space-10);display:flex;flex-direction:column;gap:var(--space-6)"
+      >
+        <!-- Required by Netlify AJAX submission -->
+        <input type="hidden" name="form-name" value="supplier-enquiry" />
+
+        <!-- ── Company Details ────────────────────────────── -->
+        <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-accent);border-bottom:1px solid var(--color-border);padding-bottom:var(--space-2);margin-bottom:calc(var(--space-2) * -1)">Company Details</p>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="partner-company">Company Name <span class="required">*</span></label>
+            <input type="text" class="form-input" id="partner-company" name="company_name" required placeholder="Legal company name" />
           </div>
-          <div class="grid-2" style="gap:var(--space-4)">
-            <div>
-              <label style="display:block;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-2)" for="partner-name">Contact name</label>
-              <input type="text" id="partner-name" name="name" placeholder="Your name" style="width:100%;padding:0.75rem 1rem;border:1px solid var(--color-border);border-radius:var(--radius);font-family:var(--font-body);font-size:var(--text-sm);color:var(--color-text-primary);background:#fff;transition:border-color var(--transition);outline:none" onfocus="this.style.borderColor='var(--color-accent)'" onblur="this.style.borderColor='var(--color-border)'" />
-            </div>
-            <div>
-              <label style="display:block;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-2)" for="partner-email">Email address</label>
-              <input type="email" id="partner-email" name="email" placeholder="your@company.com" style="width:100%;padding:0.75rem 1rem;border:1px solid var(--color-border);border-radius:var(--radius);font-family:var(--font-body);font-size:var(--text-sm);color:var(--color-text-primary);background:#fff;transition:border-color var(--transition);outline:none" onfocus="this.style.borderColor='var(--color-accent)'" onblur="this.style.borderColor='var(--color-border)'" />
-            </div>
-          </div>
-          <div>
-            <label style="display:block;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-2)" for="partner-country">Country of operation</label>
-            <input type="text" id="partner-country" name="country" placeholder="e.g. India, China, Germany" style="width:100%;padding:0.75rem 1rem;border:1px solid var(--color-border);border-radius:var(--radius);font-family:var(--font-body);font-size:var(--text-sm);color:var(--color-text-primary);background:#fff;transition:border-color var(--transition);outline:none" onfocus="this.style.borderColor='var(--color-accent)'" onblur="this.style.borderColor='var(--color-border)'" />
-          </div>
-          <div>
-            <label style="display:block;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-2)" for="partner-products">Products and materials you produce</label>
-            <textarea id="partner-products" name="products" rows="4" placeholder="Describe the materials and product forms you manufacture or supply, typical grades, and production capacity." style="width:100%;padding:0.75rem 1rem;border:1px solid var(--color-border);border-radius:var(--radius);font-family:var(--font-body);font-size:var(--text-sm);color:var(--color-text-primary);background:#fff;transition:border-color var(--transition);outline:none;resize:vertical" onfocus="this.style.borderColor='var(--color-accent)'" onblur="this.style.borderColor='var(--color-border)'"></textarea>
-          </div>
-          <div>
-            <label style="display:block;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-2)" for="partner-certs">Quality certifications held (ISO, BIS, etc.)</label>
-            <input type="text" id="partner-certs" name="certifications" placeholder="e.g. ISO 9001, BIS, REACH, RMI" style="width:100%;padding:0.75rem 1rem;border:1px solid var(--color-border);border-radius:var(--radius);font-family:var(--font-body);font-size:var(--text-sm);color:var(--color-text-primary);background:#fff;transition:border-color var(--transition);outline:none" onfocus="this.style.borderColor='var(--color-accent)'" onblur="this.style.borderColor='var(--color-border)'" />
-          </div>
-          <div style="border-top:1px solid var(--color-border);padding-top:var(--space-4)">
-            <p style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-4)">By submitting this form you consent to Vertex Metals Ltd retaining your details to progress a potential supplier relationship. Your data is handled in accordance with UK GDPR. See our <a href="compliance.html" style="color:var(--color-accent)">compliance page</a> for details.</p>
-            <button type="button" onclick="document.querySelector('.partner-form-submitted').style.display='block';this.closest('form,div').querySelector('button').style.display='none'" class="btn btn-primary" style="width:100%;justify-content:center">Submit enquiry</button>
+          <div class="form-group">
+            <label class="form-label" for="partner-country">Country of Operation <span class="required">*</span></label>
+            <input type="text" class="form-input" id="partner-country" name="country" required placeholder="e.g. India, Germany, South Korea" />
           </div>
         </div>
-        <div class="partner-form-submitted" style="display:none;margin-top:var(--space-6);padding:var(--space-6);background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.2);border-radius:var(--radius)">
-          <p style="font-family:var(--font-display);font-size:var(--text-sm);font-weight:600;color:var(--color-success);margin-bottom:var(--space-2)">Thank you — we'll be in touch shortly.</p>
-          <p style="font-size:var(--text-sm);color:var(--color-text-muted)">Your application has been received. Alternatively, email us directly at <a href="mailto:sales@vertexmetalsltd.com" style="color:var(--color-accent)">sales@vertexmetalsltd.com</a> with your company introduction.</p>
+
+        <div class="form-group">
+          <label class="form-label" for="partner-address">Headquarters Address</label>
+          <input type="text" class="form-input" id="partner-address" name="hq_address" placeholder="City, state / province, country" />
         </div>
+
+        <div class="form-group">
+          <label class="form-label" for="partner-website">Website</label>
+          <input type="url" class="form-input" id="partner-website" name="website" placeholder="https://www.yourcompany.com" />
+        </div>
+
+        <!-- ── Primary Contact ───────────────────────────── -->
+        <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-accent);border-bottom:1px solid var(--color-border);padding-bottom:var(--space-2);margin-bottom:calc(var(--space-2) * -1)">Primary Contact</p>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="partner-name">Contact Name <span class="required">*</span></label>
+            <input type="text" class="form-input" id="partner-name" name="contact_name" required placeholder="Full name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="partner-title">Position / Title</label>
+            <input type="text" class="form-input" id="partner-title" name="position_title" placeholder="e.g. Export Manager, Director" />
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="partner-email">Email Address <span class="required">*</span></label>
+            <input type="email" class="form-input" id="partner-email" name="email" required placeholder="you@company.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="partner-phone">Phone Number</label>
+            <input type="tel" class="form-input" id="partner-phone" name="phone" placeholder="+91 …" />
+          </div>
+        </div>
+
+        <!-- ── Products & Supply ─────────────────────────── -->
+        <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-accent);border-bottom:1px solid var(--color-border);padding-bottom:var(--space-2);margin-bottom:calc(var(--space-2) * -1)">Products &amp; Supply</p>
+
+        <div class="form-group">
+          <label class="form-label" for="partner-products">Metals and Materials You Produce / Export <span class="required">*</span></label>
+          <textarea class="form-textarea" id="partner-products" name="products_of_interest" required rows="4" placeholder="Please specify metal types, product forms (wire, rod, sheet, ingot, etc.), typical grades, purities, and applicable standards."></textarea>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="partner-capacity">Monthly Supply Capacity</label>
+            <input type="text" class="form-input" id="partner-capacity" name="supply_capacity_mt" placeholder="e.g. 500 MT / month" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="partner-markets">Current Export / Import Markets</label>
+            <input type="text" class="form-input" id="partner-markets" name="export_markets" placeholder="Countries or regions you currently serve" />
+          </div>
+        </div>
+
+        <!-- ── Quality & Logistics ───────────────────────── -->
+        <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-accent);border-bottom:1px solid var(--color-border);padding-bottom:var(--space-2);margin-bottom:calc(var(--space-2) * -1)">Quality &amp; Logistics</p>
+
+        <div class="form-group">
+          <label class="form-label" for="partner-certs">Quality Certifications and Accreditations</label>
+          <input type="text" class="form-input" id="partner-certs" name="certifications" placeholder="e.g. ISO 9001, ISO 17025, REACH, RMI, BIS, IATF 16949" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="partner-testing">Testing and Inspection Procedures</label>
+          <textarea class="form-textarea" id="partner-testing" name="testing_procedures" rows="3" placeholder="Briefly describe your in-house testing capability and any third-party inspection arrangements (e.g. SGS, Bureau Veritas, CCIC)."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="partner-shipping">Preferred Shipping Terms</label>
+          <select class="form-select" id="partner-shipping" name="shipping_terms">
+            <option value="">Select preferred incoterm</option>
+            <option value="FOB">FOB — Free On Board</option>
+            <option value="CIF">CIF — Cost, Insurance &amp; Freight</option>
+            <option value="CFR">CFR — Cost &amp; Freight</option>
+            <option value="FCA">FCA — Free Carrier</option>
+            <option value="EXW">EXW — Ex Works</option>
+            <option value="DDP">DDP — Delivered Duty Paid</option>
+            <option value="Open">Open to discussion</option>
+          </select>
+        </div>
+
+        <!-- ── Consent & Submit ──────────────────────────── -->
+        <div style="border-top:1px solid var(--color-border);padding-top:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4)">
+          <label style="display:flex;gap:var(--space-3);align-items:flex-start;cursor:pointer">
+            <input type="checkbox" name="consent" required style="margin-top:3px;flex-shrink:0;accent-color:var(--color-accent)" />
+            <span style="font-size:var(--text-xs);color:var(--color-text-muted);line-height:1.6">
+              I confirm that the information provided is accurate to the best of my knowledge, and I consent to Vertex Metals Ltd retaining and processing this data solely for the purpose of evaluating a potential supplier partnership. Data is handled in accordance with UK GDPR. For details, see our <a href="compliance.html" style="color:var(--color-accent)">compliance page</a>. <span class="required">*</span>
+            </span>
+          </label>
+          <button type="submit" id="partner-submit-btn" class="btn btn-primary" style="width:100%;justify-content:center">Submit enquiry</button>
+        </div>
+      </form>
+
+      <!-- Success message — shown after Netlify AJAX submission -->
+      <div id="partner-form-success" style="display:none;margin-top:var(--space-4);padding:var(--space-8);background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.2);border-radius:var(--radius);text-align:center">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto var(--space-4)"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <p style="font-family:var(--font-display);font-size:var(--text-base);font-weight:600;color:var(--color-success);margin-bottom:var(--space-2)">Enquiry received — thank you.</p>
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">We will review your submission and respond within two business days. If you have additional information to share, email us at <a href="mailto:sales@vertexmetalsltd.com" style="color:var(--color-accent)">sales@vertexmetalsltd.com</a>.</p>
       </div>
 
-      <p style="margin-top:var(--space-6);font-size:var(--text-sm);color:var(--color-text-muted);text-align:center">Prefer to email directly? Contact us at <a href="mailto:sales@vertexmetalsltd.com" style="color:var(--color-accent)">sales@vertexmetalsltd.com</a></p>
+      <p style="margin-top:var(--space-6);font-size:var(--text-sm);color:var(--color-text-muted);text-align:center">Prefer to email directly? <a href="mailto:sales@vertexmetalsltd.com" style="color:var(--color-accent)">sales@vertexmetalsltd.com</a></p>
     </div>
   </div>
 </section>
@@ -331,6 +417,35 @@
     hamburger.classList.toggle('open', open);
     hamburger.setAttribute('aria-expanded', String(open));
   });
+
+  // Netlify Forms — AJAX submission so the page doesn't reload
+  const partnerForm = document.getElementById('partner-form');
+  if (partnerForm) {
+    partnerForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const btn = document.getElementById('partner-submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Submitting…';
+
+      fetch('/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(new FormData(partnerForm)).toString()
+      })
+        .then(() => {
+          partnerForm.style.display = 'none';
+          const success = document.getElementById('partner-form-success');
+          success.style.display = 'block';
+          success.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        })
+        .catch(() => {
+          // Network failure — fall back to native form POST (Netlify handles it server-side)
+          btn.disabled = false;
+          btn.textContent = 'Submit enquiry';
+          partnerForm.submit();
+        });
+    });
+  }
 </script>
 </body>
 </html>

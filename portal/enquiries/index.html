@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enquiry Queue — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:200; align-items:center; justify-content:center; padding:var(--space-6); }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:#fff; border-radius:var(--radius); width:100%; max-width:640px; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.25); }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; padding:var(--space-5) var(--space-6); border-bottom:1px solid var(--color-border); }
+    .modal-head h3 { margin:0; font-size:var(--text-base); }
+    .modal-body { padding:var(--space-6); display:flex; flex-direction:column; gap:var(--space-5); }
+    .modal-foot { padding:var(--space-4) var(--space-6); border-top:1px solid var(--color-border); display:flex; gap:var(--space-3); justify-content:flex-end; }
+    .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); }
+    .detail-field label { display:block; font-family:var(--font-display); font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--color-text-muted); margin-bottom:3px; }
+    .detail-field p { margin:0; font-size:var(--text-sm); }
+    .detail-full { grid-column:1/-1; }
+  </style>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar"></aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title">Enquiry Queue</span>
+    </div>
+  </div>
+
+  <div class="portal-content">
+    <div class="portal-page-header">
+      <div>
+        <h1>Enquiry Queue</h1>
+        <p>Incoming supplier partnership enquiries from the website and manually raised leads</p>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openNewEnquiryModal()">+ New Manual Enquiry</button>
+    </div>
+
+    <div class="filter-bar" style="display:flex;gap:var(--space-3);flex-wrap:wrap;align-items:center">
+      <input type="text" class="form-input" id="filter-search" placeholder="Search by company or contact…" style="min-width:200px" oninput="loadEnquiries()" />
+      <select class="form-select" id="filter-status" onchange="loadEnquiries()" style="min-width:160px">
+        <option value="active">Active (New + Under Review)</option>
+        <option value="new">New only</option>
+        <option value="under_review">Under Review</option>
+        <option value="converted">Converted</option>
+        <option value="declined">Declined</option>
+        <option value="">All</option>
+      </select>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Contact</th>
+            <th>Country</th>
+            <th>Source</th>
+            <th>Received</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="enquiries-body">
+          <tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal overlay ──────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box" id="modal-box">
+    <!-- content injected by JS -->
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/portal/auth-roles.js"></script>
+<script src="../../js/portal/sidebar.js"></script>
+<script src="../../js/portal-guard.js"></script>
+<script src="../../js/portal/state-machine.js"></script>
+<script src="../../js/portal/supplier-onboarding.js"></script>
+<script src="../../js/portal/enquiries.js"></script>
+</body>
+</html>

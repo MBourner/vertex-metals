@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audit Trail — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* ── Print styles ── */
+    @media print {
+      .sidebar, .topbar, .no-print { display: none !important; }
+      .portal-main { margin-left: 0 !important; }
+      .portal-content { padding: 0 !important; max-width: 100% !important; }
+      .print-header { display: block !important; }
+      body { font-size: 11px; }
+      table { font-size: 10px; }
+      th, td { padding: 6px 8px !important; }
+      .badge { border: 1px solid currentColor; padding: 1px 5px; border-radius: 3px; }
+      a { color: inherit !important; text-decoration: none; }
+      .panel { border: 1px solid #ccc !important; border-radius: 0 !important; }
+    }
+    .print-header {
+      display: none;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #0a1728;
+    }
+    .print-header h2 { margin: 0 0 4px; font-size: 16px; }
+    .print-header p  { margin: 0; font-size: 11px; color: #666; }
+    .event-type-pill {
+      font-family: var(--font-display);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 100px;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar"></aside>
+<div class="portal-main">
+  <div class="topbar no-print">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title" id="topbar-title">Audit Trail</span>
+    </div>
+    <div style="display:flex;gap:var(--space-2)">
+      <a id="back-link" href="index.html" class="btn btn-ghost btn-sm">← Supplier</a>
+      <button class="btn btn-sm" style="border:1px solid var(--color-border);background:var(--color-surface-raised)" onclick="window.print()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print / Export PDF
+      </button>
+    </div>
+  </div>
+
+  <div class="portal-content">
+
+    <!-- Print-only header -->
+    <div class="print-header">
+      <h2>Vertex Metals Ltd — Supplier Onboarding Audit Trail</h2>
+      <p id="print-supplier-line"></p>
+      <p id="print-generated-line"></p>
+    </div>
+
+    <!-- Supplier summary card -->
+    <div id="supplier-summary" class="panel" style="margin-bottom:var(--space-5)">
+      <div class="panel-body" style="color:var(--color-text-muted)">Loading…</div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar no-print" style="display:flex;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-5)">
+      <select class="form-select" id="filter-event-type" onchange="renderTrail()" style="min-width:200px">
+        <option value="">All event types</option>
+      </select>
+      <select class="form-select" id="filter-onboarding" onchange="renderTrail()" style="min-width:200px">
+        <option value="">All onboarding records</option>
+      </select>
+      <input type="date" class="form-input" id="filter-date-from" onchange="renderTrail()" style="width:150px" title="From date" />
+      <input type="date" class="form-input" id="filter-date-to"   onchange="renderTrail()" style="width:150px" title="To date" />
+      <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Clear filters</button>
+    </div>
+
+    <!-- Event count summary -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
+      <span id="event-count" style="font-size:var(--text-sm);color:var(--color-text-muted)"></span>
+    </div>
+
+    <!-- Trail table -->
+    <div class="panel">
+      <div class="panel-body" style="padding:0">
+        <div class="table-wrapper" style="margin:0">
+          <table id="trail-table">
+            <thead>
+              <tr>
+                <th style="width:140px">Date &amp; Time</th>
+                <th style="width:130px">Actor</th>
+                <th style="width:180px">Event</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody id="trail-body">
+              <tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <p style="margin-top:var(--space-4);font-size:var(--text-xs);color:var(--color-text-muted)" class="no-print">
+      This audit trail is append-only. Records cannot be modified or deleted. Generated: <span id="generated-at"></span>
+    </p>
+
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/portal/auth-roles.js"></script>
+<script src="../../js/portal/sidebar.js"></script>
+<script src="../../js/portal-guard.js"></script>
+<script src="../../js/portal/state-machine.js"></script>
+<script src="../../js/portal/supplier-onboarding.js"></script>
+<script src="../../js/portal/audit-trail.js"></script>
+</body>
+</html>

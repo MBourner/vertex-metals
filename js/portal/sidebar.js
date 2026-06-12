@@ -50,7 +50,10 @@
     'quotes/index.html',
     'logistics-quotes/index.html',
     'product-lines/index.html',
+    'enquiries/index.html',
     'suppliers/index.html',
+    'suppliers/onboarding-pipeline.html',
+    'suppliers/expiry-monitor.html',
     'kyc/index.html',
     'contacts/index.html',
     'sanctions/log.html',
@@ -99,7 +102,7 @@
 
   el.innerHTML = `
     <div class="sidebar-logo">
-      <img src="${lp}assets/images/logo/Vertex%20logo%20emblem.png" alt="" />
+      <img src="${lp}assets/images/logo/vertex-logo-transparent.png" alt="" />
       <div>
         <div class="sidebar-logo-text">Vertex Metals</div>
         <div class="sidebar-logo-sub">Internal Portal</div>
@@ -121,7 +124,10 @@
       ${a('product-lines/index.html',      'Product Lines')}
 
       ${sec('Suppliers')}
-      ${a('suppliers/index.html',          'Supplier Register')}
+      ${a('enquiries/index.html',              'Enquiry Queue')}
+      ${a('suppliers/onboarding-pipeline.html','Onboarding Pipeline')}
+      ${a('suppliers/index.html',              'Supplier Register')}
+      ${a('suppliers/expiry-monitor.html',     'Document Expiry')}
 
       ${sec('Compliance')}
       ${a('kyc/index.html',                'KYC Records')}

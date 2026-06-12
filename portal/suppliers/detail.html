@@ -6,10 +6,12 @@
   <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    .tab-bar { display:flex; gap:0; border-bottom:2px solid var(--color-border); margin-bottom:var(--space-6); overflow-x:auto; }
-    .tab-btn { background:none; border:none; padding:var(--space-3) var(--space-5); font-family:var(--font-display); font-size:var(--text-sm); font-weight:500; color:var(--color-text-muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; white-space:nowrap; }
-    .tab-btn:hover { color:var(--color-text); }
-    .tab-btn.active { color:var(--color-accent); border-bottom-color:var(--color-accent); }
+    .tab-bar { display:flex; gap:0; border-bottom:2px solid var(--color-border); margin-bottom:var(--space-6); overflow-x:auto; scrollbar-width:none; }
+    .tab-bar::-webkit-scrollbar { display:none; }
+    .tab-btn { background:none; border:none; border-right:1px solid var(--color-border); border-bottom:2px solid transparent; padding:var(--space-3) var(--space-4); font-family:var(--font-display); font-size:var(--text-sm); font-weight:500; color:var(--color-text-muted); cursor:pointer; margin-bottom:-2px; white-space:nowrap; }
+    .tab-btn:first-child { border-left:1px solid var(--color-border); }
+    .tab-btn:hover { color:var(--color-text); background:var(--color-surface); }
+    .tab-btn.active { color:var(--color-accent); border-bottom-color:var(--color-accent); background:var(--color-surface-raised); }
     .tab-pane { display:none; }
     .tab-pane.active { display:block; }
   </style>
@@ -24,14 +26,16 @@
   <div class="portal-content">
     <div id="supplier-header" style="margin-bottom:var(--space-6)"><div style="color:var(--color-text-muted)">Loading…</div></div>
     <div class="tab-bar">
-      <button class="tab-btn active" data-tab="audits"      onclick="switchTab('audits')">Audit History</button>
+      <button class="tab-btn active" data-tab="onboarding"  onclick="switchTab('onboarding')">Onboarding</button>
+      <button class="tab-btn"        data-tab="audits"      onclick="switchTab('audits')">Audit History</button>
       <button class="tab-btn"        data-tab="orders"      onclick="switchTab('orders')">Orders</button>
       <button class="tab-btn"        data-tab="concessions" onclick="switchTab('concessions')">Concessions</button>
       <button class="tab-btn"        data-tab="disputes"    onclick="switchTab('disputes')">Disputes</button>
       <button class="tab-btn"        data-tab="sanctions"   onclick="switchTab('sanctions')">Sanctions</button>
       <button class="tab-btn"        data-tab="kyc"         onclick="switchTab('kyc')">KYC</button>
     </div>
-    <div id="tab-audits"      class="tab-pane active"><div style="color:var(--color-text-muted)">Loading…</div></div>
+    <div id="tab-onboarding"  class="tab-pane active"><div style="color:var(--color-text-muted)">Loading…</div></div>
+    <div id="tab-audits"      class="tab-pane"></div>
     <div id="tab-orders"      class="tab-pane"></div>
     <div id="tab-concessions" class="tab-pane"></div>
     <div id="tab-disputes"    class="tab-pane"></div>
@@ -40,5 +44,5 @@
   </div>
 </div>
 <script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal/auth-roles.js"></script><script src="../../js/portal/sidebar.js"></script>
-<script src="../../js/portal-guard.js"></script><script src="../../js/portal/state-machine.js"></script><script src="../../js/portal/suppliers-detail.js"></script>
+<script src="../../js/portal-guard.js"></script><script src="../../js/portal/state-machine.js"></script><script src="../../js/portal/supplier-onboarding.js"></script><script src="../../js/portal/suppliers-detail.js"></script>
 </body></html>

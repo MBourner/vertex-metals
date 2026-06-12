@@ -76,6 +76,10 @@
 | `next_audit_due_date` | `date` |  Nullable |
 | `last_sanctions_screened_at` | `timestamptz` |  Nullable |
 | `last_sanctions_result` | `text` |  Nullable |
+| `company_registration_number` | `text` |  Nullable |
+| `vat_number` | `text` |  Nullable |
+| `beneficial_owner` | `text` |  Nullable |
+| `supplier_type` | `text` |  Nullable |
 
 ## Table `disputes`
 
@@ -335,6 +339,7 @@
 | `conditions` | `text` |  Nullable |
 | `next_audit_due_date` | `date` |  |
 | `notes` | `text` |  Nullable |
+| `onboarding_id` | `uuid` |  Nullable FK → supplier_onboarding |
 
 ## Table `supplier_quotes`
 
@@ -432,4 +437,251 @@
 | `decision_by` | `uuid` |  Nullable |
 | `decision_reason_code` | `text` |  Nullable |
 | `decision_notes` | `text` |  Nullable |
+
+---
+
+## Supplier Onboarding — ISO 9001 Tables
+
+> Added: migration 20260603. These tables implement the redesigned supplier onboarding workflow aligned with ISO 9001:2015. See `docs/supplier-onboarding-process.md` for the full workflow description.
+
+## Table `supplier_enquiries`
+
+Pre-onboarding leads from the website contact form or raised manually by Jackson. Jackson reviews and converts to a formal onboarding, or declines with a documented reason.
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `source` | `text` | `'website_form'` \| `'manual_entry'` |
+| `company_name` | `text` |  |
+| `contact_name` | `text` |  Nullable |
+| `email` | `text` |  Nullable |
+| `phone` | `text` |  Nullable |
+| `country` | `text` |  Nullable |
+| `products_of_interest` | `text` |  Nullable |
+| `message` | `text` |  Nullable |
+| `submitted_at` | `timestamptz` |  |
+| `status` | `text` | `'new'` \| `'under_review'` \| `'converted'` \| `'declined'` |
+| `reviewed_by` | `uuid` |  Nullable FK → auth.users |
+| `reviewed_at` | `timestamptz` |  Nullable |
+| `decline_reason` | `text` |  Nullable — required when status = `'declined'` |
+| `converted_to_onboarding_id` | `uuid` |  Nullable FK → supplier_onboarding |
+| `hq_address` | `text` |  Nullable |
+| `website` | `text` |  Nullable |
+| `position_title` | `text` |  Nullable |
+| `supply_capacity_mt` | `text` |  Nullable — free text, e.g. "200–500 MT/month" |
+| `export_markets` | `text` |  Nullable |
+| `testing_procedures` | `text` |  Nullable |
+| `shipping_terms` | `text` |  Nullable — incoterm code or `'Open'` |
+| `created_at` | `timestamptz` |  |
+| `updated_at` | `timestamptz` |  |
+
+---
+
+## Table `supplier_onboarding`
+
+Central workflow state machine for each onboarding attempt. Jackson raises it; Martyn vets it; Jackson makes the final decision.
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `contact_id` | `uuid` | FK → contacts |
+| `enquiry_id` | `uuid` |  Nullable FK → supplier_enquiries |
+| `workflow_stage` | `text` | `'intake'` \| `'screening'` \| `'documents'` \| `'compliance'` \| `'recommendation'` \| `'pending_approval'` \| `'activated'` \| `'rejected'` |
+| `risk_level` | `text` |  Nullable — `'low'` \| `'medium'` \| `'high'` |
+| `raised_by` | `uuid` |  Nullable FK → auth.users (Jackson) |
+| `vetting_assigned_to` | `uuid` |  Nullable FK → auth.users (Martyn) |
+| `recommendation` | `text` |  Nullable — `'approve'` \| `'approve_with_conditions'` \| `'reject'` |
+| `recommendation_rationale` | `text` |  Nullable |
+| `recommendation_submitted_at` | `timestamptz` |  Nullable |
+| `decision` | `text` |  Nullable — `'approved'` \| `'approved_with_conditions'` \| `'rejected'` |
+| `decision_justification` | `text` |  Nullable |
+| `decision_by` | `uuid` |  Nullable FK → auth.users (Jackson) |
+| `decision_at` | `timestamptz` |  Nullable |
+| `conditions_summary` | `text` |  Nullable |
+| `created_at` | `timestamptz` |  |
+| `updated_at` | `timestamptz` |  |
+| `activated_at` | `timestamptz` |  Nullable |
+
+---
+
+## Table `supplier_risk_assessment`
+
+Martyn's guided risk scoring form. Five criteria scored 1–5 (5 = highest risk). Computed average and derived risk category are stored for audit trail integrity.
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `supplier_id` | `uuid` | FK → contacts |
+| `onboarding_id` | `uuid` | FK → supplier_onboarding |
+| `financial_viability_score` | `smallint` |  Nullable — 1–5 |
+| `quality_certification_score` | `smallint` |  Nullable — 1–5 |
+| `regulatory_compliance_score` | `smallint` |  Nullable — 1–5 |
+| `geographic_risk_score` | `smallint` |  Nullable — 1–5 |
+| `supply_continuity_score` | `smallint` |  Nullable — 1–5 |
+| `overall_score` | `numeric(4,2)` |  Nullable — computed average |
+| `risk_category` | `text` |  Nullable — `'low'` \| `'medium'` \| `'high'` |
+| `financial_viability_notes` | `text` |  Nullable |
+| `quality_certification_notes` | `text` |  Nullable |
+| `regulatory_compliance_notes` | `text` |  Nullable |
+| `geographic_risk_notes` | `text` |  Nullable |
+| `supply_continuity_notes` | `text` |  Nullable |
+| `overall_notes` | `text` |  Nullable |
+| `risk_category_override` | `bool` |  Default false |
+| `risk_category_override_reason` | `text` |  Nullable — required when override = true |
+| `assessed_by` | `uuid` |  Nullable FK → auth.users |
+| `assessment_date` | `timestamptz` |  |
+| `next_assessment_due` | `date` |  Nullable |
+| `created_at` | `timestamptz` |  |
+| `updated_at` | `timestamptz` |  |
+
+---
+
+## Table `supplier_documents`
+
+Version-controlled document uploads with expiry tracking. Superseded versions have `is_current = false`. Martyn can mark a type N/A for a supplier (e.g. W-9 for non-US) with a mandatory reason.
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `supplier_id` | `uuid` | FK → contacts |
+| `onboarding_id` | `uuid` |  Nullable FK → supplier_onboarding |
+| `document_type` | `text` | See migration for full enum values |
+| `document_label` | `text` |  Nullable — required when type = `'other'` |
+| `jurisdiction` | `text` |  Nullable — ISO 3166-1 alpha-2 or `'global'` |
+| `version` | `integer` |  Default 1 |
+| `file_path` | `text` |  Nullable — null when not_applicable = true |
+| `file_name` | `text` |  Nullable — null when not_applicable = true |
+| `file_size_bytes` | `bigint` |  Nullable |
+| `mime_type` | `text` |  Nullable |
+| `uploaded_by` | `uuid` |  Nullable FK → auth.users |
+| `uploaded_at` | `timestamptz` |  Nullable |
+| `expiry_date` | `date` |  Nullable |
+| `is_current` | `bool` |  Default true |
+| `not_applicable` | `bool` |  Default false |
+| `not_applicable_reason` | `text` |  Nullable — required when not_applicable = true |
+| `change_reason` | `text` |  Nullable — required when version > 1 |
+| `created_at` | `timestamptz` |  |
+
+---
+
+## Table `supplier_approvals`
+
+One row per formal approval or rejection at each workflow stage. Both Martyn's recommendation and Jackson's final decision write here so they are independently queryable and immutable.
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `supplier_id` | `uuid` | FK → contacts |
+| `onboarding_id` | `uuid` | FK → supplier_onboarding |
+| `approval_stage` | `text` | `'screening'` \| `'documents'` \| `'compliance'` \| `'recommendation'` \| `'final_approval'` |
+| `approver_id` | `uuid` | FK → auth.users |
+| `approver_role` | `text` | `'director_commercial'` \| `'director_compliance'` |
+| `decision` | `text` | `'approved'` \| `'approved_with_conditions'` \| `'rejected'` |
+| `justification` | `text` |  |
+| `conditions` | `text` |  Nullable — required when decision = `'approved_with_conditions'` |
+| `decided_at` | `timestamptz` |  |
+| `created_at` | `timestamptz` |  |
+
+---
+
+## Table `supplier_audit_trail`
+
+Append-only event log. RLS permits INSERT and SELECT only; UPDATE and DELETE are denied. Covers the full supplier lifecycle from enquiry through activation and beyond.
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `supplier_id` | `uuid` | FK → contacts |
+| `onboarding_id` | `uuid` |  Nullable FK → supplier_onboarding |
+| `event_type` | `text` | See migration for full enum values |
+| `actor_id` | `uuid` |  Nullable FK → auth.users |
+| `actor_role` | `text` |  Nullable |
+| `occurred_at` | `timestamptz` |  |
+| `description` | `text` | Human-readable sentence |
+| `field_name` | `text` |  Nullable — for `contact_field_changed` events |
+| `old_value` | `text` |  Nullable |
+| `new_value` | `text` |  Nullable |
+| `metadata` | `jsonb` |  Nullable |
+
+---
+
+## Table `supplier_nonconformities`
+
+Compliance failures, process gaps, or approval errors. Linked to corrective_actions for tracked remediation.
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `supplier_id` | `uuid` | FK → contacts |
+| `onboarding_id` | `uuid` |  Nullable FK → supplier_onboarding |
+| `incident_date` | `date` |  |
+| `description` | `text` |  |
+| `severity` | `text` | `'low'` \| `'medium'` \| `'high'` |
+| `root_cause` | `text` |  Nullable |
+| `reported_by` | `uuid` |  Nullable FK → auth.users |
+| `status` | `text` | `'open'` \| `'in_progress'` \| `'closed'` |
+| `closed_at` | `timestamptz` |  Nullable |
+| `closed_by` | `uuid` |  Nullable FK → auth.users |
+| `created_at` | `timestamptz` |  |
+| `updated_at` | `timestamptz` |  |
+
+---
+
+## Table `corrective_actions`
+
+One or more corrective actions per nonconformity. Tracks owner, due date, progress, and effectiveness verification.
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `nonconformity_id` | `uuid` | FK → supplier_nonconformities |
+| `action_description` | `text` |  |
+| `owner_id` | `uuid` |  Nullable FK → auth.users |
+| `due_date` | `date` |  Nullable |
+| `status` | `text` | `'open'` \| `'in_progress'` \| `'completed'` \| `'closed'` |
+| `effectiveness_verification` | `text` |  Nullable |
+| `completed_at` | `timestamptz` |  Nullable |
+| `closed_at` | `timestamptz` |  Nullable |
+| `closed_by` | `uuid` |  Nullable FK → auth.users |
+| `created_at` | `timestamptz` |  |
+| `updated_at` | `timestamptz` |  |
+
+---
+
+## Table `supplier_conditions`
+
+Individual outstanding conditions on a conditional approval. Each must be explicitly marked met by Martyn with linked evidence before the condition is cleared.
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `supplier_id` | `uuid` | FK → contacts |
+| `onboarding_id` | `uuid` | FK → supplier_onboarding |
+| `condition_text` | `text` |  |
+| `condition_type` | `text` | `'document_required'` \| `'certification_required'` \| `'audit_required'` \| `'remediation_required'` \| `'other'` |
+| `due_date` | `date` |  Nullable |
+| `is_met` | `bool` |  Default false |
+| `met_at` | `timestamptz` |  Nullable |
+| `met_by` | `uuid` |  Nullable FK → auth.users |
+| `evidence_document_id` | `uuid` |  Nullable FK → supplier_documents |
+| `created_at` | `timestamptz` |  |
+| `updated_at` | `timestamptz` |  |
 

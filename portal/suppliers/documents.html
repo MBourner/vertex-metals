@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document Checklist — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .doc-row { display:grid; grid-template-columns:1fr auto; align-items:start; gap:var(--space-4); padding:var(--space-4) 0; border-bottom:1px solid var(--color-border); }
+    .doc-row:last-child { border-bottom:none; }
+    .doc-status-icon { width:20px; height:20px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+    .doc-actions { display:flex; gap:var(--space-2); flex-wrap:wrap; justify-content:flex-end; }
+    .upload-form { background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-sm); padding:var(--space-4); margin-top:var(--space-3); display:none; }
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:200; align-items:center; justify-content:center; padding:var(--space-6); }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:#fff; border-radius:var(--radius); width:100%; max-width:520px; box-shadow:0 20px 60px rgba(0,0,0,0.25); }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; padding:var(--space-5) var(--space-6); border-bottom:1px solid var(--color-border); }
+    .modal-head h3 { margin:0; font-size:var(--text-base); }
+    .modal-body { padding:var(--space-6); display:flex; flex-direction:column; gap:var(--space-4); }
+    .modal-foot { padding:var(--space-4) var(--space-6); border-top:1px solid var(--color-border); display:flex; gap:var(--space-3); justify-content:flex-end; }
+  </style>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar"></aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title" id="topbar-title">Document Checklist</span>
+    </div>
+    <a id="back-link" href="index.html" class="btn btn-ghost btn-sm">← Supplier</a>
+  </div>
+
+  <div class="portal-content" style="max-width:800px">
+    <div class="portal-page-header">
+      <div>
+        <h1>Document Checklist</h1>
+        <p>Stage 3 — collect and upload all required documents. Mark jurisdiction-specific documents as Not Applicable with a reason.</p>
+      </div>
+    </div>
+
+    <!-- Completeness summary -->
+    <div class="panel" style="margin-bottom:var(--space-5)">
+      <div class="panel-body" style="display:flex;align-items:center;gap:var(--space-6)">
+        <div style="text-align:center;min-width:80px">
+          <div style="font-size:var(--text-3xl);font-weight:700;font-family:var(--font-display)" id="completeness-pct">—</div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.08em">Complete</div>
+        </div>
+        <div id="completeness-bar" style="flex:1;height:8px;background:var(--color-border);border-radius:4px;overflow:hidden">
+          <div id="completeness-fill" style="height:100%;background:var(--color-accent);transition:width .3s;width:0%"></div>
+        </div>
+        <div id="completeness-text" style="font-size:var(--text-sm);color:var(--color-text-muted);white-space:nowrap">—</div>
+      </div>
+    </div>
+
+    <!-- Mandatory checklist -->
+    <div class="panel" style="margin-bottom:var(--space-5)">
+      <div class="panel-header">
+        <h3>Mandatory Documents</h3>
+        <span id="required-count" style="font-size:var(--text-xs);color:var(--color-text-muted)"></span>
+      </div>
+      <div class="panel-body" id="mandatory-list">
+        <div style="color:var(--color-text-muted)">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Optional / additional documents -->
+    <div class="panel" style="margin-bottom:var(--space-5)">
+      <div class="panel-header">
+        <h3>Additional Documents</h3>
+        <button class="btn btn-ghost btn-sm" onclick="openUploadModal(null, null, false)">+ Add Document</button>
+      </div>
+      <div class="panel-body" id="additional-list">
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">Any other supporting documents (optional).</p>
+      </div>
+    </div>
+
+    <!-- Error + Advance -->
+    <div id="form-error" style="display:none;margin-bottom:var(--space-4);padding:var(--space-3) var(--space-4);background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius-sm);font-size:var(--text-sm);color:var(--color-danger)"></div>
+    <div style="display:flex;gap:var(--space-3);justify-content:flex-end;margin-bottom:var(--space-10)">
+      <a id="cancel-link" href="index.html" class="btn btn-ghost">Back to Supplier</a>
+      <button class="btn btn-primary" id="advance-btn" onclick="advanceToCompliance()">Advance to Compliance Review →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Upload / N/A modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box" id="modal-box"></div>
+</div>
+
+<script src="../../js/supabase-client.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/portal/auth-roles.js"></script>
+<script src="../../js/portal/sidebar.js"></script>
+<script src="../../js/portal-guard.js"></script>
+<script src="../../js/portal/state-machine.js"></script>
+<script src="../../js/portal/supplier-onboarding.js"></script>
+<script src="../../js/portal/documents.js"></script>
+</body>
+</html>

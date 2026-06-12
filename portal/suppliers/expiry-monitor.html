@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document Expiry Monitor — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar"></aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title">Document Expiry Monitor</span>
+    </div>
+  </div>
+
+  <div class="portal-content">
+    <div class="portal-page-header">
+      <div>
+        <h1>Document Expiry Monitor</h1>
+        <p>ISO 9001 Clause 7.5 — all supplier documents with an expiry date, sorted by urgency</p>
+      </div>
+    </div>
+
+    <!-- KPI cards -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:var(--space-4);margin-bottom:var(--space-6)">
+      <div class="stat-card" id="card-expired" style="border-top:3px solid var(--color-danger)">
+        <div class="stat-card__value" id="kpi-expired" style="color:var(--color-danger)">—</div>
+        <div class="stat-card__label">Expired</div>
+      </div>
+      <div class="stat-card" id="card-30" style="border-top:3px solid var(--color-danger)">
+        <div class="stat-card__value" id="kpi-30">—</div>
+        <div class="stat-card__label">Expiring ≤ 30 days</div>
+      </div>
+      <div class="stat-card" id="card-90">
+        <div class="stat-card__value" id="kpi-90">—</div>
+        <div class="stat-card__label">Expiring 31–90 days</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card__value" id="kpi-ok" style="color:var(--color-success)">—</div>
+        <div class="stat-card__label">Current (&gt; 90 days)</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar" style="display:flex;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-5)">
+      <select class="form-select" id="filter-bucket" onchange="renderDocs()" style="min-width:180px">
+        <option value="">All with expiry dates</option>
+        <option value="expired">Expired</option>
+        <option value="critical">Expiring ≤ 30 days</option>
+        <option value="warning">Expiring 31–90 days</option>
+        <option value="ok">Current (&gt; 90 days)</option>
+      </select>
+      <select class="form-select" id="filter-type" onchange="renderDocs()" style="min-width:180px">
+        <option value="">All document types</option>
+      </select>
+      <input type="text" class="form-input" id="filter-supplier" placeholder="Search supplier…" oninput="renderDocs()" style="min-width:180px" />
+    </div>
+
+    <div id="doc-count" style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)"></div>
+
+    <div class="panel">
+      <div class="panel-body" style="padding:0">
+        <div class="table-wrapper" style="margin:0">
+          <table>
+            <thead>
+              <tr>
+                <th>Supplier</th>
+                <th>Document</th>
+                <th>Version</th>
+                <th>Expiry Date</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="docs-body">
+              <tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/portal/auth-roles.js"></script>
+<script src="../../js/portal/sidebar.js"></script>
+<script src="../../js/portal-guard.js"></script>
+<script src="../../js/portal/state-machine.js"></script>
+<script src="../../js/portal/supplier-onboarding.js"></script>
+<script src="../../js/portal/expiry-monitor.js"></script>
+</body>
+</html>

@@ -316,6 +316,25 @@
   min-width: 160px;
 }
 
+/* ─── Portal btn-ghost override ──────────────────────────── */
+/* btn-ghost is designed for dark hero sections on the public
+   site (white text, translucent border). Inside .portal-main
+   (light background) it needs dark text and a visible border.
+   The sidebar is NOT inside .portal-main so its Sign Out
+   button retains the correct white-on-dark appearance. */
+
+.portal-main .btn-ghost {
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+  background: transparent;
+}
+
+.portal-main .btn-ghost:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-muted);
+  background: var(--color-surface);
+}
+
 /* ─── Login page ─────────────────────────────────────────── */
 
 .login-page {

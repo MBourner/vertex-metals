@@ -13,24 +13,34 @@
     <div style="display:flex;align-items:center;gap:var(--space-3)"><button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="topbar-title">Supplier Register</span></div>
   </div>
   <div class="portal-content">
-    <div class="portal-page-header"><div><h1>Supplier Register</h1><p>Approved and prospective suppliers — audit status and compliance at a glance</p></div></div>
+    <div class="portal-page-header"><div><h1>Approved Provider Register</h1><p>All vetted and prospective suppliers, logistics providers, and service providers — compliance status at a glance</p></div></div>
     <div class="filter-bar" style="display:flex;gap:var(--space-3);flex-wrap:wrap">
       <input type="text" class="form-input" id="filter-search" placeholder="Search by name or country…" style="min-width:200px" oninput="loadSuppliers()" />
-      <select class="form-select" id="filter-status" onchange="loadSuppliers()" style="min-width:160px">
+      <select class="form-select" id="filter-type" onchange="loadSuppliers()" style="min-width:140px">
+        <option value="">All types</option>
+        <option value="supplier">Suppliers</option>
+        <option value="logistics">Logistics</option>
+        <option value="other">Services</option>
+      </select>
+      <select class="form-select" id="filter-status" onchange="loadSuppliers()" style="min-width:180px">
         <option value="">All statuses</option>
         <option value="approved">Approved</option>
+        <option value="conditionally_approved">Conditionally Approved</option>
+        <option value="under_review">Under Review (Vetting)</option>
+        <option value="pending_approval">Pending Approval</option>
         <option value="under_audit">Under Audit</option>
         <option value="prospect">Prospect</option>
+        <option value="rejected">Rejected</option>
         <option value="suspended">Suspended</option>
         <option value="delisted">Delisted</option>
       </select>
     </div>
     <div class="table-wrapper"><table>
-      <thead><tr><th>Company</th><th>Country</th><th>Status</th><th>Next Audit Due</th><th>Last Sanctions Screen</th><th>Active Orders</th><th></th></tr></thead>
-      <tbody id="suppliers-body"><tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading…</td></tr></tbody>
+      <thead><tr><th>Company</th><th>Type</th><th>Country</th><th>Status</th><th>Next Audit Due</th><th>Last Sanctions Screen</th><th>Active Orders</th><th></th></tr></thead>
+      <tbody id="suppliers-body"><tr><td colspan="8" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading…</td></tr></tbody>
     </table></div>
   </div>
 </div>
 <script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal/auth-roles.js"></script><script src="../../js/portal/sidebar.js"></script>
-<script src="../../js/portal-guard.js"></script><script src="../../js/portal/state-machine.js"></script><script src="../../js/portal/suppliers.js"></script>
+<script src="../../js/portal-guard.js"></script><script src="../../js/portal/state-machine.js"></script><script src="../../js/portal/supplier-onboarding.js"></script><script src="../../js/portal/suppliers.js"></script>
 </body></html>

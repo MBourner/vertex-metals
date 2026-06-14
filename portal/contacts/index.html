@@ -10,20 +10,25 @@
 <body class="portal-body">
 <aside class="sidebar" id="sidebar"></aside>
 <div class="portal-main">
-  <div class="topbar"><div style="display:flex;align-items:center;gap:var(--space-3)"><button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="topbar-title">Contacts</span></div><button onclick="openAddModal()" class="btn btn-primary btn-sm">+ Add Contact</button></div>
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <span class="topbar-title">Contacts</span>
+    </div>
+  </div>
   <div class="portal-content">
-    <div class="portal-page-header"><div><h1>Contacts</h1><p>Buyers, suppliers, and other counterparties</p></div></div>
-    <div class="filter-bar">
-      <select class="form-select" id="filter-type" onchange="loadContacts()" style="min-width:140px">
-        <option value="">All types</option>
-        <option value="buyer">Buyers</option>
-        <option value="supplier">Suppliers</option>
-        <option value="other">Other</option>
+    <div class="portal-page-header"><div><h1>Contacts</h1><p>Manage all contact records by type, including buyers, suppliers, and logistics providers.</p></div></div>
+    <div class="filter-bar" style="display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center">
+      <select id="contact-type" class="form-select" onchange="loadContacts()" style="min-width:160px;max-width:220px">
+        <option value="">All contact types</option>
+        <option value="buyer">Buyer</option>
+        <option value="supplier">Supplier</option>
+        <option value="logistics">Logistics</option>
       </select>
-      <input type="text" class="form-input" id="filter-search" placeholder="Search company or contact…" oninput="loadContacts()" style="min-width:220px;max-width:320px" />
+      <input type="text" class="form-input" id="filter-search" placeholder="Search contacts…" oninput="loadContacts()" style="min-width:220px;max-width:320px" />
     </div>
     <div class="table-wrapper"><table>
-      <thead><tr><th>Company</th><th>Type</th><th>Primary Contact</th><th>Country</th><th>Email</th><th>Phone</th><th>KYC</th></tr></thead>
+      <thead><tr><th>Company</th><th>Primary Contact</th><th>Type</th><th>Country</th><th>Email</th><th>Phone</th><th>KYC</th></tr></thead>
       <tbody id="contacts-body"><tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading...</td></tr></tbody>
     </table></div>
   </div>
@@ -35,15 +40,6 @@
     <button class="modal-close" onclick="closeAddModal()">✕</button>
     <h3>Add Contact</h3>
     <div id="contact-form-container"></div>
-  </div>
-</div>
-
-<!-- Edit Contact Modal -->
-<div class="modal-overlay" id="edit-contact-modal">
-  <div class="modal-box">
-    <button class="modal-close" onclick="document.getElementById('edit-contact-modal').classList.remove('open')">✕</button>
-    <h3>Edit Contact</h3>
-    <div id="edit-contact-form-container"></div>
   </div>
 </div>
 

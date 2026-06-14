@@ -40,6 +40,15 @@ function openNewRfqModal() {
   document.getElementById('new-rfq-form')?.reset();
   const alertEl = document.getElementById('new-rfq-alert');
   if (alertEl) alertEl.style.display = 'none';
+
+  // Deep-link support: ?company=&email= pre-fill (used by the customer
+  // detail page's "+ New RFQ" quick action)
+  const params = new URLSearchParams(location.search);
+  const company = params.get('company');
+  const email   = params.get('email');
+  if (company) document.getElementById('nrfq-company').value = company;
+  if (email)   document.getElementById('nrfq-email').value   = email;
+
   document.getElementById('new-rfq-modal').classList.add('open');
 }
 
@@ -216,8 +225,8 @@ async function renderEnquiryTab() {
           ${['new','reviewing','quoted','responded','closed'].map(s => `<option value="${s}" ${s===data.status?'selected':''}>${s}</option>`).join('')}
         </select>
       </div>
-      <a href="../contacts/index.html?prefill=1&name=${encodeURIComponent(data.name)}&company=${encodeURIComponent(data.company)}&email=${encodeURIComponent(data.email)}&phone=${encodeURIComponent(data.phone||'')}&type=${encodeURIComponent(data.type)}"
-         class="btn btn-secondary btn-sm">+ Create Contact</a>
+      <a href="../customers/index.html?prefill=1&name=${encodeURIComponent(data.name)}&company=${encodeURIComponent(data.company)}&email=${encodeURIComponent(data.email)}&phone=${encodeURIComponent(data.phone||'')}&type=${encodeURIComponent(data.type)}"
+         class="btn btn-secondary btn-sm">+ Create Customer</a>
       <button class="btn btn-primary btn-sm" onclick="switchTab('build')">Build Customer Quote →</button>
     </div>
 
@@ -1894,7 +1903,7 @@ async function openConvertOrderModal(quoteId) {
         <div class="form-group" style="grid-column:1/-1">
           <label class="form-label">Buyer <span style="color:var(--color-danger)">*</span></label>
           <select class="form-select" id="co-buyer" required><option value="">— Select buyer —</option>${buyerOptions}</select>
-          ${!matchedBuyer ? `<span style="font-size:var(--text-xs);color:var(--color-text-muted)">No contact matched "${esc(_rfqData?.company||'')}". <a href="../contacts/index.html" style="color:var(--color-accent)" target="_blank">Add contact</a> if needed.</span>` : ''}
+          ${!matchedBuyer ? `<span style="font-size:var(--text-xs);color:var(--color-text-muted)">No customer matched "${esc(_rfqData?.company||'')}". <a href="../contacts/index.html" style="color:var(--color-accent)" target="_blank">Add customer</a> if needed.</span>` : ''}
         </div>
         <div class="form-group" style="grid-column:1/-1">
           <label class="form-label">Customer PO Reference <span style="color:var(--color-danger)">*</span></label>

@@ -8,8 +8,9 @@ function esc(s) {
 }
 
 function statusBadge(status) {
-  const map = { active: 'success', expired: 'neutral', used: 'info' };
-  return `<span class="badge badge-${map[status] || 'neutral'}">${esc(status)}</span>`;
+  const map = { active: 'success', expired: 'neutral', used: 'info', pending: 'neutral' };
+  const label = status === 'pending' ? 'pending quote' : status;
+  return `<span class="badge badge-${map[status] || 'neutral'}">${esc(label)}</span>`;
 }
 
 function fmt(n, decimals = 2) {

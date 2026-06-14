@@ -464,4 +464,10 @@ async function deleteFamily(id, name) {
   document.getElementById('add-pl-form-container').innerHTML =
     buildPlForm({}, 'add-pl-form', 'submitAddPl(event)', 'add-pl-modal');
   loadProductLines();
+
+  // Deep-link support: ?action=new opens the Add Product Line modal directly
+  // (used by the supplier detail page's "Add a new product line" link)
+  if (new URLSearchParams(location.search).get('action') === 'new') {
+    document.getElementById('add-pl-modal').classList.add('open');
+  }
 })();

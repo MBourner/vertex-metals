@@ -34,7 +34,7 @@
       </div>
       <div class="stat-card" id="card-pending">
         <div class="stat-card__value" id="kpi-pending">—</div>
-        <div class="stat-card__label">Pending Approval</div>
+        <div class="stat-card__label">Awaiting Supplier Info</div>
       </div>
       <div class="stat-card">
         <div class="stat-card__value" id="kpi-avg-days">—</div>
@@ -62,12 +62,6 @@
     <div class="filter-bar" style="display:flex;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-4)">
       <select class="form-select" id="filter-stage" onchange="renderPipeline()" style="min-width:180px">
         <option value="">All active stages</option>
-        <option value="intake">Intake</option>
-        <option value="screening">Screening &amp; Risk</option>
-        <option value="documents">Documents</option>
-        <option value="compliance">Compliance Review</option>
-        <option value="recommendation">Recommendation</option>
-        <option value="pending_approval">Pending Approval</option>
       </select>
       <select class="form-select" id="filter-risk" onchange="renderPipeline()" style="min-width:140px">
         <option value="">All risk levels</option>

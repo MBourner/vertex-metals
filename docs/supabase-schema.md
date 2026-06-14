@@ -80,6 +80,38 @@
 | `vat_number` | `text` |  Nullable |
 | `beneficial_owner` | `text` |  Nullable |
 | `supplier_type` | `text` |  Nullable — `manufacturing` \| `materials_commodities` \| `logistics` \| `packaging` \| `service_provider` (enforced at application layer). Determines onboarding diligence tier — see `docs/supplier-onboarding-process.md` |
+| `address_line_1` | `text` |  Nullable — registered/company address |
+| `address_line_2` | `text` |  Nullable — registered/company address |
+| `city` | `text` |  Nullable — registered/company address |
+| `postcode` | `text` |  Nullable — registered/company address |
+| `dispatch_address_line_1` | `text` |  Nullable — added in migration 20260612b. Warehouse/dispatch address, only populated if different from the registered company address above |
+| `dispatch_address_line_2` | `text` |  Nullable — added in migration 20260612b |
+| `dispatch_city` | `text` |  Nullable — added in migration 20260612b |
+| `dispatch_postcode` | `text` |  Nullable — added in migration 20260612b |
+| `dispatch_country` | `text` |  Nullable — added in migration 20260612b |
+| `company_phone` | `text` |  Nullable — added in migration 20260612c. Main company phone number, captured at Stage 1 |
+| `supplier_reference` | `text` |  Nullable — added in migration 20260612c. Generated at Stage 1 (`generateSupplierReference()`, format `VS-YYYY-XXXXX`). Unique where not null |
+| `export_licence_number` | `text` |  Nullable — added in migration 20260612c. Generic export licence reference (if applicable); replaces the earlier Bolivia-specific "RUEX" field |
+| `qms_certification` | `text` |  Nullable — added in migration 20260612c. `'none'` \| `'iso_9001'` \| `'iatf_16949'` \| `'other'`, captured at Stage 1 |
+| `qms_certificate_ref` | `text` |  Nullable — added in migration 20260612c |
+| `qms_expiry` | `date` |  Nullable — added in migration 20260612c |
+| `esg_policy_in_place` | `bool` |  Nullable — added in migration 20260612c. Captured at Stage 2 |
+| `carbon_reporting_available` | `bool` |  Nullable — added in migration 20260612c. Captured at Stage 2 |
+| `esg_notes` | `text` |  Nullable — added in migration 20260612c |
+| `environmental_permit_ref` | `text` |  Nullable — added in migration 20260612c |
+| `environmental_permit_expiry` | `date` |  Nullable — added in migration 20260612c |
+| `bank_account_name` | `text` |  Nullable — added in migration 20260612c. Captured at Stage 2, masked client-side |
+| `bank_account_number` | `text` |  Nullable — added in migration 20260612c. Masked client-side via `maskAccountNumber()` |
+| `bank_sort_code` | `text` |  Nullable — added in migration 20260612c. Sort code / routing number |
+| `bank_iban` | `text` |  Nullable — added in migration 20260612c. Masked client-side |
+| `bank_swift_bic` | `text` |  Nullable — added in migration 20260612c |
+| `bank_name` | `text` |  Nullable — added in migration 20260612c |
+| `bank_account_verified_in_name` | `bool` | Default `false` — added in migration 20260612c. Confirms the bank account is held in the registered company's name; gates `stage2_complete` |
+| `accepted_currencies` | `text[]` |  Nullable — added in migration 20260612c. Checkbox set from `USD, GBP, EUR, INR, CNY, AED`, captured at Stage 3 |
+| `default_currency` | `text` |  Nullable — added in migration 20260612c. Must be one of `accepted_currencies`, captured at Stage 3 |
+| `payment_terms_initial` | `text` |  Nullable — added in migration 20260612c. Captured at Stage 3 |
+| `payment_terms_subsequent` | `text` |  Nullable — added in migration 20260612c. Captured at Stage 3 |
+| `standard_incoterm` | `text` |  Nullable — added in migration 20260612c. Captured at Stage 3 |
 
 ## Table `disputes`
 
@@ -355,11 +387,13 @@
 | `quantity_mt` | `numeric` |  Nullable |
 | `incoterm` | `text` |  |
 | `validity_date` | `date` |  Nullable |
-| `status` | `text` |  |
+| `status` | `text` | CHECK IN ('pending','active','expired','used') |
 | `notes` | `text` |  Nullable |
 | `created_at` | `timestamptz` |  |
 | `updated_at` | `timestamptz` |  |
 | `product_line_id` | `uuid` |  Nullable |
+
+`pending` represents a product line linked to a supplier as "permitted to supply" with no live quote yet (added from the supplier detail page's Products tab, with placeholder `fob_price_usd: 0` and `incoterm: 'FOB'`). It is excluded from all `.eq('status','active')` lookups used by the calculator, RFQ matching, and supplier PO selection until edited with real pricing.
 
 ## Table `trades`
 
@@ -496,7 +530,7 @@ Central workflow state machine for each onboarding attempt. Jackson raises it; M
 | `id` | `uuid` | Primary |
 | `contact_id` | `uuid` | FK → contacts |
 | `enquiry_id` | `uuid` |  Nullable FK → supplier_enquiries |
-| `workflow_stage` | `text` | `'intake'` \| `'screening'` \| `'documents'` \| `'compliance'` \| `'recommendation'` \| `'pending_approval'` \| `'activated'` \| `'rejected'` |
+| `workflow_stage` | `text` | App-enforced enum (no DB CHECK constraint), redesigned in migration 20260612d: `'draft'` \| `'stage1_complete'` \| `'pending_stage2'` \| `'awaiting_supplier_info'` \| `'stage2_complete'` \| `'trade_ready'` \| `'rejected'`. See `docs/supplier-onboarding-process.md` for the 3-phase model |
 | `risk_level` | `text` |  Nullable — `'low'` \| `'medium'` \| `'high'` |
 | `raised_by` | `uuid` |  Nullable FK → auth.users (Jackson) |
 | `vetting_assigned_to` | `uuid` |  Nullable FK → auth.users (Martyn) |
@@ -510,13 +544,17 @@ Central workflow state machine for each onboarding attempt. Jackson raises it; M
 | `conditions_summary` | `text` |  Nullable |
 | `created_at` | `timestamptz` |  |
 | `updated_at` | `timestamptz` |  |
-| `activated_at` | `timestamptz` |  Nullable |
+| `activated_at` | `timestamptz` |  Nullable — reused (no new column) to mean "Stage 2 complete" timestamp, set when `workflow_stage` advances to `stage2_complete` |
+| `tob_status` | `text` | Default `'not_generated'` — added in migration 20260612d. `'not_generated'` \| `'generated'` \| `'sent'` \| `'confirmed'`. `'confirmed'` gates `stage2_complete` |
+| `tob_generated_at` | `timestamptz` |  Nullable — added in migration 20260612d |
+| `tob_sent_at` | `timestamptz` |  Nullable — added in migration 20260612d |
+| `tob_confirmed_at` | `timestamptz` |  Nullable — added in migration 20260612d |
 
 ---
 
 ## Table `supplier_risk_assessment`
 
-Martyn's guided risk scoring form. Five criteria scored 1–5 (5 = highest risk). Computed average and derived risk category are stored for audit trail integrity.
+Single row per onboarding. Scored preliminarily by Martyn at Stage 1 (using whatever information is available at registration). For full-diligence suppliers (`manufacturing` / `materials_commodities`), the same row is reviewed/refined during Stage 2 before the recommendation — see `reviewed_at`/`reviewed_by` below. Five criteria scored 1–5 (5 = highest risk). Computed average and derived risk category are stored for audit trail integrity.
 
 ### Columns
 
@@ -545,6 +583,8 @@ Martyn's guided risk scoring form. Five criteria scored 1–5 (5 = highest risk)
 | `next_assessment_due` | `date` |  Nullable |
 | `created_at` | `timestamptz` |  |
 | `updated_at` | `timestamptz` |  |
+| `reviewed_at` | `timestamptz` |  Nullable — added in migration 20260612e. `NULL` = preliminary (Stage 1 only); set when Martyn reviews/refines the assessment during Stage 2. Required (non-null) for `stage2_complete` on the full-diligence track |
+| `reviewed_by` | `uuid` |  Nullable FK → auth.users — added in migration 20260612e |
 
 ---
 

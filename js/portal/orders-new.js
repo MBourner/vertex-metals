@@ -105,6 +105,11 @@ async function init() {
     document.getElementById('f-payment-terms').value = trade.payment_terms || '';
     document.getElementById('f-special-conditions').value = trade.special_conditions || '';
     document.getElementById('f-operator-notes').value = trade.notes || '';
+  } else {
+    // Deep-link support: ?buyer_id= pre-selects the buyer (used by the
+    // customer detail page's "+ New Order" quick action)
+    const buyerId = new URLSearchParams(location.search).get('buyer_id');
+    if (buyerId) buyerSel.value = buyerId;
   }
 }
 

@@ -10,65 +10,28 @@
 <body class="portal-body">
 <aside class="sidebar" id="sidebar"></aside>
 <div class="portal-main">
-  <div class="topbar">
-    <div style="display:flex;align-items:center;gap:var(--space-3)">
-      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
-      <span class="topbar-title">Customers</span>
-    </div>
-  </div>
+  <div class="topbar"><div style="display:flex;align-items:center;gap:var(--space-3)"><button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="topbar-title">Customers</span></div><button onclick="openAddModal()" class="btn btn-primary btn-sm">+ Add Customer</button></div>
   <div class="portal-content">
-    <div class="portal-page-header"><div><h1>Customers</h1><p>Customer relationships, RFQs, and orders at a glance</p></div></div>
-
-    <!-- Stats -->
-    <div class="dashboard-stats">
-      <div class="stat-card">
-        <div class="stat-card__label">Total Customers</div>
-        <div class="stat-card__value" id="stat-total-customers">—</div>
-        <div class="stat-card__sub"><a href="../contacts/index.html" style="color:inherit">View all →</a></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card__label">Open RFQs</div>
-        <div class="stat-card__value" id="stat-open-rfqs">—</div>
-        <div class="stat-card__sub"><a href="../rfq/index.html" style="color:inherit">View inbox →</a></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card__label">Active Customer Orders</div>
-        <div class="stat-card__value" id="stat-active-orders">—</div>
-        <div class="stat-card__sub"><a href="../orders/index.html?state=active" style="color:inherit">View →</a></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card__label">Customers Pending KYC</div>
-        <div class="stat-card__value" id="stat-pending-kyc">—</div>
-        <div class="stat-card__sub"><a href="../kyc/index.html" style="color:inherit">View →</a></div>
-      </div>
+    <div class="portal-page-header"><div><h1>Customers</h1><p>Customer records and buyer relationships</p></div></div>
+    <div class="filter-bar">
+      <input type="text" class="form-input" id="filter-search" placeholder="Search customers…" oninput="loadContacts()" style="min-width:220px;max-width:320px" />
     </div>
+    <div class="table-wrapper"><table>
+      <thead><tr><th>Company</th><th>Primary Contact</th><th>Country</th><th>Email</th><th>Phone</th><th>KYC</th></tr></thead>
+      <tbody id="contacts-body"><tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
 
-    <!-- Panels -->
-    <div class="dashboard-panels">
-      <!-- Quick actions -->
-      <div class="panel">
-        <div class="panel-header"><h3>Quick Actions</h3></div>
-        <div class="panel-body" style="display:flex;flex-direction:column;gap:var(--space-3)">
-          <a href="../rfq/index.html?action=new" class="btn btn-primary" style="width:100%;justify-content:center">+ New Customer RFQ</a>
-          <a href="../contacts/index.html?action=new" class="btn btn-secondary" style="width:100%;justify-content:center">+ New Customer</a>
-          <a href="../orders/new.html" class="btn btn-ghost" style="width:100%;justify-content:center">+ New Customer PO</a>
-        </div>
-      </div>
-      <!-- Recent Customers -->
-      <div class="panel">
-        <div class="panel-header">
-          <h3>Recent Customers</h3>
-          <a href="../contacts/index.html" class="btn btn-ghost btn-sm">All customers →</a>
-        </div>
-        <div id="recent-customers">
-          <div style="padding:var(--space-8);text-align:center;color:var(--color-text-muted);font-size:var(--text-sm)">Loading...</div>
-        </div>
-      </div>
-    </div>
-
+<!-- Add Customer Modal -->
+<div class="modal-overlay" id="add-contact-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeAddModal()">✕</button>
+    <h3>Add Customer</h3>
+    <div id="contact-form-container"></div>
   </div>
 </div>
 
 <script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal/sidebar.js"></script>
-<script src="../../js/portal-guard.js"></script><script src="../../js/portal/customers.js"></script>
+<script src="../../js/portal-guard.js"></script><script src="../../js/portal/contacts.js"></script>
 </body></html>

@@ -2,9 +2,11 @@
 
 ## Project
 
-Vertex Metals Ltd is a B2B commodity trading intermediary incorporated on the Isle of Man. Pre-revenue startup trading metals (primarily aluminium alloy core wire, EC Grade / 6XXX series, India → UK) with plans to expand to copper, stainless steel, and critical minerals.
+Vertex Metals Ltd is a B2B commodity trading intermediary incorporated on the Isle of Man. Pre-revenue startup trading metals and minerals by connecting suppliers around the globe with buyers in the UK. We plan to be ISO 9001 compliant, and fully compliant with UK and international AML, CFT and ESG requirements.
 
-**Directors:** Jackson Paul (sales, supplier/buyer relationships), Martyn Bourner (operations, tech)  
+## Business
+
+**Directors:** Jackson Paul (sales, supplier/buyer relationships), Martyn Bourner (operations, tech, compliance)  
 **Address:** Apartment 3, Falcon Cliff Apartments, 9–10 Palace Road, Douglas, Isle of Man, IM2 4LD  
 **Email:** sales@vertexmetalsltd.com
 

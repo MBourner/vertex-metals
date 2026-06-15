@@ -6,9 +6,106 @@
 function esc(s) { if (s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmt(n,dp=2) { if (n==null||isNaN(n)) return '—'; return Number(n).toLocaleString('en-GB',{minimumFractionDigits:dp,maximumFractionDigits:dp}); }
 function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); }
+function fmtTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); }
+
+// Groups timeline entries (already ordered newest-first) into per-day
+// buckets so they can be rendered as collapsible rows.
+function groupTrailByDate(trail) {
+  const groups = [];
+  for (const t of trail) {
+    const date = fmtDate(t.occurred_at);
+    const last = groups[groups.length - 1];
+    if (last && last.date === date) last.items.push(t);
+    else groups.push({ date, items: [t] });
+  }
+  return groups;
+}
+
+// Renders a label/value pair, falling back to an em-dash for empty values.
+function fieldBlock(label, value) {
+  return `<div>
+    <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">${esc(label)}</div>
+    <div>${value != null && value !== '' ? esc(String(value)) : '—'}</div>
+  </div>`;
+}
 
 const supplierId = new URLSearchParams(location.search).get('id');
 const _tabLoaded = {};
+let supplierData = null;
+let allOnboardings = [];
+let onboardingData = null;
+let riskAssessmentData = null;
+
+// ── Address helpers ──────────────────────────────────────────────────────
+
+function formatAddress(line1, line2, city, postcode, country) {
+  const parts = [line1, line2, city, postcode, country].filter(Boolean);
+  return parts.length ? parts.join(', ') : null;
+}
+
+function hasDispatchAddress(s) {
+  return !!(s.dispatch_address_line_1 || s.dispatch_address_line_2 || s.dispatch_city || s.dispatch_postcode || s.dispatch_country);
+}
+
+// ── Bank details ─────────────────────────────────────────────────────────
+
+const QMS_LABELS = { none: 'None', iso_9001: 'ISO 9001', iatf_16949: 'IATF 16949', other: 'Other' };
+
+function maskAccountNumber(v) {
+  if (!v) return '—';
+  const clean = v.replace(/\s+/g, '');
+  return clean.length <= 4 ? clean : '**** '.repeat(Math.floor((clean.length - 4) / 4)) + clean.slice(-4);
+}
+
+function renderBankDetailsBlock() {
+  const s = supplierData;
+  const badgeEl = document.getElementById('bank-status-badge');
+  const el = document.getElementById('bank-details-block');
+  const hasBank = s.bank_account_number || s.bank_iban;
+
+  if (!hasBank) {
+    badgeEl.innerHTML = '<span class="badge badge-neutral">Not on file</span>';
+    el.innerHTML = '<p style="color:var(--color-text-muted);margin:0">No bank details recorded.</p>';
+    return;
+  }
+
+  badgeEl.innerHTML = s.bank_account_verified_in_name
+    ? '<span class="badge badge-success">Verified</span>'
+    : '<span class="badge badge-warning">Unverified</span>';
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:var(--space-4)">
+      <div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Account Name</div>${esc(s.bank_account_name || '—')}</div>
+      <div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Bank Name</div>${esc(s.bank_name || '—')}</div>
+      <div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Account Number</div>
+        <span id="bank-acct-display" data-revealed="0">${esc(maskAccountNumber(s.bank_account_number))}</span>
+        ${s.bank_account_number ? `<button type="button" class="btn btn-ghost btn-sm" id="bank-acct-toggle" style="border:none;padding:0 0 0 4px">Show</button>` : ''}
+      </div>
+      <div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">IBAN</div>
+        <span id="bank-iban-display" data-revealed="0">${esc(maskAccountNumber(s.bank_iban))}</span>
+        ${s.bank_iban ? `<button type="button" class="btn btn-ghost btn-sm" id="bank-iban-toggle" style="border:none;padding:0 0 0 4px">Show</button>` : ''}
+      </div>
+      <div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Sort Code / Routing Number</div>${esc(s.bank_sort_code || '—')}</div>
+      <div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">SWIFT / BIC</div>${esc(s.bank_swift_bic || '—')}</div>
+    </div>`;
+
+  document.getElementById('bank-acct-toggle')?.addEventListener('click', (e) => {
+    const span = document.getElementById('bank-acct-display');
+    const revealed = span.dataset.revealed === '1';
+    span.textContent = revealed ? maskAccountNumber(s.bank_account_number) : s.bank_account_number;
+    span.dataset.revealed = revealed ? '0' : '1';
+    e.target.textContent = revealed ? 'Show' : 'Hide';
+  });
+  document.getElementById('bank-iban-toggle')?.addEventListener('click', (e) => {
+    const span = document.getElementById('bank-iban-display');
+    const revealed = span.dataset.revealed === '1';
+    span.textContent = revealed ? maskAccountNumber(s.bank_iban) : s.bank_iban;
+    span.dataset.revealed = revealed ? '0' : '1';
+    e.target.textContent = revealed ? 'Show' : 'Hide';
+  });
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
 
 function switchTab(name) {
   document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
@@ -19,13 +116,17 @@ function switchTab(name) {
 }
 
 async function loadTabData(name) {
+  if (name === 'overview')    loadOverview();
   if (name === 'onboarding')  loadOnboarding();
-  if (name === 'audits')      loadAudits();
+  if (name === 'commercial')  loadCommercial();
+  if (name === 'products')    loadProducts();
+  if (name === 'documents')   loadDocumentsTab();
+  if (name === 'compliance')  loadCompliance();
+  if (name === 'finance')     loadFinance();
+  if (name === 'activity')    loadActivity();
   if (name === 'orders')      loadOrders();
   if (name === 'concessions') loadConcessions();
   if (name === 'disputes')    loadDisputes();
-  if (name === 'sanctions')   loadSanctions();
-  if (name === 'kyc')         loadKyc();
 }
 
 const APPROVAL_CLASS = {
@@ -40,23 +141,777 @@ const APPROVAL_CLASS = {
   delisted:              'badge-danger',
 };
 
+// ── Sticky header ─────────────────────────────────────────────────────────
+
+function renderHeader() {
+  const s = supplierData;
+  const ob = onboardingData;
+  const lifecycle = OnboardingWorkflow.lifecycleStatus(s, ob);
+  const perms = OnboardingWorkflow.computePermissions(s, ob);
+  const capSummary = OnboardingWorkflow.capabilitySummary(perms);
+
+  document.getElementById('supplier-header').innerHTML = `
+    <div class="supplier-header__top">
+      <div class="supplier-header__id">
+        <h1>${esc(s.company_name)}</h1>
+        <div class="supplier-header__tags">
+          ${s.supplier_reference ? `<span class="badge badge-neutral" style="font-family:monospace">${esc(s.supplier_reference)}</span>` : ''}
+          ${s.supplier_type ? `<span class="badge badge-accent">${esc(s.supplier_type.replace(/_/g,' '))}</span>` : ''}
+          ${s.country ? `<span style="color:var(--color-text-muted);font-size:var(--text-sm)">${esc(s.country)}</span>` : ''}
+        </div>
+      </div>
+      <div style="text-align:center">
+        <span class="badge ${lifecycle.badgeClass}" style="font-size:var(--text-sm)">${esc(lifecycle.label)}</span>
+        <div class="supplier-header__capability">${esc(capSummary)}</div>
+      </div>
+      <div class="supplier-header__actions">
+        ${headerActionsHtml(ob)}
+      </div>
+    </div>
+  `;
+}
+
+// Context-aware quick actions: stage-routed continue/reject (when an
+// onboarding is in progress) plus the always-available edit/audit actions.
+function headerActionsHtml(ob) {
+  const common = `
+    <button class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)" onclick="openEditAddressModal()">Edit Address</button>
+    <button class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)" onclick="openEditBankModal()">Edit Bank Details</button>
+    <a href="audit.html?supplier_id=${esc(supplierId)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">Record Audit</a>`;
+
+  if (!ob) return common;
+
+  const isRejected   = ob.workflow_stage === 'rejected';
+  const isTradeReady = ob.workflow_stage === 'trade_ready';
+  if (isRejected || isTradeReady) return common;
+
+  const rejectBtn = `<button class="btn btn-ghost btn-sm" style="color:var(--color-danger);border:1px solid var(--color-danger)"
+    onclick="openRejectModal('${esc(ob.id)}','${esc(ob.workflow_stage)}')">Reject</button>`;
+
+  let primary = '';
+  if (ob.workflow_stage === 'draft') {
+    primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Continue Stage 1 →</a>`;
+  } else if (ob.workflow_stage === 'stage1_complete') {
+    primary = `<a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Begin Stage 2 →</a>`;
+  } else if (ob.workflow_stage === 'pending_stage2') {
+    primary = `<a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Continue Stage 2 →</a>`;
+  } else if (ob.workflow_stage === 'awaiting_supplier_info') {
+    primary = `<a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">Continue Stage 2 →</a>
+      <button class="btn btn-primary btn-sm" onclick="resumeVetting('${esc(ob.id)}')">Resume Vetting</button>`;
+  } else if (ob.workflow_stage === 'stage2_complete') {
+    primary = `<a href="trade-ready.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Begin Stage 3 →</a>`;
+  }
+
+  return `${primary} ${rejectBtn} ${common}`;
+}
+
+// ── Overview tab ──────────────────────────────────────────────────────────
+
+function sanctionsStaleness(lastScreenedAt) {
+  if (!lastScreenedAt) return null;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 1);
+  return new Date(lastScreenedAt) < cutoff;
+}
+
+function companySummaryHtml(s) {
+  const companyAddress  = formatAddress(s.address_line_1, s.address_line_2, s.city, s.postcode, s.country);
+  const dispatchAddress = hasDispatchAddress(s)
+    ? formatAddress(s.dispatch_address_line_1, s.dispatch_address_line_2, s.dispatch_city, s.dispatch_postcode, s.dispatch_country)
+    : null;
+
+  return `
+    ${fieldBlock('Primary Contact', s.primary_contact_name)}
+    ${fieldBlock('Email', s.email)}
+    ${fieldBlock('Phone', s.phone)}
+    ${fieldBlock('Company Phone', s.company_phone)}
+    ${fieldBlock('Website', s.website)}
+    ${fieldBlock('Company Address', companyAddress)}
+    ${fieldBlock('Dispatch Address', dispatchAddress || (companyAddress ? 'Same as company address' : null))}
+    ${fieldBlock('Onboarding Started', s.created_at ? fmtDate(s.created_at) : null)}
+    ${s.notes ? `<div><div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Notes</div>${esc(s.notes)}</div>` : ''}
+  `;
+}
+
+function commercialSnapshotHtml(s) {
+  return `
+    ${fieldBlock('Accepted Currencies', (s.accepted_currencies||[]).join(', ') || null)}
+    ${fieldBlock('Default Currency', s.default_currency)}
+    ${fieldBlock('Standard Incoterm', s.standard_incoterm)}
+    ${fieldBlock('Initial Payment Terms', s.payment_terms_initial)}
+    ${fieldBlock('Subsequent Payment Terms', s.payment_terms_subsequent)}
+    ${fieldBlock('QMS Certification', s.qms_certification ? (QMS_LABELS[s.qms_certification] || s.qms_certification) : null)}
+  `;
+}
+
+function complianceSnapshotHtml(s, ra) {
+  const catClass = { low: 'badge-success', medium: 'badge-warning', high: 'badge-danger' };
+  const stale = sanctionsStaleness(s.last_sanctions_screened_at);
+
+  return `
+    <div>
+      <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Risk Category</div>
+      ${ra?.risk_category ? `<span class="badge ${catClass[ra.risk_category]||'badge-neutral'}">${esc(ra.risk_category)} risk</span>` : '—'}
+    </div>
+    <div>
+      <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Last Sanctions Screen</div>
+      ${fmtDate(s.last_sanctions_screened_at)} ${esc(s.last_sanctions_result ? `(${s.last_sanctions_result})` : '')}
+      ${stale != null ? `<span class="badge ${stale?'badge-warning':'badge-success'}" style="margin-left:4px">${stale?'Re-screen due':'Current'}</span>` : ''}
+    </div>
+    ${fieldBlock('Next Audit Due', s.next_audit_due_date ? fmtDate(s.next_audit_due_date) : null)}
+    <div>
+      <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Approval Status</div>
+      <span class="badge ${APPROVAL_CLASS[s.approval_status]||'badge-neutral'}">${esc((s.approval_status||'prospect').replace(/_/g,' '))}</span>
+    </div>
+  `;
+}
+
+function permissionsHtml(perms) {
+  return perms.map(p => `
+    <div class="perm-row">
+      <div>
+        <div class="perm-row__label">${esc(p.label)}</div>
+        <div class="perm-row__reason">${esc(p.reason)}</div>
+      </div>
+      <span class="badge ${p.state==='on'?'badge-success':'badge-neutral'} perm-pill">${p.state==='on'?'On':'Off'}</span>
+    </div>`).join('');
+}
+
+function readinessHtml(ob) {
+  const { quotePct, tradePct } = OnboardingWorkflow.readinessPercentages(ob);
+  return `
+    <div class="readiness-row">
+      <div>
+        <div class="readiness-item__label"><span>Quote Ready</span><span>${quotePct}%</span></div>
+        <div class="readiness-bar"><div class="readiness-bar__fill ${quotePct>=100?'complete':''}" style="width:${quotePct}%"></div></div>
+      </div>
+      <div>
+        <div class="readiness-item__label"><span>Trade Ready</span><span>${tradePct}%</span></div>
+        <div class="readiness-bar"><div class="readiness-bar__fill ${tradePct>=100?'complete':''}" style="width:${tradePct}%"></div></div>
+      </div>
+    </div>
+    ${ob ? `<div style="margin-top:var(--space-3)"><span class="badge ${OnboardingWorkflow.stageBadgeClass(ob.workflow_stage)}">${esc(OnboardingWorkflow.stageLabel(ob.workflow_stage))}</span></div>` : ''}
+  `;
+}
+
+// Single most relevant blocker + CTA, derived from OnboardingWorkflow.checkGates()
+// for the stage the supplier is currently working towards.
+async function nextBestActionHtml() {
+  const s = supplierData;
+  const ob = onboardingData;
+  const isCommercial = PortalRoles.getRoles().includes('director_commercial');
+
+  if (!ob) {
+    return `<p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-bottom:var(--space-3)">No onboarding process has been started for this supplier.</p>
+      ${isCommercial ? `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Start Onboarding</a>` : ''}`;
+  }
+
+  if (ob.workflow_stage === 'rejected') {
+    return `<p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-bottom:var(--space-3)">This onboarding was rejected.</p>
+      ${isCommercial ? `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">Start New Onboarding</a>` : ''}`;
+  }
+
+  if (ob.workflow_stage === 'trade_ready') {
+    return `<p style="color:var(--color-text-muted);font-size:var(--text-sm);margin:0">Onboarding complete — supplier is Trade Ready. No outstanding actions.</p>`;
+  }
+
+  const target = ob.workflow_stage === 'draft' ? 'stage1_complete'
+               : ob.workflow_stage === 'stage2_complete' ? 'trade_ready'
+               : 'stage2_complete';
+
+  const gates = await OnboardingWorkflow.checkGates(ob, s, target);
+
+  const ctas = {
+    draft:                  { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Continue Stage 1 →' },
+    stage1_complete:        { href: `pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Begin Stage 2 →' },
+    pending_stage2:         { href: `pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Continue Stage 2 →' },
+    awaiting_supplier_info: { href: `pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Continue Stage 2 →' },
+    stage2_complete:        { href: `trade-ready.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Begin Stage 3 — Trade Ready Sign-off →' },
+  };
+  const cta = ctas[ob.workflow_stage];
+
+  if (gates.passed) {
+    return `<p style="font-size:var(--text-sm);margin-bottom:var(--space-3)">All requirements for the next stage are in place.</p>
+      <a href="${cta.href}" class="btn btn-primary btn-sm">${cta.label}</a>`;
+  }
+
+  return `
+    <ul style="margin:0 0 var(--space-3);padding-left:var(--space-4);font-size:var(--text-sm)">
+      ${gates.blockers.map(b => `<li>${esc(b)}</li>`).join('')}
+    </ul>
+    <a href="${cta.href}" class="btn btn-primary btn-sm">${cta.label}</a>
+  `;
+}
+
+async function recentActivityHtml() {
+  const { data, error } = await supabaseClient
+    .from('supplier_audit_trail')
+    .select('occurred_at, description, actor_role')
+    .eq('supplier_id', supplierId)
+    .order('occurred_at', { ascending: false })
+    .limit(8);
+
+  if (error) return `<div class="alert alert-error">${esc(error.message)}</div>`;
+  if (!data || !data.length) return '<p style="color:var(--color-text-muted);font-size:var(--text-sm)">No activity recorded yet.</p>';
+
+  return data.map(t => `<div class="activity-item">
+    <span class="activity-item__date">${fmtDate(t.occurred_at)}</span>
+    <span class="activity-item__source">${esc((t.actor_role||'').replace(/_/g,' ') || '—')}</span>
+    <span>${esc(t.description)}</span>
+  </div>`).join('');
+}
+
+async function loadOverview() {
+  const el = document.getElementById('tab-overview');
+  const s = supplierData;
+  const ob = onboardingData;
+  const perms = OnboardingWorkflow.computePermissions(s, ob);
+
+  el.innerHTML = `
+    <div class="overview-grid">
+      <div class="panel">
+        <div class="panel-header"><h3>Readiness</h3></div>
+        <div class="panel-body overview-card-body">${readinessHtml(ob)}</div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h3>Company</h3></div>
+        <div class="panel-body overview-card-body">${companySummaryHtml(s)}</div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h3>Commercial</h3></div>
+        <div class="panel-body overview-card-body">${commercialSnapshotHtml(s)}</div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h3>Compliance</h3></div>
+        <div class="panel-body overview-card-body">${complianceSnapshotHtml(s, riskAssessmentData)}</div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h3>Permissions</h3></div>
+        <div class="panel-body">${permissionsHtml(perms)}</div>
+      </div>
+    </div>
+    <div class="dashboard-panels">
+      <div class="panel">
+        <div class="panel-header"><h3>Next Best Action</h3></div>
+        <div class="panel-body" id="next-best-action"><div style="color:var(--color-text-muted)">Loading…</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <h3>Recent Activity</h3>
+          <a href="#" onclick="switchTab('activity');return false" class="btn btn-ghost btn-sm">View all →</a>
+        </div>
+        <div class="panel-body" id="recent-activity"><div style="color:var(--color-text-muted)">Loading…</div></div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('next-best-action').innerHTML = await nextBestActionHtml();
+  document.getElementById('recent-activity').innerHTML = await recentActivityHtml();
+}
+
+// ── Commercial tab ────────────────────────────────────────────────────────
+
+async function loadCommercial() {
+  const el = document.getElementById('tab-commercial');
+  const s = supplierData;
+
+  el.innerHTML = `
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header"><h3>Trading Terms</h3><button class="btn btn-secondary btn-sm" onclick="openEditCommercialModal()">Edit Commercial Terms</button></div>
+      <div class="panel-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-4);font-size:var(--text-sm)">
+        ${fieldBlock('Accepted Currencies', (s.accepted_currencies||[]).join(', ') || null)}
+        ${fieldBlock('Default Currency', s.default_currency)}
+        ${fieldBlock('Standard Incoterm', s.standard_incoterm)}
+        ${fieldBlock('Initial Payment Terms', s.payment_terms_initial)}
+        ${fieldBlock('Subsequent Payment Terms', s.payment_terms_subsequent)}
+        ${fieldBlock('Export Licence Number', s.export_licence_number)}
+      </div>
+    </div>
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header"><h3>Quality Management</h3></div>
+      <div class="panel-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-4);font-size:var(--text-sm)">
+        ${fieldBlock('QMS Certification', s.qms_certification ? (QMS_LABELS[s.qms_certification] || s.qms_certification) : null)}
+        ${fieldBlock('Certificate Reference', s.qms_certificate_ref)}
+        ${fieldBlock('Certificate Expiry', s.qms_expiry ? fmtDate(s.qms_expiry) : null)}
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><h3>ESG &amp; Environmental</h3></div>
+      <div class="panel-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-4);font-size:var(--text-sm)">
+        ${fieldBlock('ESG Policy In Place', s.esg_policy_in_place == null ? null : (s.esg_policy_in_place ? 'Yes' : 'No'))}
+        ${fieldBlock('Carbon Reporting Available', s.carbon_reporting_available == null ? null : (s.carbon_reporting_available ? 'Yes' : 'No'))}
+        ${fieldBlock('Environmental Permit Ref', s.environmental_permit_ref)}
+        ${fieldBlock('Environmental Permit Expiry', s.environmental_permit_expiry ? fmtDate(s.environmental_permit_expiry) : null)}
+        ${s.esg_notes ? `<div style="grid-column:1/-1"><div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">ESG Notes</div>${esc(s.esg_notes)}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+// ── Products tab ──────────────────────────────────────────────────────────
+
+const PRODUCT_STATUS_CLASS = { pending: 'badge-neutral', active: 'badge-success', expired: 'badge-neutral', used: 'badge-info' };
+const PRODUCT_STATUS_LABEL = { pending: 'Pending quote', active: 'Active', expired: 'Expired', used: 'Used' };
+
+let _productLines = null; // active product lines, cached for the Add Product search
+
+async function loadProductLinesCache() {
+  if (_productLines) return _productLines;
+  const { data } = await supabaseClient.from('product_lines').select('id, name, cn_code, metal_family').eq('active', true).order('metal_family').order('name');
+  _productLines = data || [];
+  return _productLines;
+}
+
+function productRowHtml(q) {
+  return `<tr>
+    <td style="font-weight:600">${esc(q.product_line?.name || q.product)}</td>
+    <td style="font-size:var(--text-sm)">${esc(q.specification || '—')}</td>
+    <td style="font-family:var(--font-display)">${q.status === 'pending' ? '—' : '$' + fmt(q.fob_price_usd)}</td>
+    <td>${esc(q.incoterm || '—')}</td>
+    <td>${q.validity_date ? fmtDate(q.validity_date) : '—'}</td>
+    <td><span class="badge ${PRODUCT_STATUS_CLASS[q.status] || 'badge-neutral'}">${esc(PRODUCT_STATUS_LABEL[q.status] || q.status)}</span></td>
+    <td style="text-align:right">
+      <button class="btn btn-secondary btn-sm" onclick="openEditProductModal('${esc(q.id)}')">Edit</button>
+      ${q.status === 'pending' ? `<button class="btn btn-ghost btn-sm" style="color:var(--color-danger)" onclick="removeProduct('${esc(q.id)}')">Remove</button>` : ''}
+    </td>
+  </tr>`;
+}
+
+async function loadProducts() {
+  const el = document.getElementById('tab-products');
+  el.innerHTML = '<div style="color:var(--color-text-muted)">Loading…</div>';
+
+  const { data, error } = await supabaseClient
+    .from('supplier_quotes')
+    .select('*, product_line:product_lines(name, cn_code, metal_family)')
+    .eq('supplier_id', supplierId)
+    .order('created_at', { ascending: false });
+
+  if (error) { el.innerHTML = `<div class="alert alert-error">${esc(error.message)}</div>`; return; }
+
+  const rows = data || [];
+
+  el.innerHTML = `
+    <div class="panel">
+      <div class="panel-header"><h3>Products Supplied</h3><button class="btn btn-primary btn-sm" onclick="openAddProductModal()">+ Add Product</button></div>
+      <div class="panel-body">
+        ${rows.length === 0
+          ? '<p style="color:var(--color-text-muted);font-size:var(--text-sm)">No products linked to this supplier yet.</p>'
+          : `<div class="table-wrapper"><table>
+              <thead><tr><th>Product</th><th>Specification</th><th>FOB Price (USD/MT)</th><th>Incoterm</th><th>Validity</th><th>Status</th><th></th></tr></thead>
+              <tbody>${rows.map(productRowHtml).join('')}</tbody>
+            </table></div>`}
+      </div>
+    </div>
+  `;
+}
+
+// ── Add Product modal ────────────────────────────────────────────────────
+
+async function openAddProductModal() {
+  const lines = await loadProductLinesCache();
+
+  document.getElementById('add-product-form-container').innerHTML = `
+    <form id="add-product-form" onsubmit="submitAddProduct(event)">
+      <div class="form-group">
+        <label class="form-label">Product <span style="color:var(--color-danger)">*</span></label>
+        <input type="text" class="form-input" id="ap-product" list="ap-product-options" required autocomplete="off" placeholder="Search the product catalogue…" />
+        <datalist id="ap-product-options">
+          ${lines.map(pl => `<option value="${esc(pl.name)}"></option>`).join('')}
+        </datalist>
+        <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Can't find it? <a href="../product-lines/index.html?action=new" target="_blank">Add a new product line →</a>, then try again.</span>
+      </div>
+      <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-top:var(--space-3)">This links the product to ${esc(supplierData?.company_name || 'this supplier')} as permitted to supply, without requiring pricing yet. Pricing, incoterm and validity can be added afterwards via Edit.</p>
+      <div id="ap-alert" class="alert" style="display:none;margin-top:var(--space-3)"></div>
+      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5)">
+        <button type="submit" class="btn btn-primary">Add Product</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-product-modal').classList.remove('open')">Cancel</button>
+      </div>
+    </form>`;
+
+  document.getElementById('add-product-modal').classList.add('open');
+}
+
+async function submitAddProduct(e) {
+  e.preventDefault();
+  const alertEl = document.getElementById('ap-alert');
+  const name = document.getElementById('ap-product').value.trim();
+
+  const match = _productLines.find(pl => pl.name.toLowerCase() === name.toLowerCase());
+  if (!match) {
+    alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
+    alertEl.textContent = `"${name}" was not found in the product catalogue. Add it as a new product line first, then try again.`;
+    return;
+  }
+
+  const { data: existing } = await supabaseClient.from('supplier_quotes')
+    .select('id').eq('supplier_id', supplierId).eq('product_line_id', match.id).limit(1);
+  if (existing && existing.length) {
+    alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
+    alertEl.textContent = `${match.name} is already linked to this supplier.`;
+    return;
+  }
+
+  const { error } = await supabaseClient.from('supplier_quotes').insert([{
+    supplier_id:     supplierId,
+    product_line_id: match.id,
+    product:         match.name,
+    incoterm:        'FOB',
+    fob_price_usd:   0,
+    status:          'pending',
+  }]);
+
+  if (error) {
+    alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
+    alertEl.textContent = 'Save failed: ' + error.message;
+    return;
+  }
+
+  document.getElementById('add-product-modal').classList.remove('open');
+  loadProducts();
+}
+
+// ── Edit Product modal ───────────────────────────────────────────────────
+
+async function openEditProductModal(id) {
+  const { data: q, error } = await supabaseClient.from('supplier_quotes').select('*').eq('id', id).single();
+  if (error || !q) return;
+
+  document.getElementById('edit-product-form-container').innerHTML = `
+    <form id="edit-product-form" onsubmit="submitEditProduct(event,'${esc(id)}')">
+      <div class="form-group" style="margin-bottom:var(--space-4)">
+        <label class="form-label">Product</label>
+        <input type="text" class="form-input" value="${esc(q.product)}" disabled />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Specification</label>
+        <input type="text" class="form-input" id="ep-spec" value="${esc(q.specification || '')}" placeholder="e.g. 1350-H19, 2mm dia, reel 25kg" />
+      </div>
+      <div class="form-grid" style="margin-top:var(--space-3)">
+        <div class="form-group">
+          <label class="form-label">FOB Price (USD/MT)</label>
+          <input type="number" class="form-input" id="ep-fob" value="${q.fob_price_usd ?? ''}" step="0.01" min="0" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quantity (MT)</label>
+          <input type="number" class="form-input" id="ep-qty" value="${q.quantity_mt ?? ''}" step="0.001" min="0" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Incoterm</label>
+          <select class="form-select" id="ep-incoterm">
+            <option value="FOB" ${q.incoterm==='FOB'?'selected':''}>FOB</option>
+            <option value="CIF" ${q.incoterm==='CIF'?'selected':''}>CIF</option>
+            <option value="EXW" ${q.incoterm==='EXW'?'selected':''}>EXW</option>
+            <option value="DAP" ${q.incoterm==='DAP'?'selected':''}>DAP</option>
+            <option value="DDP" ${q.incoterm==='DDP'?'selected':''}>DDP</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Validity Date</label>
+          <input type="date" class="form-input" id="ep-validity" value="${q.validity_date || ''}" />
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:var(--space-3)">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="ep-status">
+          <option value="pending" ${q.status==='pending'?'selected':''}>Pending quote</option>
+          <option value="active"  ${q.status==='active' ?'selected':''}>Active</option>
+          <option value="expired" ${q.status==='expired'?'selected':''}>Expired</option>
+          <option value="used"    ${q.status==='used'   ?'selected':''}>Used</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-top:var(--space-3)">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="ep-notes" rows="2">${esc(q.notes || '')}</textarea>
+      </div>
+      <div id="ep-alert" class="alert" style="display:none;margin-top:var(--space-3)"></div>
+      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5)">
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-product-modal').classList.remove('open')">Cancel</button>
+      </div>
+    </form>`;
+
+  document.getElementById('edit-product-modal').classList.add('open');
+}
+
+async function submitEditProduct(e, id) {
+  e.preventDefault();
+  const alertEl = document.getElementById('ep-alert');
+
+  const payload = {
+    specification: document.getElementById('ep-spec').value.trim() || null,
+    fob_price_usd: parseFloat(document.getElementById('ep-fob').value) || 0,
+    quantity_mt:   parseFloat(document.getElementById('ep-qty').value) || null,
+    incoterm:      document.getElementById('ep-incoterm').value || 'FOB',
+    validity_date: document.getElementById('ep-validity').value || null,
+    status:        document.getElementById('ep-status').value,
+    notes:         document.getElementById('ep-notes').value.trim() || null,
+  };
+
+  const { error } = await supabaseClient.from('supplier_quotes').update(payload).eq('id', id);
+
+  if (error) {
+    alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
+    alertEl.textContent = 'Save failed: ' + error.message;
+    return;
+  }
+
+  document.getElementById('edit-product-modal').classList.remove('open');
+  loadProducts();
+}
+
+async function removeProduct(id) {
+  if (!confirm('Remove this product from the supplier? This only removes the pending link — it has no quote data yet.')) return;
+  const { error } = await supabaseClient.from('supplier_quotes').delete().eq('id', id);
+  if (error) { alert('Delete failed: ' + error.message); return; }
+  loadProducts();
+}
+
+// ── Documents tab ─────────────────────────────────────────────────────────
+
+const DOC_LABELS = {
+  business_registration:        'Business Registration Certificate',
+  beneficial_owner_declaration: 'Beneficial Owner Declaration',
+  bank_details:                 'Bank Details',
+  dpa:                          'Data Processing Agreement (DPA / GDPR)',
+  tax_certificate:              'Tax / VAT / GST Certificate',
+  quality_cert:                 'Quality Certificate (ISO 9001 or equivalent)',
+  test_certificate:             'Test / Mill Certificates',
+  iso_certificate:              'ISO Certificate',
+  insurance_cargo:              'Cargo Insurance Certificate',
+  insurance_liability:          'Liability Insurance Certificate',
+  audit_report:                 'Factory / Supplier Audit Report',
+  w9:                           'W-9 (US Tax Form)',
+  other:                        'Other Document',
+};
+
+function expiryStatus(expiryDate) {
+  if (!expiryDate) return 'ok';
+  const exp = new Date(expiryDate);
+  const now = new Date();
+  const daysLeft = Math.floor((exp - now) / 86400000);
+  if (daysLeft < 0)  return 'expired';
+  if (daysLeft < 30) return 'expiring';
+  return 'ok';
+}
+
+function docCardHtml(type, doc) {
+  const label = DOC_LABELS[type] || type.replace(/_/g,' ');
+  let statusBadge, detail = '';
+
+  if (!doc) {
+    statusBadge = '<span class="badge badge-neutral">Missing</span>';
+  } else if (doc.not_applicable) {
+    statusBadge = '<span class="badge badge-neutral">N/A</span>';
+    detail = esc(doc.not_applicable_reason || '');
+  } else {
+    const exp = expiryStatus(doc.expiry_date);
+    statusBadge = exp === 'expired'  ? '<span class="badge badge-danger">Expired</span>'
+                 : exp === 'expiring' ? '<span class="badge badge-warning">Expiring</span>'
+                 : '<span class="badge badge-success">Verified</span>';
+    detail = `${esc(doc.file_name || '')}${doc.expiry_date ? ` · Expires ${fmtDate(doc.expiry_date)}` : ''}`;
+  }
+
+  return `<div class="doc-card">
+    <div class="doc-card__title">${esc(label)}</div>
+    ${statusBadge}
+    ${detail ? `<div style="font-size:var(--text-xs);color:var(--color-text-muted)">${detail}</div>` : ''}
+  </div>`;
+}
+
+async function loadDocumentsTab() {
+  const el = document.getElementById('tab-documents');
+  const s = supplierData;
+  const required = OnboardingWorkflow.getRequiredDocs(s.supplier_type);
+
+  const { data: docs, error } = await supabaseClient
+    .from('supplier_documents')
+    .select('*')
+    .eq('supplier_id', supplierId)
+    .eq('is_current', true);
+
+  if (error) { el.innerHTML = `<div class="alert alert-error">${esc(error.message)}</div>`; return; }
+
+  const byType = {};
+  (docs||[]).forEach(d => { byType[d.document_type] = d; });
+
+  const requiredCards = required.map(type => docCardHtml(type, byType[type])).join('');
+  const additional = Object.entries(byType).filter(([type]) => !required.includes(type));
+  const additionalCards = additional.map(([type, doc]) => docCardHtml(type, doc)).join('');
+
+  const onboardingId = onboardingData?.id || '';
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-4);flex-wrap:wrap;gap:var(--space-3)">
+      <div style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-text-muted)">Required Documents (${required.length})</div>
+      <a href="documents.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(onboardingId)}" class="btn btn-primary btn-sm">Manage Documents →</a>
+    </div>
+    <div class="doc-grid">${requiredCards}</div>
+    ${additionalCards ? `
+      <div style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-text-muted);margin:var(--space-6) 0 var(--space-4)">Additional Documents</div>
+      <div class="doc-grid">${additionalCards}</div>` : ''}
+  `;
+}
+
+// ── Compliance tab ────────────────────────────────────────────────────────
+
+async function loadCompliance() {
+  const el = document.getElementById('tab-compliance');
+  const s = supplierData;
+  const ra = riskAssessmentData;
+  const stale = sanctionsStaleness(s.last_sanctions_screened_at);
+
+  let riskHtml = '<p style="color:var(--color-text-muted);font-size:var(--text-sm)">No risk assessment on file.</p>';
+  if (ra) {
+    const profile = OnboardingWorkflow.getSupplierProfile(s.supplier_type);
+    const catClass = { low: 'badge-success', medium: 'badge-warning', high: 'badge-danger' };
+    riskHtml = `
+      <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4);flex-wrap:wrap">
+        <span class="badge ${catClass[ra.risk_category]||'badge-neutral'}">${esc(ra.risk_category||'unrated')} risk</span>
+        <span style="font-size:var(--text-sm);color:var(--color-text-muted)">Overall score: ${ra.overall_score != null ? fmt(ra.overall_score,2) : '—'}</span>
+        ${ra.reviewed_at ? `<span class="badge badge-success">Reviewed ${fmtDate(ra.reviewed_at)}</span>` : '<span class="badge badge-warning">Preliminary (not reviewed)</span>'}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-4)">
+        ${profile.riskCriteria.map(c => {
+          const score = ra[`${OnboardingWorkflow.RISK_CRITERIA_COLUMN[c]}_score`];
+          const notes = ra[`${OnboardingWorkflow.RISK_CRITERIA_COLUMN[c]}_notes`];
+          return `<div>
+            <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">${esc(OnboardingWorkflow.RISK_CRITERIA_LABELS[c])}</div>
+            <div style="font-size:var(--text-sm);font-weight:600">${score != null ? score + ' / 5' : '—'}</div>
+            ${notes ? `<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">${esc(notes)}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+      ${ra.overall_notes ? `<p style="margin-top:var(--space-4);font-size:var(--text-sm)">${esc(ra.overall_notes)}</p>` : ''}
+      ${ra.risk_category_override ? `<div style="margin-top:var(--space-3);padding:var(--space-3);background:rgba(217,119,6,0.06);border-radius:var(--radius-sm);font-size:var(--text-sm)">
+        <strong>Risk category manually overridden.</strong> ${esc(ra.risk_category_override_reason||'')}
+      </div>` : ''}
+    `;
+  }
+
+  const { data: screens, error } = await supabaseClient
+    .from('sanctions_screens')
+    .select('*')
+    .eq('subject_id', supplierId)
+    .order('screened_at', { ascending: false });
+
+  const resultClass = { clear:'badge-success', potential_match:'badge-warning', confirmed_match:'badge-danger' };
+  const screensHtml = error
+    ? `<div class="alert alert-error">${esc(error.message)}</div>`
+    : (screens && screens.length)
+      ? `<div class="table-wrapper"><table><thead><tr><th>Date</th><th>Lists Screened</th><th>Tool</th><th>Result</th><th>Notes</th></tr></thead><tbody>
+          ${screens.map(sc => `<tr>
+            <td style="font-size:var(--text-sm)">${fmtDate(sc.screened_at)}</td>
+            <td style="font-size:var(--text-sm)">${(sc.lists_screened||[]).join(', ')||'—'}</td>
+            <td style="font-size:var(--text-sm)">${esc(sc.tool_used||'—')}</td>
+            <td><span class="badge ${resultClass[sc.result]||'badge-neutral'}">${esc((sc.result||'').replace(/_/g,' '))}</span></td>
+            <td style="font-size:var(--text-sm)">${esc(sc.match_resolution_notes||'—')}</td>
+          </tr>`).join('')}
+        </tbody></table></div>`
+      : '<p style="color:var(--color-text-muted);font-size:var(--text-sm)">No sanctions screens recorded.</p>';
+
+  el.innerHTML = `
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header"><h3>Risk Assessment</h3></div>
+      <div class="panel-body">${riskHtml}</div>
+    </div>
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header">
+        <h3>Sanctions Screening</h3>
+        ${stale != null ? `<span class="badge ${stale ? 'badge-warning' : 'badge-success'}">${stale ? 'Re-screen due' : 'Current'}</span>` : ''}
+      </div>
+      <div class="panel-body">
+        <div style="margin-bottom:var(--space-4);font-size:var(--text-sm)">
+          <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Last Screen</div>
+          ${fmtDate(s.last_sanctions_screened_at)} <span style="color:var(--color-text-muted)">${esc(s.last_sanctions_result ? `(${s.last_sanctions_result})` : '')}</span>
+        </div>
+        ${screensHtml}
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><h3>Audit</h3></div>
+      <div class="panel-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-4);font-size:var(--text-sm)">
+        ${fieldBlock('Next Audit Due', s.next_audit_due_date ? fmtDate(s.next_audit_due_date) : null)}
+        <div>
+          <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Approval Status</div>
+          <span class="badge ${APPROVAL_CLASS[s.approval_status]||'badge-neutral'}">${esc((s.approval_status||'prospect').replace(/_/g,' '))}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── Finance tab ───────────────────────────────────────────────────────────
+
+async function loadFinance() {
+  const el = document.getElementById('tab-finance');
+  el.innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Bank Details</h3>
+        <div style="display:flex;align-items:center;gap:var(--space-3)">
+          <span id="bank-status-badge"></span>
+          <button class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)" onclick="openEditBankModal()">Edit Bank Details</button>
+        </div>
+      </div>
+      <div class="panel-body" id="bank-details-block"></div>
+    </div>
+  `;
+  renderBankDetailsBlock();
+}
+
+// ── Activity tab ──────────────────────────────────────────────────────────
+
+async function loadActivity() {
+  const el = document.getElementById('tab-activity');
+
+  const [{ data: trail, error: trailErr }, { data: screens }, { data: audits }] = await Promise.all([
+    supabaseClient.from('supplier_audit_trail').select('occurred_at, description, actor_role').eq('supplier_id', supplierId).order('occurred_at', { ascending: false }),
+    supabaseClient.from('sanctions_screens').select('screened_at, result, lists_screened').eq('subject_id', supplierId).order('screened_at', { ascending: false }),
+    supabaseClient.from('supplier_audits').select('audit_date, audit_type, outcome, auditor_name').eq('supplier_id', supplierId).order('audit_date', { ascending: false }),
+  ]);
+
+  if (trailErr) { el.innerHTML = `<div class="alert alert-error">${esc(trailErr.message)}</div>`; return; }
+
+  const resultLabels = { clear: 'no match', potential_match: 'potential match', confirmed_match: 'confirmed match' };
+
+  const events = [
+    ...(trail||[]).map(t => ({ occurred_at: t.occurred_at, description: t.description, source: (t.actor_role||'system').replace(/_/g,' ') })),
+    ...(screens||[]).map(sc => ({ occurred_at: sc.screened_at, description: `Sanctions screen — ${resultLabels[sc.result]||sc.result}${(sc.lists_screened||[]).length ? ' (' + sc.lists_screened.join(', ') + ')' : ''}`, source: 'sanctions' })),
+    ...(audits||[]).map(a => ({ occurred_at: a.audit_date, description: `${(a.audit_type||'').replace(/_/g,' ')} audit by ${a.auditor_name||'—'} — ${(a.outcome||'').replace(/_/g,' ')}`, source: 'audit' })),
+  ].filter(e => e.occurred_at).sort((a,b) => new Date(b.occurred_at) - new Date(a.occurred_at));
+
+  if (!events.length) {
+    el.innerHTML = '<p style="color:var(--color-text-muted);font-size:var(--text-sm)">No activity recorded yet.</p>';
+    return;
+  }
+
+  const groups = groupTrailByDate(events);
+  el.innerHTML = `<div class="panel"><div class="panel-body">
+    ${groups.map((g, i) => `
+      <details ${i === 0 ? 'open' : ''} style="border-bottom:1px solid var(--color-border)">
+        <summary style="cursor:pointer;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) 0;font-size:var(--text-sm);font-weight:600">
+          <span>${esc(g.date)}</span>
+          <span class="badge badge-neutral" style="font-size:var(--text-xs);font-weight:500">${g.items.length} event${g.items.length === 1 ? '' : 's'}</span>
+        </summary>
+        <div style="display:flex;flex-direction:column;padding:0 0 var(--space-3) var(--space-2)">
+          ${g.items.map(e => `
+            <div class="activity-item">
+              <span class="activity-item__date">${fmtTime(e.occurred_at)}</span>
+              <span class="activity-item__source">${esc(e.source)}</span>
+              <span>${esc(e.description)}</span>
+            </div>`).join('')}
+        </div>
+      </details>`).join('')}
+  </div></div>`;
+}
+
 // ── Onboarding tab ────────────────────────────────────────────────────────
 
 async function loadOnboarding() {
   const el = document.getElementById('tab-onboarding');
-
-  // Load the most recent onboarding record (active or last completed)
-  const { data: obs, error: obErr } = await supabaseClient
-    .from('supplier_onboarding')
-    .select('*, contact:contacts(supplier_type)')
-    .eq('contact_id', supplierId)
-    .order('created_at', { ascending: false })
-    .limit(5);
-
-  if (obErr) { el.innerHTML = `<div class="alert alert-error">${esc(obErr.message)}</div>`; return; }
-
-  const isCommercial  = PortalRoles.getRoles().includes('director_commercial');
-  const isCompliance  = PortalRoles.getRoles().includes('director_compliance');
+  const obs = allOnboardings;
+  const isCommercial = PortalRoles.getRoles().includes('director_commercial');
 
   if (!obs || obs.length === 0) {
     el.innerHTML = `
@@ -68,71 +923,53 @@ async function loadOnboarding() {
   }
 
   const ob = obs[0]; // most recent
-  const stageBadge  = OnboardingWorkflow.stageBadgeClass(ob.workflow_stage);
-  const stageText   = OnboardingWorkflow.stageLabel(ob.workflow_stage);
-  const isRejected  = ob.workflow_stage === 'rejected';
-  const isActivated = ob.workflow_stage === 'activated';
-  const isActive    = !isRejected && !isActivated;
+  const stageBadge   = OnboardingWorkflow.stageBadgeClass(ob.workflow_stage);
+  const stageText    = OnboardingWorkflow.stageLabel(ob.workflow_stage);
+  const isRejected   = ob.workflow_stage === 'rejected';
+  const isTradeReady = ob.workflow_stage === 'trade_ready';
+  const isTerminal   = isRejected || isTradeReady;
 
-  // Stage-aware action buttons
+  // Stage-routed action buttons
   let advanceHtml = '';
-  if (isActive) {
+  if (!isTerminal) {
     const rejectBtn = `<button class="btn btn-ghost btn-sm" style="color:var(--color-danger);border-color:var(--color-danger)"
       onclick="openRejectModal('${esc(ob.id)}','${esc(ob.workflow_stage)}')">Reject</button>`;
 
-    if (ob.workflow_stage === 'intake' && isCommercial) {
-      // Direct advance — intake is just the form, no separate page needed
-      advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4)">
-        <button class="btn btn-primary btn-sm" onclick="advanceOnboardingStage('${esc(ob.id)}','screening')">
-          Confirm Intake &amp; Assign for Vetting →
-        </button>${rejectBtn}</div>`;
+    if (ob.workflow_stage === 'draft') {
+      advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center">
+        <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Continue Stage 1 →</a>
+        ${rejectBtn}</div>`;
 
-    } else if (ob.workflow_stage === 'screening' && isCompliance) {
-      advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4)">
-        <a href="risk-assessment.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">
-          Complete Risk Assessment &amp; Sanctions →
+    } else if (ob.workflow_stage === 'stage1_complete') {
+      advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
+        <span class="badge badge-info">Ready to Quote</span>
+        <a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">
+          Begin Stage 2 — Pre-Trade Vetting →
         </a>${rejectBtn}</div>`;
 
-    } else if (ob.workflow_stage === 'documents' && isCompliance) {
-      advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4)">
-        <a href="documents.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">
-          Manage Document Checklist →
+    } else if (ob.workflow_stage === 'pending_stage2') {
+      advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center">
+        <a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">
+          Continue Stage 2 →
         </a>${rejectBtn}</div>`;
 
-    } else if (ob.workflow_stage === 'compliance' && isCompliance) {
-      advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4)">
-        <a href="compliance-review.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">
-          Complete Compliance Review →
+    } else if (ob.workflow_stage === 'awaiting_supplier_info') {
+      advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
+        <span class="badge badge-warning">Awaiting Supplier Info</span>
+        <a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">
+          Continue Stage 2 →
+        </a>
+        <button class="btn btn-primary btn-sm" onclick="resumeVetting('${esc(ob.id)}')">Resume Vetting</button>
+        ${rejectBtn}</div>`;
+
+    } else if (ob.workflow_stage === 'stage2_complete') {
+      advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
+        <span class="badge badge-success">Stage 2 Complete</span>
+        <a href="trade-ready.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">
+          Begin Stage 3 — Trade Ready Sign-off →
         </a>${rejectBtn}</div>`;
     }
-    // recommendation and pending_approval stages are handled inline below (forms already rendered)
   }
-
-  // Recommendation panel (shown to Martyn at 'recommendation' stage)
-  const showRecommendationForm = isCompliance && ob.workflow_stage === 'recommendation' && !ob.recommendation;
-  const showDecisionForm = isCommercial && ob.workflow_stage === 'pending_approval' && !ob.decision;
-
-  // Audit trail for this onboarding
-  const { data: trail } = await supabaseClient
-    .from('supplier_audit_trail')
-    .select('occurred_at, event_type, description, actor_role')
-    .eq('onboarding_id', ob.id)
-    .order('occurred_at', { ascending: false })
-    .limit(20);
-
-  const trailHtml = (trail && trail.length > 0)
-    ? `<div style="margin-top:var(--space-6)">
-        <div style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-3)">Onboarding Timeline</div>
-        <div style="display:flex;flex-direction:column;gap:var(--space-2)">
-          ${trail.map(t => `
-            <div style="display:flex;gap:var(--space-3);align-items:baseline;font-size:var(--text-sm)">
-              <span style="white-space:nowrap;color:var(--color-text-muted);font-size:var(--text-xs);min-width:110px">${fmtDate(t.occurred_at)}</span>
-              <span style="color:var(--color-text-muted);font-size:var(--text-xs);min-width:80px">${esc(t.actor_role?.replace('_',' ') || '—')}</span>
-              <span>${esc(t.description)}</span>
-            </div>`).join('')}
-        </div>
-      </div>`
-    : '';
 
   // Previous onboarding records
   const prevHtml = obs.length > 1
@@ -158,7 +995,7 @@ async function loadOnboarding() {
           </a>
         </div>
 
-        ${OnboardingWorkflow.renderProgressSteps(ob.workflow_stage, ob.contact?.supplier_type)}
+        ${OnboardingWorkflow.renderProgressSteps(ob.workflow_stage)}
 
         <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4)">
           <span class="badge ${stageBadge}">${esc(stageText)}</span>
@@ -179,103 +1016,15 @@ async function loadOnboarding() {
 
         ${advanceHtml}
 
-        ${showRecommendationForm ? buildRecommendationForm(ob.id) : ''}
-        ${showDecisionForm ? buildDecisionForm(ob.id, ob.recommendation) : ''}
-
         ${isRejected && isCommercial ? `
           <div style="margin-top:var(--space-4);padding:var(--space-3);background:rgba(220,38,38,0.06);border-radius:var(--radius-sm)">
             <p style="font-size:var(--text-sm);margin:0 0 var(--space-2)">This onboarding was rejected. You can start a new onboarding process for this supplier if circumstances have changed.</p>
             <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-sm btn-ghost" style="border:1px solid var(--color-border)">Start New Onboarding</a>
           </div>` : ''}
 
-        ${trailHtml}
         ${prevHtml}
       </div>
     </div>`;
-}
-
-function buildRecommendationForm(onboardingId) {
-  return `
-    <div style="margin-top:var(--space-5);padding:var(--space-5);border:1px solid var(--color-border);border-radius:var(--radius-sm)">
-      <div style="font-family:var(--font-display);font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-4)">Submit Vetting Recommendation</div>
-      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
-        <div class="form-group">
-          <label class="form-label" for="rec-decision">Recommendation <span class="required">*</span></label>
-          <select class="form-select" id="rec-decision">
-            <option value="">Select recommendation…</option>
-            <option value="approve">Approve</option>
-            <option value="approve_with_conditions">Approve with Conditions</option>
-            <option value="reject">Reject</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="rec-rationale">Rationale <span class="required">*</span></label>
-          <textarea class="form-textarea" id="rec-rationale" rows="4" placeholder="Summarise the vetting findings and the basis for your recommendation. This is recorded in the ISO 9001 audit trail and reviewed by Jackson."></textarea>
-        </div>
-        <div class="form-group" id="rec-conditions-group" style="display:none">
-          <label class="form-label" for="rec-conditions">Conditions (one per line)</label>
-          <textarea class="form-textarea" id="rec-conditions" rows="3" placeholder="List any conditions that must be satisfied…"></textarea>
-        </div>
-        <div id="rec-error" style="display:none;color:var(--color-danger);font-size:var(--text-sm)"></div>
-        <div>
-          <button class="btn btn-primary btn-sm" onclick="submitRecommendation('${esc(onboardingId)}')">Submit Recommendation</button>
-        </div>
-      </div>
-    </div>
-    <script>
-      document.getElementById('rec-decision').addEventListener('change', function() {
-        document.getElementById('rec-conditions-group').style.display =
-          this.value === 'approve_with_conditions' ? 'block' : 'none';
-      });
-    <\/script>`;
-}
-
-function buildDecisionForm(onboardingId, complianceRec) {
-  const recNote = complianceRec
-    ? `<div style="margin-bottom:var(--space-4);padding:var(--space-3);background:var(--color-surface);border-radius:var(--radius-sm);font-size:var(--text-sm)">Compliance recommendation: <strong>${complianceRec.replace(/_/g,' ')}</strong></div>`
-    : '';
-  return `
-    <div style="margin-top:var(--space-5);padding:var(--space-5);border:1px solid var(--color-accent);border-radius:var(--radius-sm)">
-      <div style="font-family:var(--font-display);font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-4)">Final Approval Decision</div>
-      ${recNote}
-      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
-        <div class="form-group">
-          <label class="form-label" for="dec-decision">Decision <span class="required">*</span></label>
-          <select class="form-select" id="dec-decision">
-            <option value="">Select decision…</option>
-            <option value="approved">Approved</option>
-            <option value="approved_with_conditions">Approved with Conditions</option>
-            <option value="rejected">Rejected</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="dec-justification">Justification <span class="required">*</span></label>
-          <textarea class="form-textarea" id="dec-justification" rows="4" placeholder="Your independent assessment and the basis for your decision. This is your own rationale — not a restatement of Martyn's recommendation."></textarea>
-        </div>
-        <div id="dec-error" style="display:none;color:var(--color-danger);font-size:var(--text-sm)"></div>
-        <div>
-          <button class="btn btn-primary btn-sm" onclick="submitDecision('${esc(onboardingId)}')">Record Decision</button>
-        </div>
-      </div>
-    </div>`;
-}
-
-async function advanceOnboardingStage(onboardingId, targetStage) {
-  const result = await OnboardingWorkflow.advanceStage(onboardingId, targetStage);
-  if (!result.ok) {
-    const el = document.getElementById('tab-onboarding');
-    const blockerHtml = OnboardingWorkflow.renderBlockers(result.blockers);
-    // Show blockers at top of tab
-    const existing = el.querySelector('.blocker-notice');
-    if (existing) existing.remove();
-    const div = document.createElement('div');
-    div.className = 'blocker-notice';
-    div.innerHTML = blockerHtml;
-    el.prepend(div);
-    return;
-  }
-  _tabLoaded.onboarding = false;
-  loadOnboarding();
 }
 
 async function openRejectModal(onboardingId, currentStage) {
@@ -283,135 +1032,16 @@ async function openRejectModal(onboardingId, currentStage) {
   if (!reason || !reason.trim()) return;
   const result = await OnboardingWorkflow.rejectOnboarding(onboardingId, currentStage, reason.trim());
   if (!result.ok) { alert('Error: ' + result.error); return; }
-  _tabLoaded.onboarding = false;
-  loadOnboarding();
+  location.reload();
 }
 
-async function submitRecommendation(onboardingId) {
-  const decision   = document.getElementById('rec-decision')?.value;
-  const rationale  = document.getElementById('rec-rationale')?.value.trim();
-  const conditions = document.getElementById('rec-conditions')?.value.trim();
-  const errEl      = document.getElementById('rec-error');
-
-  if (!decision || !rationale) {
-    errEl.textContent = 'Recommendation and rationale are required.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  const user = await getCurrentUser();
-  const { error } = await supabaseClient.from('supplier_onboarding').update({
-    recommendation:               decision,
-    recommendation_rationale:     rationale,
-    conditions_summary:           conditions || null,
-    recommendation_submitted_at:  new Date().toISOString(),
-    workflow_stage:               'pending_approval',
-    updated_at:                   new Date().toISOString(),
-  }).eq('id', onboardingId);
-
-  if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
-
-  // Write approval record
-  await supabaseClient.from('supplier_approvals').insert({
-    supplier_id:    supplierId,
-    onboarding_id:  onboardingId,
-    approval_stage: 'recommendation',
-    approver_id:    user?.id,
-    approver_role:  'director_compliance',
-    decision:       decision,
-    justification:  rationale,
-    conditions:     conditions || null,
-  });
-
-  await OnboardingWorkflow.logEvent(supplierId, onboardingId, 'recommendation_submitted',
-    `Compliance recommendation submitted: "${decision.replace(/_/g,' ')}". Rationale: ${rationale.slice(0, 120)}${rationale.length > 120 ? '…' : ''}`,
-    { recommendation: decision }
-  );
-
-  _tabLoaded.onboarding = false;
-  loadOnboarding();
+async function resumeVetting(onboardingId) {
+  const result = await OnboardingWorkflow.resumeFromAwaitingInfo(onboardingId);
+  if (!result.ok) { alert('Error: ' + (result.blockers?.join(', ') || result.error)); return; }
+  location.reload();
 }
 
-async function submitDecision(onboardingId) {
-  const decision      = document.getElementById('dec-decision')?.value;
-  const justification = document.getElementById('dec-justification')?.value.trim();
-  const errEl         = document.getElementById('dec-error');
-
-  if (!decision || !justification) {
-    errEl.textContent = 'Decision and justification are required.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  const user = await getCurrentUser();
-  const targetStage = decision === 'rejected' ? 'rejected' : 'activated';
-  const activatedAt = targetStage === 'activated' ? new Date().toISOString() : null;
-
-  const { error } = await supabaseClient.from('supplier_onboarding').update({
-    decision,
-    decision_justification: justification,
-    decision_by:            user?.id,
-    decision_at:            new Date().toISOString(),
-    workflow_stage:         targetStage,
-    activated_at:           activatedAt,
-    updated_at:             new Date().toISOString(),
-  }).eq('id', onboardingId);
-
-  if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
-
-  // Write approval record
-  await supabaseClient.from('supplier_approvals').insert({
-    supplier_id:    supplierId,
-    onboarding_id:  onboardingId,
-    approval_stage: 'final_approval',
-    approver_id:    user?.id,
-    approver_role:  'director_commercial',
-    decision,
-    justification,
-  });
-
-  // Sync contacts.approval_status
-  const newStatus = decision === 'rejected' ? 'rejected'
-                  : decision === 'approved_with_conditions' ? 'conditionally_approved'
-                  : 'approved';
-  await supabaseClient.from('contacts').update({
-    approval_status: newStatus,
-    approved_at:     targetStage === 'activated' ? new Date().toISOString() : null,
-    approved_by:     targetStage === 'activated' ? user?.id : null,
-  }).eq('id', supplierId);
-
-  await OnboardingWorkflow.logEvent(supplierId, onboardingId,
-    targetStage === 'activated' ? 'approval_decision' : 'rejection_decision',
-    `Final decision recorded by Director (Commercial): "${decision.replace(/_/g,' ')}". ${justification.slice(0, 120)}${justification.length > 120 ? '…' : ''}`,
-    { decision }
-  );
-
-  _tabLoaded.onboarding = false;
-  location.reload(); // reload to reflect new approval_status in header
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function loadAudits() {
-  const el = document.getElementById('tab-audits');
-  const { data, error } = await supabaseClient.from('supplier_audits').select('*').eq('supplier_id', supplierId).order('audit_date', { ascending: false });
-  if (error) { el.innerHTML = `<div class="alert alert-error">${esc(error.message)}</div>`; return; }
-  if (!data || data.length === 0) {
-    el.innerHTML = `<p style="color:var(--color-text-muted);font-size:var(--text-sm)">No audit records.</p><a href="audit.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm" style="margin-top:var(--space-3)">Record First Audit</a>`;
-    return;
-  }
-  const outcomeClass = { approved:'badge-success', approved_with_conditions:'badge-warning', not_approved:'badge-danger' };
-  el.innerHTML = `<div style="margin-bottom:var(--space-4);text-align:right"><a href="audit.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">+ Record Audit</a></div>
-  <div class="table-wrapper"><table><thead><tr><th>Date</th><th>Type</th><th>Auditor</th><th>Outcome</th><th>Next Due</th><th>Conditions</th></tr></thead><tbody>
-  ${data.map(a => `<tr>
-    <td style="font-size:var(--text-sm)">${fmtDate(a.audit_date)}</td>
-    <td style="font-size:var(--text-sm)">${esc(a.audit_type?.replace('_',' '))}</td>
-    <td style="font-size:var(--text-sm)">${esc(a.auditor_name)}</td>
-    <td><span class="badge ${outcomeClass[a.outcome]||'badge-neutral'}">${esc(a.outcome?.replace(/_/g,' '))}</span></td>
-    <td style="font-size:var(--text-sm)">${fmtDate(a.next_audit_due_date)}</td>
-    <td style="font-size:var(--text-sm);max-width:200px">${esc(a.conditions || '—')}</td>
-  </tr>`).join('')}</tbody></table></div>`;
-}
+// ── Orders / Concessions / Disputes / KYC tabs ───────────────────────────────
 
 async function loadOrders() {
   const el = document.getElementById('tab-orders');
@@ -431,8 +1061,6 @@ async function loadOrders() {
 
 async function loadConcessions() {
   const el = document.getElementById('tab-concessions');
-  const { data, error } = await supabaseClient.from('concessions').select('*, trade:trades(reference, product)').eq('trades.supplier_id', supplierId);
-  // Filter client-side since Supabase doesn't support nested eq filter this way
   const { data: tradeIds } = await supabaseClient.from('trades').select('id').eq('supplier_id', supplierId);
   const ids = (tradeIds || []).map(t => t.id);
   if (ids.length === 0) { el.innerHTML = '<p style="color:var(--color-text-muted);font-size:var(--text-sm)">No concessions for this supplier.</p>'; return; }
@@ -468,43 +1096,283 @@ async function loadDisputes() {
   </tr>`).join('')}</tbody></table></div>`;
 }
 
-async function loadSanctions() {
-  const el = document.getElementById('tab-sanctions');
-  const { data, error } = await supabaseClient.from('sanctions_screens').select('*').eq('subject_id', supplierId).order('screened_at', { ascending: false });
-  if (error) { el.innerHTML = `<div class="alert alert-error">${esc(error.message)}</div>`; return; }
-  if (!data || data.length === 0) { el.innerHTML = '<p style="color:var(--color-text-muted);font-size:var(--text-sm)">No sanctions screens recorded.</p>'; return; }
-  const resultClass = { clear:'badge-success', potential_match:'badge-warning', confirmed_match:'badge-danger' };
-  el.innerHTML = `<div class="table-wrapper"><table><thead><tr><th>Date</th><th>Lists Screened</th><th>Tool</th><th>Result</th><th>Notes</th></tr></thead><tbody>
-  ${data.map(s => `<tr>
-    <td style="font-size:var(--text-sm)">${fmtDate(s.screened_at)}</td>
-    <td style="font-size:var(--text-sm)">${(s.lists_screened||[]).join(', ')||'—'}</td>
-    <td style="font-size:var(--text-sm)">${esc(s.tool_used||'—')}</td>
-    <td><span class="badge ${resultClass[s.result]||'badge-neutral'}">${esc(s.result?.replace('_',' '))}</span></td>
-    <td style="font-size:var(--text-sm)">${esc(s.match_resolution_notes||'—')}</td>
-  </tr>`).join('')}</tbody></table></div>`;
+// ── Edit Address modal ───────────────────────────────────────────────────
+
+function openEditAddressModal() {
+  const s = supplierData || {};
+  const dispatchDifferent = hasDispatchAddress(s);
+
+  document.getElementById('edit-address-form-container').innerHTML = `
+    <form id="edit-address-form" onsubmit="submitEditAddress(event)">
+      <div style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-3)">Company Address</div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-group">
+          <label class="form-label">Address Line 1</label>
+          <input type="text" class="form-input" id="addr-line1" value="${esc(s.address_line_1 || '')}" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Address Line 2</label>
+          <input type="text" class="form-input" id="addr-line2" value="${esc(s.address_line_2 || '')}" />
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">City</label>
+            <input type="text" class="form-input" id="addr-city" value="${esc(s.city || '')}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Postcode</label>
+            <input type="text" class="form-input" id="addr-postcode" value="${esc(s.postcode || '')}" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
+            <input type="checkbox" id="addr-dispatch-different" ${dispatchDifferent ? 'checked' : ''} onchange="document.getElementById('addr-dispatch-fields').style.display=this.checked?'flex':'none'" />
+            Goods are dispatched from a different address (e.g. separate warehouse)
+          </label>
+        </div>
+        <div id="addr-dispatch-fields" style="display:${dispatchDifferent ? 'flex' : 'none'};flex-direction:column;gap:var(--space-4);padding-top:var(--space-2);border-top:1px solid var(--color-border)">
+          <div class="form-group">
+            <label class="form-label">Dispatch Address Line 1</label>
+            <input type="text" class="form-input" id="addr-dispatch-line1" value="${esc(s.dispatch_address_line_1 || '')}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dispatch Address Line 2</label>
+            <input type="text" class="form-input" id="addr-dispatch-line2" value="${esc(s.dispatch_address_line_2 || '')}" />
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">City</label>
+              <input type="text" class="form-input" id="addr-dispatch-city" value="${esc(s.dispatch_city || '')}" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Postcode</label>
+              <input type="text" class="form-input" id="addr-dispatch-postcode" value="${esc(s.dispatch_postcode || '')}" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dispatch Country</label>
+            <input type="text" class="form-input" id="addr-dispatch-country" value="${esc(s.dispatch_country || '')}" placeholder="Country goods ship from" />
+          </div>
+        </div>
+      </div>
+      <div id="edit-address-alert" class="alert" style="display:none;margin-top:var(--space-3)"></div>
+      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5)">
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-address-modal').classList.remove('open')">Cancel</button>
+      </div>
+    </form>`;
+
+  document.getElementById('edit-address-modal').classList.add('open');
 }
 
-async function loadKyc() {
-  const el = document.getElementById('tab-kyc');
-  const { data, error } = await supabaseClient.from('kyc_records').select('*').eq('contact_id', supplierId).limit(1);
-  if (error) { el.innerHTML = `<div class="alert alert-error">${esc(error.message)}</div>`; return; }
-  if (!data || data.length === 0) {
-    el.innerHTML = `<p style="color:var(--color-text-muted);font-size:var(--text-sm)">No KYC record. <a href="../kyc/index.html">Add one in KYC Records →</a></p>`;
+async function submitEditAddress(e) {
+  e.preventDefault();
+  const alertEl = document.getElementById('edit-address-alert');
+  const dispatchDifferent = document.getElementById('addr-dispatch-different')?.checked;
+
+  const payload = {
+    address_line_1: document.getElementById('addr-line1')?.value.trim() || null,
+    address_line_2: document.getElementById('addr-line2')?.value.trim() || null,
+    city:           document.getElementById('addr-city')?.value.trim()  || null,
+    postcode:       document.getElementById('addr-postcode')?.value.trim() || null,
+    dispatch_address_line_1: dispatchDifferent ? (document.getElementById('addr-dispatch-line1')?.value.trim() || null) : null,
+    dispatch_address_line_2: dispatchDifferent ? (document.getElementById('addr-dispatch-line2')?.value.trim() || null) : null,
+    dispatch_city:           dispatchDifferent ? (document.getElementById('addr-dispatch-city')?.value.trim()  || null) : null,
+    dispatch_postcode:       dispatchDifferent ? (document.getElementById('addr-dispatch-postcode')?.value.trim() || null) : null,
+    dispatch_country:        dispatchDifferent ? (document.getElementById('addr-dispatch-country')?.value.trim() || null) : null,
+  };
+
+  const { error } = await supabaseClient.from('contacts').update(payload).eq('id', supplierId);
+
+  if (error) {
+    alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
+    alertEl.textContent = 'Save failed: ' + error.message;
     return;
   }
-  const k = data[0];
-  const statusClass = { approved:'badge-success', in_progress:'badge-info', pending:'badge-warning', rejected:'badge-danger', expired:'badge-danger' };
-  const riskClass = { low:'badge-success', medium:'badge-warning', high:'badge-danger', unrated:'badge-neutral' };
-  el.innerHTML = `<div class="panel"><div class="panel-body"><table style="width:100%"><tbody>
-    <tr><td style="color:var(--color-text-muted);padding:var(--space-2) 0;width:35%">Status</td><td><span class="badge ${statusClass[k.kyc_status]||'badge-neutral'}">${esc(k.kyc_status)}</span></td></tr>
-    <tr><td style="color:var(--color-text-muted);padding:var(--space-2) 0">Risk Rating</td><td><span class="badge ${riskClass[k.risk_rating]||'badge-neutral'}">${esc(k.risk_rating)}</span></td></tr>
-    <tr><td style="color:var(--color-text-muted);padding:var(--space-2) 0">Last Screened</td><td>${fmtDate(k.last_screened_date)}</td></tr>
-    <tr><td style="color:var(--color-text-muted);padding:var(--space-2) 0">Next Review</td><td>${fmtDate(k.next_review_date)}</td></tr>
-    <tr><td style="color:var(--color-text-muted);padding:var(--space-2) 0">Notes</td><td style="font-size:var(--text-sm)">${esc(k.notes||'—')}</td></tr>
-  </tbody></table>
-  <div style="margin-top:var(--space-4)"><a href="../kyc/detail.html?id=${esc(k.id)}" class="btn btn-ghost btn-sm">Open KYC Record →</a></div>
-  </div></div>`;
+
+  document.getElementById('edit-address-modal').classList.remove('open');
+  location.reload();
 }
+
+// ── Edit Bank Details modal ──────────────────────────────────────────────
+
+function openEditBankModal() {
+  const s = supplierData || {};
+
+  document.getElementById('edit-bank-form-container').innerHTML = `
+    <form id="edit-bank-form" onsubmit="submitEditBank(event)">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="bank-account-name">Account Name</label>
+            <input type="text" class="form-input" id="bank-account-name" value="${esc(s.bank_account_name || '')}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="bank-name">Bank Name</label>
+            <input type="text" class="form-input" id="bank-name" value="${esc(s.bank_name || '')}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="bank-account-number">Account Number</label>
+            <input type="text" class="form-input" id="bank-account-number" value="${esc(s.bank_account_number || '')}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="bank-sort-code">Sort Code / Routing Number</label>
+            <input type="text" class="form-input" id="bank-sort-code" value="${esc(s.bank_sort_code || '')}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="bank-iban">IBAN</label>
+            <input type="text" class="form-input" id="bank-iban" value="${esc(s.bank_iban || '')}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="bank-swift-bic">SWIFT / BIC</label>
+            <input type="text" class="form-input" id="bank-swift-bic" value="${esc(s.bank_swift_bic || '')}" />
+          </div>
+        </div>
+        <label style="display:flex;gap:var(--space-2);align-items:center;cursor:pointer;font-size:var(--text-sm)">
+          <input type="checkbox" id="bank-verified" style="accent-color:var(--color-accent)" ${s.bank_account_verified_in_name ? 'checked' : ''} />
+          I confirm this bank account is held in the exact name of the registered company above.
+        </label>
+      </div>
+      <div id="edit-bank-alert" class="alert" style="display:none;margin-top:var(--space-3)"></div>
+      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5)">
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-bank-modal').classList.remove('open')">Cancel</button>
+      </div>
+    </form>`;
+
+  document.getElementById('edit-bank-modal').classList.add('open');
+}
+
+async function submitEditBank(e) {
+  e.preventDefault();
+  const alertEl = document.getElementById('edit-bank-alert');
+
+  const payload = {
+    bank_account_name:             document.getElementById('bank-account-name')?.value.trim() || null,
+    bank_name:                      document.getElementById('bank-name')?.value.trim() || null,
+    bank_account_number:           document.getElementById('bank-account-number')?.value.trim() || null,
+    bank_sort_code:                 document.getElementById('bank-sort-code')?.value.trim() || null,
+    bank_iban:                      document.getElementById('bank-iban')?.value.trim() || null,
+    bank_swift_bic:                 document.getElementById('bank-swift-bic')?.value.trim() || null,
+    bank_account_verified_in_name:  !!document.getElementById('bank-verified')?.checked,
+  };
+
+  const { error } = await supabaseClient.from('contacts').update(payload).eq('id', supplierId);
+
+  if (error) {
+    alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
+    alertEl.textContent = 'Save failed: ' + error.message;
+    return;
+  }
+
+  document.getElementById('edit-bank-modal').classList.remove('open');
+  location.reload();
+}
+
+// ── Edit Commercial Terms modal ──────────────────────────────────────────
+
+const CURRENCIES = ['USD', 'GBP', 'EUR', 'INR', 'CNY', 'AED'];
+
+function openEditCommercialModal() {
+  const s = supplierData || {};
+  const accepted = s.accepted_currencies || [];
+
+  document.getElementById('edit-commercial-form-container').innerHTML = `
+    <form id="edit-commercial-form" onsubmit="submitEditCommercial(event)">
+      <div class="form-group" style="margin-bottom:var(--space-4)">
+        <label class="form-label">Accepted Currencies</label>
+        <div class="currency-grid">
+          ${CURRENCIES.map(c => `
+            <label class="currency-chip">
+              <input type="checkbox" class="ec-currency-check" value="${c}" style="accent-color:var(--color-accent)" ${accepted.includes(c) ? 'checked' : ''} /> ${c}
+            </label>`).join('')}
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Default Currency</label>
+          <select class="form-select" id="ec-default-currency"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Standard Incoterm</label>
+          <select class="form-select" id="ec-incoterm">
+            <option value="">Select…</option>
+            <option value="FOB">FOB — Free on Board</option>
+            <option value="CIF">CIF — Cost, Insurance &amp; Freight</option>
+            <option value="DAP">DAP — Delivered at Place</option>
+            <option value="EXW">EXW — Ex Works</option>
+            <option value="CFR">CFR — Cost &amp; Freight</option>
+            <option value="CPT">CPT — Carriage Paid To</option>
+            <option value="FCA">FCA — Free Carrier</option>
+            <option value="DDP">DDP — Delivered Duty Paid</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Initial Payment Terms</label>
+          <input type="text" class="form-input" id="ec-payment-initial" value="${esc(s.payment_terms_initial || '')}" placeholder="e.g. 100% advance for first 3 orders" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Subsequent Payment Terms</label>
+          <input type="text" class="form-input" id="ec-payment-subsequent" value="${esc(s.payment_terms_subsequent || '')}" placeholder="e.g. 30% advance, 70% against B/L copy" />
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Export Licence Number</label>
+          <input type="text" class="form-input" id="ec-export-licence" value="${esc(s.export_licence_number || '')}" />
+        </div>
+      </div>
+      <div id="edit-commercial-alert" class="alert" style="display:none;margin-top:var(--space-3)"></div>
+      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5)">
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-commercial-modal').classList.remove('open')">Cancel</button>
+      </div>
+    </form>`;
+
+  document.getElementById('ec-incoterm').value = s.standard_incoterm || '';
+  document.querySelectorAll('.ec-currency-check').forEach(cb => cb.addEventListener('change', updateEcDefaultCurrencyOptions));
+  updateEcDefaultCurrencyOptions();
+
+  document.getElementById('edit-commercial-modal').classList.add('open');
+}
+
+function updateEcDefaultCurrencyOptions() {
+  const s = supplierData || {};
+  const checked = Array.from(document.querySelectorAll('.ec-currency-check:checked')).map(cb => cb.value);
+  const sel = document.getElementById('ec-default-currency');
+  const current = sel.value || s.default_currency || '';
+  sel.innerHTML = checked.length
+    ? checked.map(c => `<option value="${c}">${c}</option>`).join('')
+    : '<option value="">Select an accepted currency first…</option>';
+  if (checked.includes(current)) sel.value = current;
+}
+
+async function submitEditCommercial(e) {
+  e.preventDefault();
+  const alertEl = document.getElementById('edit-commercial-alert');
+
+  const accepted = Array.from(document.querySelectorAll('.ec-currency-check:checked')).map(cb => cb.value);
+
+  const payload = {
+    accepted_currencies:      accepted.length ? accepted : null,
+    default_currency:         document.getElementById('ec-default-currency').value || null,
+    standard_incoterm:        document.getElementById('ec-incoterm').value || null,
+    payment_terms_initial:    document.getElementById('ec-payment-initial').value.trim() || null,
+    payment_terms_subsequent: document.getElementById('ec-payment-subsequent').value.trim() || null,
+    export_licence_number:    document.getElementById('ec-export-licence').value.trim() || null,
+  };
+
+  const { error } = await supabaseClient.from('contacts').update(payload).eq('id', supplierId);
+
+  if (error) {
+    alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
+    alertEl.textContent = 'Save failed: ' + error.message;
+    return;
+  }
+
+  document.getElementById('edit-commercial-modal').classList.remove('open');
+  location.reload();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
 
 (async () => {
   if (!supplierId) { document.body.innerHTML = '<p style="padding:2rem">No supplier ID specified.</p>'; return; }
@@ -514,31 +1382,30 @@ async function loadKyc() {
 
   const { data: supplier, error } = await supabaseClient.from('contacts').select('*').eq('id', supplierId).single();
   if (error || !supplier) { document.body.innerHTML = `<p style="padding:2rem;color:var(--color-danger)">Supplier not found.</p>`; return; }
+  supplierData = supplier;
 
   document.getElementById('topbar-title').textContent = supplier.company_name;
   document.title = `${supplier.company_name} — Vertex Metals Portal`;
 
-  const approvalCls = APPROVAL_CLASS[supplier.approval_status] || 'badge-neutral';
-  document.getElementById('supplier-header').innerHTML = `
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:var(--space-4)">
-      <div>
-        <h1 style="margin:0 0 var(--space-2)">${esc(supplier.company_name)}</h1>
-        <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
-          <span class="badge ${approvalCls}">${esc((supplier.approval_status || 'prospect').replace(/_/g, ' '))}</span>
-          ${supplier.country ? `<span style="color:var(--color-text-muted);font-size:var(--text-sm)">${esc(supplier.country)}</span>` : ''}
-          ${supplier.email ? `<a href="mailto:${esc(supplier.email)}" style="font-size:var(--text-sm);color:var(--color-accent)">${esc(supplier.email)}</a>` : ''}
-        </div>
-      </div>
-      <a href="audit.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Record Audit</a>
-    </div>
-    <div style="margin-top:var(--space-4);display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-4);font-size:var(--text-sm)">
-      <div><div style="color:var(--color-text-muted);margin-bottom:2px">Phone</div>${esc(supplier.phone||'—')}</div>
-      <div><div style="color:var(--color-text-muted);margin-bottom:2px">Website</div>${supplier.website?`<a href="${esc(supplier.website)}" target="_blank" style="color:var(--color-accent)">${esc(supplier.website)}</a>`:'—'}</div>
-      <div><div style="color:var(--color-text-muted);margin-bottom:2px">Last Sanctions Screen</div>${fmtDate(supplier.last_sanctions_screened_at)} <span style="color:var(--color-text-muted)">(${supplier.last_sanctions_result||'—'})</span></div>
-      <div><div style="color:var(--color-text-muted);margin-bottom:2px">Next Audit Due</div>${fmtDate(supplier.next_audit_due_date)}</div>
-    </div>
-    ${supplier.notes ? `<div style="margin-top:var(--space-4);padding:var(--space-3);background:var(--color-surface);border-radius:var(--radius-sm);font-size:var(--text-sm)">${esc(supplier.notes)}</div>` : ''}
-  `;
+  const { data: obs } = await supabaseClient
+    .from('supplier_onboarding')
+    .select('*')
+    .eq('contact_id', supplierId)
+    .order('created_at', { ascending: false })
+    .limit(5);
+  allOnboardings = obs || [];
+  onboardingData = allOnboardings[0] || null;
+
+  if (onboardingData) {
+    const { data: ra } = await supabaseClient
+      .from('supplier_risk_assessment')
+      .select('*')
+      .eq('onboarding_id', onboardingData.id)
+      .maybeSingle();
+    riskAssessmentData = ra || null;
+  }
+
+  renderHeader();
 
   // Show a flash banner if arriving from a fresh onboarding creation
   if (new URLSearchParams(location.search).get('onboarding_new') === '1') {
@@ -549,6 +1416,6 @@ async function loadKyc() {
     setTimeout(() => banner.remove(), 6000);
   }
 
-  _tabLoaded.onboarding = true;
-  loadOnboarding();
+  _tabLoaded.overview = true;
+  loadOverview();
 })();

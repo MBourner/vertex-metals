@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Customer — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar"></aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)"><button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="topbar-title" id="topbar-title">Customer</span></div>
+    <a href="index.html" class="btn btn-ghost btn-sm">← Customers</a>
+  </div>
+  <div class="portal-content">
+    <div id="customer-header" class="detail-header"><div style="color:var(--color-text-muted)">Loading…</div></div>
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+      <button class="tab-btn"        data-tab="rfqs"     onclick="switchTab('rfqs')">RFQs</button>
+      <button class="tab-btn"        data-tab="orders"   onclick="switchTab('orders')">Orders</button>
+      <button class="tab-btn"        data-tab="disputes" onclick="switchTab('disputes')">Disputes</button>
+      <button class="tab-btn"        data-tab="kyc"      onclick="switchTab('kyc')">KYC</button>
+    </div>
+    <div id="tab-overview" class="tab-pane active"><div style="color:var(--color-text-muted)">Loading…</div></div>
+    <div id="tab-rfqs"     class="tab-pane"></div>
+    <div id="tab-orders"   class="tab-pane"></div>
+    <div id="tab-disputes" class="tab-pane"></div>
+    <div id="tab-kyc"      class="tab-pane"></div>
+  </div>
+</div>
+
+<!-- Edit Customer Modal -->
+<div class="modal-overlay" id="edit-customer-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('edit-customer-modal').classList.remove('open')">✕</button>
+    <h3>Edit Customer</h3>
+    <div id="edit-customer-form-container"></div>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal/sidebar.js"></script>
+<script src="../../js/portal-guard.js"></script><script src="../../js/portal/state-machine.js"></script><script src="../../js/portal/customers-detail.js"></script>
+</body></html>

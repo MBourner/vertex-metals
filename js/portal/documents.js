@@ -1,7 +1,8 @@
 /**
  * Vertex Metals Portal — Supplier Document Checklist
  * Handles portal/suppliers/documents.html
- * Stage 3 (Documents) of the supplier onboarding workflow.
+ * General document checklist/upload tool, linked from onboard.html,
+ * pre-trade.html, and trade-ready.html.
  */
 
 function esc(s) {
@@ -35,14 +36,7 @@ const DOC_LABELS = {
   other:                        'Other Document',
 };
 
-// Required document types by supplier_type
-const REQUIRED_DOCS = {
-  manufacturing:       ['business_registration','beneficial_owner_declaration','bank_details','dpa','tax_certificate','quality_cert','test_certificate','insurance_liability','audit_report'],
-  materials_commodities:['business_registration','beneficial_owner_declaration','bank_details','dpa','tax_certificate','quality_cert','test_certificate','insurance_cargo','insurance_liability'],
-  logistics:           ['business_registration','beneficial_owner_declaration','bank_details','dpa','tax_certificate','insurance_cargo','insurance_liability'],
-  packaging:           ['business_registration','beneficial_owner_declaration','bank_details','dpa','tax_certificate','insurance_liability'],
-  service_provider:    ['business_registration','beneficial_owner_declaration','bank_details','dpa','tax_certificate','insurance_liability'],
-};
+// Required document types by supplier_type — see OnboardingWorkflow.SUPPLIER_TYPE_PROFILES
 
 // ── Modal helpers ─────────────────────────────────────────────────────────
 
@@ -116,17 +110,10 @@ async function loadDocuments() {
   renderMandatory(currentByType);
   renderAdditional(currentByType);
   updateCompleteness(currentByType);
-
-  const advanceBtn = document.getElementById('advance-btn');
-  if (advanceBtn) {
-    advanceBtn.textContent = OnboardingWorkflow.requiresFullDiligence(supplierType)
-      ? 'Advance to Compliance Review →'
-      : 'Advance to Recommendation →';
-  }
 }
 
 function renderMandatory(currentByType) {
-  const required = REQUIRED_DOCS[supplierType] || REQUIRED_DOCS.service_provider;
+  const required = OnboardingWorkflow.getRequiredDocs(supplierType);
   const el = document.getElementById('mandatory-list');
   const countEl = document.getElementById('required-count');
   countEl.textContent = `${required.length} required for ${(supplierType||'').replace('_',' ')}`;
@@ -138,7 +125,7 @@ function renderMandatory(currentByType) {
 }
 
 function renderAdditional(currentByType) {
-  const required = REQUIRED_DOCS[supplierType] || [];
+  const required = OnboardingWorkflow.getRequiredDocs(supplierType);
   const additionalDocs = Object.entries(currentByType).filter(([type]) => !required.includes(type));
   const el = document.getElementById('additional-list');
 
@@ -193,7 +180,7 @@ function renderDocRow(type, doc, isMandatory) {
 }
 
 function updateCompleteness(currentByType) {
-  const required = REQUIRED_DOCS[supplierType] || [];
+  const required = OnboardingWorkflow.getRequiredDocs(supplierType);
   const done = required.filter(type => {
     const d = currentByType[type];
     if (!d) return false;
@@ -212,8 +199,15 @@ function updateCompleteness(currentByType) {
 
 // ── Upload modal ──────────────────────────────────────────────────────────
 
+function nextVersionFor(docType) {
+  const existing = allDocs.filter(d => d.document_type === docType && !d.not_applicable);
+  return existing.length > 0 ? Math.max(...existing.map(d => d.version)) + 1 : 1;
+}
+
 function openUploadModal(docType, docLabel, isMandatory) {
   const isNew = !docType;
+  const nextVersion = isNew ? 1 : nextVersionFor(docType);
+
   openModal(`
     <div class="modal-head">
       <h3>${isNew ? 'Upload Additional Document' : `Upload — ${esc(docLabel)}`}</h3>
@@ -232,15 +226,16 @@ function openUploadModal(docType, docLabel, isMandatory) {
         <input type="text" class="form-input" id="up-label" placeholder="Describe this document…" />
       </div>` : ''}
       <div class="form-group">
-        <label class="form-label" for="up-file">File <span class="required">*</span></label>
-        <input type="file" class="form-input" id="up-file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx" />
-        <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:4px">Accepted: PDF, JPG, PNG, Word, Excel</div>
+        <label class="form-label" for="up-file">File(s) <span class="required">*</span></label>
+        <input type="file" class="form-input" id="up-file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx" multiple />
+        <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:4px">Accepted: PDF, JPG, PNG, Word, Excel. Multiple files may be selected.</div>
       </div>
       <div class="form-group">
-        <label class="form-label" for="up-expiry">Expiry Date (if applicable)</label>
+        <label class="form-label" for="up-expiry">Expiry Date</label>
         <input type="date" class="form-input" id="up-expiry" />
+        <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:4px">Defaults to 12 months from today if left blank.</div>
       </div>
-      <div class="form-group" id="up-reason-group">
+      <div class="form-group" id="up-reason-group" style="display:${nextVersion > 1 ? '' : 'none'}">
         <label class="form-label" for="up-reason">Reason for Update</label>
         <input type="text" class="form-input" id="up-reason" placeholder="Why is this document being re-uploaded?" />
         <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:4px">Required when replacing an existing version.</div>
@@ -256,6 +251,8 @@ function openUploadModal(docType, docLabel, isMandatory) {
   if (isNew) {
     document.getElementById('up-type').addEventListener('change', function() {
       document.getElementById('up-label-group').style.display = this.value === 'other' ? 'block' : 'none';
+      const nv = this.value ? nextVersionFor(this.value) : 1;
+      document.getElementById('up-reason-group').style.display = nv > 1 ? '' : 'none';
     });
   }
 }
@@ -271,10 +268,10 @@ async function submitUpload(docType, docLabel) {
     ? (document.getElementById('up-label')?.value.trim() || null)
     : (docLabel || DOC_LABELS[resolvedType] || resolvedType);
 
-  const file = document.getElementById('up-file')?.files[0];
+  const files = Array.from(document.getElementById('up-file')?.files || []);
 
-  if (!resolvedType) { errEl.textContent = 'Please select a document type.'; errEl.style.display = 'block'; return; }
-  if (!file)         { errEl.textContent = 'Please select a file to upload.'; errEl.style.display = 'block'; return; }
+  if (!resolvedType)  { errEl.textContent = 'Please select a document type.'; errEl.style.display = 'block'; return; }
+  if (!files.length)  { errEl.textContent = 'Please select at least one file to upload.'; errEl.style.display = 'block'; return; }
 
   btn.disabled = true;
   btn.textContent = 'Uploading…';
@@ -282,28 +279,27 @@ async function submitUpload(docType, docLabel) {
   try {
     const user = await getCurrentUser();
 
-    // Determine version number
-    const existing = allDocs.filter(d => d.document_type === resolvedType && !d.not_applicable);
-    const nextVersion = existing.length > 0 ? Math.max(...existing.map(d => d.version)) + 1 : 1;
+    // Determine version number — shared across the whole batch
+    const nextVersion = nextVersionFor(resolvedType);
 
     const reason = document.getElementById('up-reason')?.value.trim() || null;
     if (nextVersion > 1 && !reason) {
-      errEl.textContent = 'Please enter a reason for replacing the existing document.';
+      errEl.textContent = 'Please enter a reason for replacing the existing document(s).';
       errEl.style.display = 'block';
       btn.disabled = false;
       btn.textContent = 'Upload';
       return;
     }
 
-    // Upload file to storage
-    const ext = file.name.split('.').pop();
-    const storagePath = `supplier-documents/${supplierId}/${resolvedType}/${Date.now()}-v${nextVersion}.${ext}`;
-    const { error: uploadErr } = await supabaseClient.storage
-      .from('order-documents')
-      .upload(storagePath, file, { contentType: file.type, upsert: false });
-    if (uploadErr) throw new Error('File upload failed: ' + uploadErr.message);
+    // Default expiry: 12 months from today if left blank, applied to the whole batch
+    let expiry = document.getElementById('up-expiry')?.value || null;
+    if (!expiry) {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() + 1);
+      expiry = d.toISOString().split('T')[0];
+    }
 
-    // Supersede previous current version
+    // Supersede previous current version(s) once for the whole batch
     if (nextVersion > 1) {
       await supabaseClient.from('supplier_documents')
         .update({ is_current: false })
@@ -312,30 +308,39 @@ async function submitUpload(docType, docLabel) {
         .eq('is_current', true);
     }
 
-    // Insert new document record
-    const expiry = document.getElementById('up-expiry')?.value || null;
-    await supabaseClient.from('supplier_documents').insert({
-      supplier_id:    supplierId,
-      onboarding_id:  onboardingId,
-      document_type:  resolvedType,
-      document_label: resolvedType === 'other' ? resolvedLabel : null,
-      version:        nextVersion,
-      file_path:      storagePath,
-      file_name:      file.name,
-      file_size_bytes: file.size,
-      mime_type:      file.type,
-      uploaded_by:    user?.id,
-      uploaded_at:    new Date().toISOString(),
-      expiry_date:    expiry || null,
-      is_current:     true,
-      not_applicable: false,
-      change_reason:  reason,
-    });
+    // Upload each file as its own row, sharing the same version
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const ext = file.name.split('.').pop();
+      const storagePath = `supplier-documents/${supplierId}/${resolvedType}/${Date.now()}-v${nextVersion}-${i}.${ext}`;
+      const { error: uploadErr } = await supabaseClient.storage
+        .from('order-documents')
+        .upload(storagePath, file, { contentType: file.type, upsert: false });
+      if (uploadErr) throw new Error('File upload failed: ' + uploadErr.message);
+
+      await supabaseClient.from('supplier_documents').insert({
+        supplier_id:    supplierId,
+        onboarding_id:  onboardingId,
+        document_type:  resolvedType,
+        document_label: resolvedType === 'other' ? resolvedLabel : null,
+        version:        nextVersion,
+        file_path:      storagePath,
+        file_name:      file.name,
+        file_size_bytes: file.size,
+        mime_type:      file.type,
+        uploaded_by:    user?.id,
+        uploaded_at:    new Date().toISOString(),
+        expiry_date:    expiry,
+        is_current:     true,
+        not_applicable: false,
+        change_reason:  reason,
+      });
+    }
 
     await OnboardingWorkflow.logEvent(supplierId, onboardingId,
       nextVersion > 1 ? 'document_superseded' : 'document_uploaded',
-      `Document uploaded: "${resolvedLabel || resolvedType}" v${nextVersion}.${reason ? ' Reason: ' + reason : ''}`,
-      { document_type: resolvedType, version: nextVersion }
+      `Document uploaded: "${resolvedLabel || resolvedType}" v${nextVersion} (${files.length} file${files.length > 1 ? 's' : ''}).${reason ? ' Reason: ' + reason : ''}`,
+      { document_type: resolvedType, version: nextVersion, file_count: files.length }
     );
 
     closeModal();
@@ -408,38 +413,6 @@ async function submitNa(docType, docLabel) {
 
   closeModal();
   await loadDocuments();
-}
-
-// ── Advance from documents stage ──────────────────────────────────────────
-// Full-diligence suppliers go to Compliance Review; simplified-track
-// suppliers (logistics, packaging, service providers) skip straight to
-// Recommendation.
-
-async function advanceFromDocuments() {
-  const errEl = document.getElementById('form-error');
-  errEl.style.display = 'none';
-
-  const fullDiligence = OnboardingWorkflow.requiresFullDiligence(supplierType);
-  const targetStage = fullDiligence ? 'compliance' : 'recommendation';
-
-  const result = await OnboardingWorkflow.advanceStage(onboardingId, targetStage);
-  if (!result.ok) {
-    errEl.innerHTML = '<strong>Cannot advance yet:</strong><br>' + result.blockers.join('<br>');
-    errEl.style.display = 'block';
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-    return;
-  }
-
-  await OnboardingWorkflow.logEvent(supplierId, onboardingId, 'stage_advanced',
-    fullDiligence
-      ? 'Document collection marked complete. Advanced to Compliance Review stage.'
-      : 'Document collection marked complete. Simplified track — Compliance Review stage skipped. Advanced to Recommendation stage.',
-    { from_stage: 'documents', to_stage: targetStage }
-  );
-
-  location.href = fullDiligence
-    ? `compliance-review.html?supplier_id=${supplierId}&onboarding_id=${onboardingId}`
-    : `detail.html?id=${supplierId}`;
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────

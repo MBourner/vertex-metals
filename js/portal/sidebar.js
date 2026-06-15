@@ -18,6 +18,9 @@
 
 (function () {
 
+  // Portal build version — keep in sync with DEVELOPMENT.md "Current Version".
+  const PORTAL_VERSION = 'v0.5.0';
+
   // ── Path depth ────────────────────────────────────────────────────────────
   // Work out how many directory levels the current page sits below portal/
   // so all links and asset paths use the correct relative prefix.
@@ -42,6 +45,7 @@
 
   const NAV_HREFS = [
     'dashboard.html',
+    'customers/dashboard.html',
     'customers/index.html',
     'contacts/index.html',
     'suppliers/index.html',
@@ -128,13 +132,14 @@
       <div class="sidebar-section-label">Dashboard</div>
       ${a('dashboard.html',                 'Dashboard')}
 
-      ${secLink('customers/index.html',    'Customer')}
-      ${a('contacts/index.html',           'Customer Details')}
+      ${secLink('customers/dashboard.html',    'Customer')}
+      ${a('customers/index.html',           'Customers')}
       ${soon('Customer History')}
 
       ${sec('Supplier')}
       ${a('suppliers/index.html',              'Supplier Details')}
       ${a('suppliers/onboarding-pipeline.html','Supplier Onboarding')}
+      ${a('enquiries/index.html',          'Enquiry Queue')}
       ${soon('Supplier Order History')}
 
       ${sec('Products')}
@@ -153,7 +158,6 @@
       ${sec('Operations')}
       ${a('orders/index.html',             'Orders')}
       ${a('verification-queue/index.html', 'Verification Queue')}
-      ${a('enquiries/index.html',          'Enquiry Queue')}
       ${a('metrics/index.html',            'Metrics')}
 
       ${sec('Quality')}
@@ -181,6 +185,8 @@
         style="width:100%;justify-content:center">Sign Out</button>
       <div style="text-align:center;font-size:var(--text-xs);color:var(--color-text-muted);
         margin-top:var(--space-4);opacity:.5">Built by Vector Business Solutions</div>
+      <div style="text-align:center;font-size:var(--text-xs);color:var(--color-text-muted);
+        margin-top:var(--space-1);opacity:.5">${PORTAL_VERSION}</div>
     </div>
   `;
 

@@ -163,6 +163,177 @@ const OnboardingWorkflow = (() => {
     rejected:        'badge-danger',
   };
 
+  // ── Additive compliance risk scoring (Phase A: factor model) ─────────────
+  //
+  // Replaces the 1–5 weighted supplier_risk_assessment model. Each factor is
+  // selected by the compliance director and contributes an additive score.
+  // Factor groups apply per supplier type (see COMPLIANCE_FACTOR_GROUPS_BY_TYPE).
+  // 'controls' credits are applied only once verified in Stage 2 (§3.5).
+  //
+  // Score → rating band: 0–20 Low Risk · 21–40 Medium Risk · 41–60 High Risk ·
+  // 61+ Very High Risk · Sanctions hit → Prohibited (hard reject, non-overridable).
+
+  const COMPLIANCE_FACTORS = {
+    corporate_risk: [
+      { key: 'trading_gt10y',             label: '>10 years trading',                          score:  -5 },
+      { key: 'trading_3_10y',             label: '3–10 years trading',                         score:   0 },
+      { key: 'trading_lt3y',              label: '<3 years trading',                            score: +10 },
+      { key: 'trading_lt1y',              label: '<1 year trading',                             score: +20 },
+      { key: 'simple_ownership',          label: 'Simple ownership structure',                  score:   0 },
+      { key: 'multiple_holding',          label: 'Multiple holding companies',                  score: +10 },
+      { key: 'offshore_complex',          label: 'Complex offshore structure',                  score: +20 },
+      { key: 'ubo_verified',              label: 'Beneficial owners verified',                  score:   0 },
+      { key: 'ubo_incomplete',            label: 'UBO verification incomplete',                 score: +15 },
+      { key: 'ubo_cannot_identify',       label: 'Cannot identify UBO',                        score: +50 },
+    ],
+    jurisdiction_risk: [
+      { key: 'jurisdiction_low',          label: 'Low-risk jurisdiction',                       score:   0 },
+      { key: 'jurisdiction_medium',       label: 'Medium-risk jurisdiction',                    score: +10 },
+      { key: 'jurisdiction_high',         label: 'High-risk jurisdiction',                      score: +25 },
+    ],
+    product_risk: [
+      { key: 'standard_metals',           label: 'Standard industrial metals',                  score:   0 },
+      { key: 'metal_concentrates',        label: 'Metal concentrates',                          score: +10 },
+      { key: 'precious_metals',           label: 'Precious metals',                             score: +20 },
+      { key: 'conflict_minerals',         label: 'Conflict-sensitive minerals',                 score: +25 },
+      { key: 'dual_use',                  label: 'Dual-use materials',                          score: +25 },
+    ],
+    screening_results: [
+      { key: 'screening_clear',           label: 'Clean screening',                             score:   0 },
+      { key: 'minor_adverse_media',       label: 'Minor adverse media',                         score: +10 },
+      { key: 'significant_adverse_media', label: 'Significant adverse media',                  score: +30 },
+      { key: 'sanctions_match',           label: 'Sanctions match', score: null, autoReject: true },
+    ],
+    controls: [
+      { key: 'iso_9001_verified',         label: 'ISO 9001 (verified)',                         score:  -5 },
+      { key: 'publicly_listed',           label: 'Publicly listed company',                     score: -10 },
+      { key: 'major_intl_customers',      label: 'Existing major international customers',      score:  -5 },
+      { key: 'audited_financials',        label: 'Audited financial statements',                score:  -5 },
+    ],
+  };
+
+  // Factor groups that apply per supplier type. product_risk is only meaningful
+  // for goods suppliers (manufacturing / materials_commodities). controls credits
+  // apply to all except packaging (no quality system to verify).
+  const COMPLIANCE_FACTOR_GROUPS_BY_TYPE = {
+    manufacturing:         ['corporate_risk', 'jurisdiction_risk', 'product_risk', 'screening_results', 'controls'],
+    materials_commodities: ['corporate_risk', 'jurisdiction_risk', 'product_risk', 'screening_results', 'controls'],
+    logistics:             ['corporate_risk', 'jurisdiction_risk', 'screening_results', 'controls'],
+    packaging:             ['corporate_risk', 'jurisdiction_risk', 'screening_results'],
+    service_provider:      ['corporate_risk', 'jurisdiction_risk', 'screening_results', 'controls'],
+  };
+
+  const COMPLIANCE_BANDS = [
+    { max: 20,       band: 'Low Risk'       },
+    { max: 40,       band: 'Medium Risk'    },
+    { max: 60,       band: 'High Risk'      },
+    { max: Infinity, band: 'Very High Risk' },
+  ];
+
+  // ── Commercial suitability scoring (additive) ─────────────────────────────
+  //
+  // Independent second axis: "how valuable is this supplier to Vertex?"
+  // Six factor groups, one selection each (radio). Score → band:
+  // 0–30 Poor Fit · 31–60 Moderate Fit · 61–80 Strong Fit · 81+ Strategic.
+
+  const COMMERCIAL_FACTORS = {
+    product_fit: [
+      { key: 'fit_core',          label: 'Core strategic',            score: 25 },
+      { key: 'fit_adjacent',      label: 'Adjacent',                  score: 15 },
+      { key: 'fit_opportunistic', label: 'Opportunistic',             score:  5 },
+    ],
+    buyer_demand: [
+      { key: 'demand_existing',   label: 'Existing buyer demand',     score: 25 },
+      { key: 'demand_strong',     label: 'Strong expected demand',    score: 15 },
+      { key: 'demand_unknown',    label: 'Unknown',                   score:  5 },
+    ],
+    volume_capability: [
+      { key: 'vol_large',         label: 'Large',                     score: 20 },
+      { key: 'vol_medium',        label: 'Medium',                    score: 10 },
+      { key: 'vol_small',         label: 'Small',                     score:  5 },
+    ],
+    export_capability: [
+      { key: 'exp_experienced',   label: 'Experienced exporter',      score: 15 },
+      { key: 'exp_some',          label: 'Some export history',       score: 10 },
+      { key: 'exp_domestic',      label: 'Domestic only',             score:  0 },
+    ],
+    quality_certs: [
+      { key: 'qual_iso9001',      label: 'ISO 9001',                  score: 10 },
+      { key: 'qual_qms',          label: 'Documented QMS',            score:  5 },
+      { key: 'qual_none',         label: 'None',                      score:  0 },
+    ],
+    responsiveness: [
+      { key: 'resp_good',         label: 'Responsive & professional', score: 10 },
+      { key: 'resp_avg',          label: 'Average',                   score:  5 },
+      { key: 'resp_poor',         label: 'Poor',                      score:  0 },
+    ],
+  };
+
+  const COMMERCIAL_BANDS = [
+    { max: 30,       band: 'Poor Fit'           },
+    { max: 60,       band: 'Moderate Fit'       },
+    { max: 80,       band: 'Strong Fit'         },
+    { max: Infinity, band: 'Strategic Supplier' },
+  ];
+
+  // ── Decision matrix ───────────────────────────────────────────────────────
+  //
+  // Compliance band × Commercial band → recommendation string.
+  // Very High Risk and Prohibited are off-matrix — handled separately.
+  // Commercial columns: High = Strong Fit + Strategic Supplier (61+) ·
+  // Medium = Moderate Fit (31–60) · Low = Poor Fit (0–30).
+
+  const DECISION_MATRIX = {
+    'Low Risk':    { high_commercial: 'Excellent Target',          medium_commercial: 'Good Target',    low_commercial: 'Optional'    },
+    'Medium Risk': { high_commercial: 'Proceed with Controls',     medium_commercial: 'Case-by-Case',   low_commercial: 'Usually No'  },
+    'High Risk':   { high_commercial: 'Exceptional Approval Only', medium_commercial: 'Usually No',     low_commercial: 'Reject'      },
+  };
+
+  function _commercialColumn(band) {
+    if (band === 'Strategic Supplier' || band === 'Strong Fit') return 'high_commercial';
+    if (band === 'Moderate Fit') return 'medium_commercial';
+    return 'low_commercial';
+  }
+
+  function computeComplianceScore(factorKeys, supplierType) {
+    const groups = COMPLIANCE_FACTOR_GROUPS_BY_TYPE[supplierType] || Object.keys(COMPLIANCE_FACTORS);
+    let total = 0, prohibited = false;
+    const components = [];
+    for (const group of groups) {
+      for (const factor of (COMPLIANCE_FACTORS[group] || [])) {
+        if (!factorKeys.includes(factor.key)) continue;
+        if (factor.autoReject) { prohibited = true; continue; }
+        total += factor.score;
+        components.push({ group, factor_key: factor.key, label: factor.label, score: factor.score });
+      }
+    }
+    if (prohibited) return { total: null, band: 'Prohibited', components, prohibited: true };
+    const band = COMPLIANCE_BANDS.find(b => total <= b.max)?.band || 'Very High Risk';
+    return { total, band, components, prohibited: false };
+  }
+
+  function computeCommercialScore(factorKeys) {
+    let total = 0;
+    const components = [];
+    for (const [group, factors] of Object.entries(COMMERCIAL_FACTORS)) {
+      for (const factor of factors) {
+        if (!factorKeys.includes(factor.key)) continue;
+        total += factor.score;
+        components.push({ group, factor_key: factor.key, label: factor.label, score: factor.score });
+      }
+    }
+    const band = COMMERCIAL_BANDS.find(b => total <= b.max)?.band || 'Strategic Supplier';
+    return { total, band, components };
+  }
+
+  function matrixRecommendation(complianceBand, commercialBand) {
+    if (complianceBand === 'Prohibited')
+      return 'Prohibited — Hard Reject';
+    if (complianceBand === 'Very High Risk')
+      return 'Very High Risk — Default Reject (joint exceptional approval required)';
+    return DECISION_MATRIX[complianceBand]?.[_commercialColumn(commercialBand)] || 'Unknown';
+  }
+
   function getSupplierProfile(supplierType) {
     return SUPPLIER_TYPE_PROFILES[supplierType] || SUPPLIER_TYPE_PROFILES.service_provider;
   }
@@ -332,12 +503,21 @@ const OnboardingWorkflow = (() => {
       if (!ssCount)
         blockers.push('A sanctions screening result must be recorded');
 
-      const { count: raCount } = await supabaseClient
-        .from('supplier_risk_assessment')
-        .select('id', { count: 'exact', head: true })
-        .eq('onboarding_id', onboarding.id);
-      if (!raCount)
-        blockers.push('A preliminary risk assessment must be completed');
+      // Accept either the legacy 1–5 RA row (pre-Phase B) or the new
+      // additive compliance score row (Phase B+). Both satisfy the gate.
+      const [{ count: raCount }, { count: csCount }] = await Promise.all([
+        supabaseClient
+          .from('supplier_risk_assessment')
+          .select('id', { count: 'exact', head: true })
+          .eq('onboarding_id', onboarding.id),
+        supabaseClient
+          .from('supplier_compliance_scores')
+          .select('id', { count: 'exact', head: true })
+          .eq('onboarding_id', onboarding.id)
+          .eq('gate', 1),
+      ]);
+      if (!raCount && !csCount)
+        blockers.push('A compliance risk assessment must be completed');
 
       const { count: pendingProductsCount } = await supabaseClient
         .from('supplier_quotes')
@@ -346,6 +526,27 @@ const OnboardingWorkflow = (() => {
         .eq('onboarding_review_status', 'pending_review');
       if (pendingProductsCount)
         blockers.push('All products offered must be reviewed (approved or rejected) before Stage 1 can be completed');
+
+      // Gate 1 dual-director approval. Only enforced once the new flow is in
+      // use (i.e. at least one Gate 1 approval row exists). In-flight onboardings
+      // from before this model was introduced are not blocked.
+      const { data: gate1Rows } = await supabaseClient
+        .from('supplier_approvals')
+        .select('approval_stage, decision')
+        .eq('onboarding_id', onboarding.id)
+        .in('approval_stage', ['gate1_compliance', 'gate1_commercial']);
+      if (gate1Rows && gate1Rows.length > 0) {
+        const g1Compliance = gate1Rows.find(r => r.approval_stage === 'gate1_compliance');
+        const g1Commercial = gate1Rows.find(r => r.approval_stage === 'gate1_commercial');
+        if (!g1Compliance)
+          blockers.push('Compliance director (Gate 1) approval is required');
+        else if (g1Compliance.decision === 'reject')
+          blockers.push('Compliance director has rejected this supplier at Gate 1');
+        if (!g1Commercial)
+          blockers.push('Commercial director (Gate 1) approval is required');
+        else if (g1Commercial.decision === 'reject')
+          blockers.push('Commercial director has rejected this supplier at Gate 1');
+      }
     }
 
     if (targetStage === 'pending_stage2') {
@@ -356,20 +557,25 @@ const OnboardingWorkflow = (() => {
     // 'awaiting_supplier_info' is a voluntary pause from pending_stage2 — no hard gates.
 
     if (targetStage === 'stage2_complete') {
-      if (!contact.bank_account_number?.trim() && !contact.bank_iban?.trim())
-        blockers.push('Bank account number or IBAN is required');
-      if (contact.bank_account_verified_in_name !== true)
-        blockers.push('Bank account must be confirmed as held in the registered company name');
       if (onboarding.tob_status !== 'confirmed')
         blockers.push('Terms of Business must be generated, sent, and confirmed');
-      if (!onboarding.recommendation)
-        blockers.push('A recommendation must be submitted');
-      if (!onboarding.recommendation_rationale)
-        blockers.push('Recommendation rationale is required');
-      if (!onboarding.decision)
-        blockers.push('A final approval decision must be recorded');
-      if (!onboarding.decision_justification)
-        blockers.push('Decision justification is required');
+
+      // Gate 2 dual-director approval (replaces the old single recommendation/decision pair).
+      const { data: gate2Rows } = await supabaseClient
+        .from('supplier_approvals')
+        .select('approval_stage, decision')
+        .eq('onboarding_id', onboarding.id)
+        .in('approval_stage', ['gate2_compliance', 'gate2_commercial']);
+      const g2Compliance = gate2Rows?.find(r => r.approval_stage === 'gate2_compliance');
+      const g2Commercial = gate2Rows?.find(r => r.approval_stage === 'gate2_commercial');
+      if (!g2Compliance)
+        blockers.push('Compliance director (Gate 2) approval is required');
+      else if (g2Compliance.decision === 'reject')
+        blockers.push('Compliance director has rejected this supplier at Gate 2');
+      if (!g2Commercial)
+        blockers.push('Commercial director (Gate 2) approval is required');
+      else if (g2Commercial.decision === 'reject')
+        blockers.push('Commercial director has rejected this supplier at Gate 2');
 
       if (requiresFullDiligence(contact.supplier_type)) {
         const cutoff = new Date();
@@ -381,14 +587,6 @@ const OnboardingWorkflow = (() => {
           .gte('screened_at', cutoff.toISOString());
         if (!ssCount)
           blockers.push('A current sanctions screen (within 12 months) must be on file');
-
-        const { data: ra } = await supabaseClient
-          .from('supplier_risk_assessment')
-          .select('reviewed_at')
-          .eq('onboarding_id', onboarding.id)
-          .maybeSingle();
-        if (!ra?.reviewed_at)
-          blockers.push('The risk assessment must be reviewed before completing Stage 2');
       }
     }
 
@@ -414,6 +612,12 @@ const OnboardingWorkflow = (() => {
         .eq('is_current', true);
       if (!dpaCount)
         blockers.push('A current Data Processing Agreement (DPA) must be on file');
+
+      // Bank details moved from Stage 2 gate to here (Stage 3 / Payment Setup).
+      if (!contact.bank_account_number?.trim() && !contact.bank_iban?.trim())
+        blockers.push('Bank account number or IBAN is required before final sign-off');
+      if (contact.bank_account_verified_in_name !== true)
+        blockers.push('Bank account must be confirmed as held in the registered company name');
     }
 
     return { passed: blockers.length === 0, blockers };
@@ -779,7 +983,16 @@ const OnboardingWorkflow = (() => {
     RISK_CRITERIA_WEIGHTS,
     SUPPLIER_TYPE_PROFILES,
     PRODUCT_REVIEW_LABELS,
-    PRODUCT_REVIEW_BADGE
+    PRODUCT_REVIEW_BADGE,
+    COMPLIANCE_FACTORS,
+    COMPLIANCE_FACTOR_GROUPS_BY_TYPE,
+    COMPLIANCE_BANDS,
+    COMMERCIAL_FACTORS,
+    COMMERCIAL_BANDS,
+    DECISION_MATRIX,
+    computeComplianceScore,
+    computeCommercialScore,
+    matrixRecommendation,
   };
 
 })();

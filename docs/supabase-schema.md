@@ -553,6 +553,8 @@ Central workflow state machine for each onboarding attempt. Jackson raises it; M
 | `tob_generated_at` | `timestamptz` |  Nullable — added in migration 20260612d |
 | `tob_sent_at` | `timestamptz` |  Nullable — added in migration 20260612d |
 | `tob_confirmed_at` | `timestamptz` |  Nullable — added in migration 20260612d |
+| `review_required` | `boolean` | Default `false` — added in migration 20260616c. Set `true` when an ad-hoc edit causes a meaningful change to compliance or commercial scoring bands. Used by Phase D ad-hoc recompute and Exceptions Review |
+| `review_required_reason` | `text` |  Nullable — added in migration 20260616c. Human-readable reason for the flag |
 
 ---
 
@@ -633,7 +635,7 @@ One row per formal approval or rejection at each workflow stage. Both Martyn's r
 | `id` | `uuid` | Primary |
 | `supplier_id` | `uuid` | FK → contacts |
 | `onboarding_id` | `uuid` | FK → supplier_onboarding |
-| `approval_stage` | `text` | `'screening'` \| `'documents'` \| `'compliance'` \| `'recommendation'` \| `'final_approval'` |
+| `approval_stage` | `text` | `'screening'` \| `'documents'` \| `'compliance'` \| `'recommendation'` \| `'final_approval'` \| `'gate1_compliance'` \| `'gate1_commercial'` \| `'gate2_compliance'` \| `'gate2_commercial'` — Phase A+ adds four dual-director gate values replacing the old single recommendation/decision pattern |
 | `approver_id` | `uuid` | FK → auth.users |
 | `approver_role` | `text` | `'director_commercial'` \| `'director_compliance'` |
 | `decision` | `text` | `'approved'` \| `'approved_with_conditions'` \| `'rejected'` |
@@ -641,6 +643,46 @@ One row per formal approval or rejection at each workflow stage. Both Martyn's r
 | `conditions` | `text` |  Nullable — required when decision = `'approved_with_conditions'` |
 | `decided_at` | `timestamptz` |  |
 | `created_at` | `timestamptz` |  |
+
+---
+
+## Table `supplier_compliance_scores`
+
+Additive compliance risk score — one row per scoring event (Gate 1 or Gate 2). Versioned; prior rows are retained for audit. Added in migration 20260616a, replacing the legacy 1–5 `supplier_risk_assessment` weighted model (which remains readable for in-flight records).
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `supplier_id` | `uuid` | FK → contacts |
+| `onboarding_id` | `uuid` | FK → supplier_onboarding |
+| `gate` | `smallint` | `1` or `2` — which gate checkpoint this score relates to |
+| `total_score` | `int` | Additive sum of selected factor scores (null if `Prohibited`) |
+| `rating_band` | `text` | `'Low Risk'` \| `'Medium Risk'` \| `'High Risk'` \| `'Very High Risk'` \| `'Prohibited'` |
+| `components` | `jsonb` | Array of `{group, factor_key, label, score}` — full factor breakdown for explainability |
+| `computed_at` | `timestamptz` | Default `now()` |
+| `computed_by` | `uuid` | FK → auth.users — director who submitted the scoring form |
+
+---
+
+## Table `supplier_commercial_scores`
+
+Additive commercial suitability score — one row per scoring event (Gate 1 or Gate 2). Second scoring axis alongside compliance risk; answers "how valuable is this supplier to Vertex?". Added in migration 20260616b.
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `supplier_id` | `uuid` | FK → contacts |
+| `onboarding_id` | `uuid` | FK → supplier_onboarding |
+| `gate` | `smallint` | `1` or `2` |
+| `total_score` | `int` | Additive sum of selected factor scores |
+| `rating_band` | `text` | `'Poor Fit'` \| `'Moderate Fit'` \| `'Strong Fit'` \| `'Strategic Supplier'` |
+| `components` | `jsonb` | Array of `{group, factor_key, label, score}` |
+| `computed_at` | `timestamptz` | Default `now()` |
+| `computed_by` | `uuid` | FK → auth.users |
 
 ---
 

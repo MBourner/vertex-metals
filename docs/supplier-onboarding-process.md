@@ -1,6 +1,6 @@
 # Supplier Onboarding Process — Vertex Metals Portal
 
-**Version:** 3.0 (3-Phase / Trading-Readiness Redesign)
+**Version:** 3.1 (Additive Scoring + Dual-Director Approval Gates)
 **Last updated:** June 2026
 **Supersedes:** Version 2.0 (ISO 9001 8-stage redesign)
 
@@ -10,8 +10,8 @@
 
 | Role | Person | Portal Role Value | Responsibilities |
 |------|--------|-------------------|------------------|
-| Director — Commercial | Jackson Paul | `director_commercial` | Supplier identification, enquiry assessment, intake, Stage 1 registration, final approval/rejection decision, annual audit of sample onboarding decisions |
-| Director — Operations & Compliance | Martyn Bourner | `director_compliance` | Sanctions screening, risk assessment, document collection, ESG/bank/TOB vetting, recommendation |
+| Director — Commercial | Jackson Paul | `director_commercial` | Supplier identification, enquiry assessment, intake, Stage 1 registration, Gate 1 commercial sign-off, Gate 2 commercial sign-off, annual audit of sample onboarding decisions |
+| Director — Operations & Compliance | Martyn Bourner | `director_compliance` | Sanctions screening, risk assessment, document collection, ESG/bank/TOB vetting, Gate 1 compliance sign-off, Gate 2 compliance sign-off |
 
 Stage 1 is now explicitly split by role: Jackson submits Stage 1a — Registration (`onboard.html`) for compliance review, and Martyn completes Stage 1b — Compliance Review (`compliance-review.html`), which marks the supplier "Ready to Quote". Stage 2 remains either-director, with role-specific form sections (recommendation vs. final decision) gated inside `pre-trade.js`, not by page access.
 
@@ -98,6 +98,83 @@ Any non-terminal stage may end in **Rejected**. A rejection reason is mandatory 
 Sanctions screening and the preliminary risk assessment are required for **all** supplier types at Stage 1. QMS capture is required for all types **except `packaging`**, where the QMS field is hidden entirely (not a meaningful signal for that supplier type). The Export Licence Number field is shown only for full-diligence suppliers (`manufacturing`, `materials_commodities`) — only suppliers exporting goods themselves need it, so it's hidden for `logistics`, `packaging`, and `service_provider`.
 
 > *Future enhancement (out of scope for this version):* a per-country list of export-licensing/regulatory requirements. Stage 1 currently captures a single generic "Export Licence Number (if applicable)" field (`contacts.export_licence_number`).
+
+---
+
+## Scoring Model (Phase A — additive axes)
+
+Introduced in Phase A (June 2026) alongside the dual-director gate model. Two independent scores are computed at each gate checkpoint (Gate 1 → `stage1_complete`, Gate 2 → `stage2_complete`) and stored in `supplier_compliance_scores` and `supplier_commercial_scores`.
+
+### Compliance Risk Score
+
+Additive factor selection across up to five groups (groups available depend on `supplier_type` — see `COMPLIANCE_FACTOR_GROUPS_BY_TYPE`):
+
+| Group | What it covers |
+|---|---|
+| `corporate_risk` | Trading history, ownership structure complexity, UBO verification |
+| `jurisdiction_risk` | Country risk (low / medium / high) |
+| `product_risk` | Standard industrial metals → precious → conflict minerals / dual-use |
+| `screening_results` | Sanctions screening outcome; `sanctions_match` is an auto-reject regardless of total |
+| `controls` | Mitigating factors: ISO 9001, listed company, audited financials, major customers |
+
+Each factor carries a score (positive = risk driver, negative = mitigant). The sum maps to a band:
+
+| Total | Band |
+|---|---|
+| ≤ 20 | Low Risk |
+| 21–40 | Medium Risk |
+| 41–60 | High Risk |
+| > 60 | Very High Risk |
+| `sanctions_match` selected | Prohibited (hard reject) |
+
+### Commercial Suitability Score
+
+Six groups, one factor selected per group (radio selection):
+
+| Group | Options |
+|---|---|
+| `product_fit` | Core strategic / Adjacent / Opportunistic |
+| `buyer_demand` | Existing demand / Strong expected / Unknown |
+| `volume_capability` | Large / Medium / Small |
+| `export_capability` | Experienced exporter / Some history / Domestic only |
+| `quality_certs` | ISO 9001 / Documented QMS / None |
+| `responsiveness` | Responsive & professional / Average / Poor |
+
+Total maps to a band:
+
+| Total | Band |
+|---|---|
+| ≤ 30 | Poor Fit |
+| 31–60 | Moderate Fit |
+| 61–80 | Strong Fit |
+| > 80 | Strategic Supplier |
+
+### Decision Matrix
+
+`matrixRecommendation(complianceBand, commercialBand)` maps the two axes to a recommendation string used by Phase B sign-off panels:
+
+| | High commercial (Strategic / Strong) | Medium (Moderate Fit) | Low (Poor Fit) |
+|---|---|---|---|
+| **Low Risk** | Excellent Target | Good Target | Optional |
+| **Medium Risk** | Proceed with Controls | Case-by-Case | Usually No |
+| **High Risk** | Exceptional Approval Only | Usually No | Reject |
+| **Very High Risk** | Default Reject (joint exceptional approval required) | ← | ← |
+| **Prohibited** | Hard Reject | ← | ← |
+
+### Dual-Director Approval Gates
+
+Rather than a single `recommendation` + `decision` pair, each gate requires two sign-offs from different roles, written as `supplier_approvals` rows:
+
+| Gate | `approval_stage` | Role | Notes |
+|---|---|---|---|
+| Gate 1 → `stage1_complete` | `gate1_compliance` | `director_compliance` (Martyn) | Null-safe: only enforced once at least one Gate 1 row exists (protects in-flight onboardings from the old model) |
+| Gate 1 → `stage1_complete` | `gate1_commercial` | `director_commercial` (Jackson) | As above |
+| Gate 2 → `stage2_complete` | `gate2_compliance` | `director_compliance` | Always enforced |
+| Gate 2 → `stage2_complete` | `gate2_commercial` | `director_commercial` | Always enforced |
+
+### Phase A bridging stub
+
+Phase B (director review UIs) is not yet built. During Phase A, `compliance-review.js` saves a bridging row to `supplier_compliance_scores` at Gate 1 by mapping the legacy 1–5 overall score to the nearest band (`low → 'Low Risk'`, `medium → 'Medium Risk'`, `high → 'High Risk'`). The commercial score stub is saved with `total_score: 0`, `rating_band: 'Poor Fit'`, empty components. Phase B will replace this entirely with the factor-selection form.
 
 ---
 
@@ -286,16 +363,14 @@ Relocated from the old detail-page forms (`buildRecommendationForm`/`submitRecom
 
 **"Complete Stage 2 →"** runs `checkGates(onboarding, contact, 'stage2_complete')`, which requires:
 
-- `bank_account_number` or `bank_iban` present
-- `bank_account_verified_in_name === true`
 - `tob_status === 'confirmed'`
-- `recommendation` + `recommendation_rationale` present
-- `decision` + `decision_justification` present
-- **Full-diligence only:**
-  - A `sanctions_screens` row dated within 12 months
-  - The `supplier_risk_assessment` row has `reviewed_at IS NOT NULL`
+- Gate 2 compliance sign-off — a `supplier_approvals` row with `approval_stage = 'gate2_compliance'` and `decision != 'reject'`
+- Gate 2 commercial sign-off — a `supplier_approvals` row with `approval_stage = 'gate2_commercial'` and `decision != 'reject'`
+- **Full-diligence only:** a `sanctions_screens` row dated within 12 months
 
-On success: `workflow_stage → 'stage2_complete'`, `activated_at = now()` (reused column, meaning "Stage 2 complete" timestamp), `contacts.approval_status` set to `approved` or `conditionally_approved` (per `decision`), `stage_advanced` logged. The supplier now shows "Begin Stage 3 — Trade Ready Sign-off →".
+> **Phase A note:** Gate 2 sign-off forms (Phase B) are not yet built. Until Phase B is deployed, no Gate 2 rows will exist and the stage will be blockable only by the TOB status and sanctions screen.
+
+On success: `workflow_stage → 'stage2_complete'`, `activated_at = now()` (reused column, meaning "Stage 2 complete" timestamp), `stage_advanced` logged. The supplier now shows "Begin Stage 3 — Trade Ready Sign-off →".
 
 ---
 
@@ -325,6 +400,8 @@ Pass/fail summary of the `trade_ready` gates. **"Mark Trade Ready →"** runs `c
 - `workflow_stage === 'stage2_complete'`
 - `accepted_currencies` non-empty, `default_currency`, `payment_terms_initial`, `payment_terms_subsequent`, `standard_incoterm` all set
 - A current `supplier_documents` row with `document_type = 'dpa'`, `is_current = true`
+- `bank_account_number` or `bank_iban` present (moved from Stage 2 gate in Phase A redesign)
+- `bank_account_verified_in_name === true`
 
 On success: `workflow_stage → 'trade_ready'`. The supplier can now be attached to trades and receive supplier quotes against any `accepted_currencies`.
 

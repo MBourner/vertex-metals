@@ -34,7 +34,6 @@ const _tabLoaded = {};
 let supplierData = null;
 let allOnboardings = [];
 let onboardingData = null;
-let riskAssessmentData = null;
 
 // ── Address helpers ──────────────────────────────────────────────────────
 
@@ -249,14 +248,15 @@ function commercialSnapshotHtml(s) {
   `;
 }
 
-function complianceSnapshotHtml(s, ra) {
+function complianceSnapshotHtml(s) {
+  const ob = onboardingData;
   const catClass = { low: 'badge-success', medium: 'badge-warning', high: 'badge-danger' };
   const stale = sanctionsStaleness(s.last_sanctions_screened_at);
 
   return `
     <div>
-      <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Risk Category</div>
-      ${ra?.risk_category ? `<span class="badge ${catClass[ra.risk_category]||'badge-neutral'}">${esc(ra.risk_category)} risk</span>` : '—'}
+      <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Risk Level</div>
+      ${ob?.risk_level ? `<span class="badge ${catClass[ob.risk_level]||'badge-neutral'}">${esc(ob.risk_level)} risk</span>` : '—'}
     </div>
     <div>
       <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Last Sanctions Screen</div>
@@ -400,7 +400,7 @@ async function loadOverview() {
       </div>
       <div class="panel">
         <div class="panel-header"><h3>Compliance</h3></div>
-        <div class="panel-body overview-card-body">${complianceSnapshotHtml(s, riskAssessmentData)}</div>
+        <div class="panel-body overview-card-body">${complianceSnapshotHtml(s)}</div>
       </div>
       <div class="panel">
         <div class="panel-header"><h3>Permissions</h3></div>
@@ -777,48 +777,82 @@ async function loadDocumentsTab() {
 
 async function loadCompliance() {
   const el = document.getElementById('tab-compliance');
-  const s = supplierData;
-  const ra = riskAssessmentData;
+  const s  = supplierData;
   const stale = sanctionsStaleness(s.last_sanctions_screened_at);
+  const onbId = onboardingData?.id;
 
-  let riskHtml = '<p style="color:var(--color-text-muted);font-size:var(--text-sm)">No risk assessment on file.</p>';
-  if (ra) {
-    const profile = OnboardingWorkflow.getSupplierProfile(s.supplier_type);
-    const catClass = { low: 'badge-success', medium: 'badge-warning', high: 'badge-danger' };
-    riskHtml = `
-      <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4);flex-wrap:wrap">
-        <span class="badge ${catClass[ra.risk_category]||'badge-neutral'}">${esc(ra.risk_category||'unrated')} risk</span>
-        <span style="font-size:var(--text-sm);color:var(--color-text-muted)">Overall score: ${ra.overall_score != null ? fmt(ra.overall_score,2) : '—'}</span>
-        ${ra.reviewed_at ? `<span class="badge badge-success">Reviewed ${fmtDate(ra.reviewed_at)}</span>` : '<span class="badge badge-warning">Preliminary (not reviewed)</span>'}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-4)">
-        ${profile.riskCriteria.map(c => {
-          const score = ra[`${OnboardingWorkflow.RISK_CRITERIA_COLUMN[c]}_score`];
-          const notes = ra[`${OnboardingWorkflow.RISK_CRITERIA_COLUMN[c]}_notes`];
-          return `<div>
-            <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">${esc(OnboardingWorkflow.RISK_CRITERIA_LABELS[c])}</div>
-            <div style="font-size:var(--text-sm);font-weight:600">${score != null ? score + ' / 5' : '—'}</div>
-            ${notes ? `<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">${esc(notes)}</div>` : ''}
-          </div>`;
-        }).join('')}
-      </div>
-      ${ra.overall_notes ? `<p style="margin-top:var(--space-4);font-size:var(--text-sm)">${esc(ra.overall_notes)}</p>` : ''}
-      ${ra.risk_category_override ? `<div style="margin-top:var(--space-3);padding:var(--space-3);background:rgba(217,119,6,0.06);border-radius:var(--radius-sm);font-size:var(--text-sm)">
-        <strong>Risk category manually overridden.</strong> ${esc(ra.risk_category_override_reason||'')}
-      </div>` : ''}
-    `;
+  const [compScoresRes, commScoresRes, approvalsRes, screensRes] = await Promise.all([
+    onbId
+      ? supabaseClient.from('supplier_compliance_scores').select('*').eq('onboarding_id', onbId).order('computed_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    onbId
+      ? supabaseClient.from('supplier_commercial_scores').select('*').eq('onboarding_id', onbId).order('computed_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    onbId
+      ? supabaseClient.from('supplier_approvals').select('*').eq('onboarding_id', onbId)
+          .in('approval_stage', ['gate1_compliance', 'gate1_commercial', 'gate2_compliance', 'gate2_commercial'])
+          .order('decided_at', { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+    supabaseClient.from('sanctions_screens').select('*').eq('subject_id', supplierId).order('screened_at', { ascending: false }),
+  ]);
+
+  const compScores = compScoresRes.data || [];
+  const commScores = commScoresRes.data || [];
+  const approvals  = approvalsRes.data  || [];
+  const screens    = screensRes.data    || [];
+
+  function scoreRows(scores, type) {
+    if (!scores.length) return '<p style="font-size:var(--text-sm);color:var(--color-text-muted)">No scores recorded yet.</p>';
+    return scores.map(score => {
+      const bandClass = type === 'compliance'
+        ? (score.rating_band === 'Low Risk' ? 'badge-success' : score.rating_band === 'Medium Risk' ? 'badge-warning' : 'badge-danger')
+        : ((score.rating_band === 'Strategic Supplier' || score.rating_band === 'Strong Fit') ? 'badge-success' : score.rating_band === 'Moderate Fit' ? 'badge-warning' : 'badge-neutral');
+      const pills = (score.components || []).map(c => {
+        const cls = c.score < 0 ? 'score-pill score-pill-positive' : c.score > 0 ? 'score-pill score-pill-risk' : 'score-pill score-pill-neutral';
+        return `<span class="${cls}">${esc(c.label)} ${c.score > 0 ? '+' : ''}${c.score}</span>`;
+      }).join(' ');
+      return `
+        <div style="padding:var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-sm);margin-bottom:var(--space-3)">
+          <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-bottom:${pills ? 'var(--space-2)' : '0'}">
+            <span class="badge badge-neutral" style="font-size:10px">Gate ${score.gate}</span>
+            <span class="badge ${bandClass}">${esc(score.rating_band)}</span>
+            <span style="font-size:var(--text-sm);color:var(--color-text-muted)">Score: ${score.total_score !== null ? score.total_score : '—'}</span>
+            <span style="font-size:var(--text-xs);color:var(--color-text-muted);margin-left:auto">${fmtDate(score.computed_at)}</span>
+          </div>
+          ${pills ? `<div style="display:flex;flex-wrap:wrap;gap:4px">${pills}</div>` : ''}
+        </div>`;
+    }).join('');
   }
 
-  const { data: screens, error } = await supabaseClient
-    .from('sanctions_screens')
-    .select('*')
-    .eq('subject_id', supplierId)
-    .order('screened_at', { ascending: false });
+  const GATE_LABELS = {
+    gate1_compliance: 'Gate 1 — Compliance Director',
+    gate1_commercial: 'Gate 1 — Commercial Director',
+    gate2_compliance: 'Gate 2 — Compliance Director',
+    gate2_commercial: 'Gate 2 — Commercial Director',
+  };
+
+  const approvalsHtml = approvals.length
+    ? approvals.map(a => {
+        const decClass = (a.decision === 'reject' || a.decision === 'rejected') ? 'badge-danger'
+          : (a.decision === 'approve_with_conditions' || a.decision === 'approved_with_conditions') ? 'badge-warning'
+          : 'badge-success';
+        return `
+          <div style="padding:var(--space-3) var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-sm);margin-bottom:var(--space-3)">
+            <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-bottom:${a.justification ? 'var(--space-2)' : '0'}">
+              <span style="font-size:var(--text-xs);color:var(--color-text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em">${esc(GATE_LABELS[a.approval_stage] || a.approval_stage)}</span>
+              <span class="badge ${decClass}">${esc(a.decision.replace(/_/g,' '))}</span>
+              <span style="font-size:var(--text-xs);color:var(--color-text-muted);margin-left:auto">${fmtDate(a.decided_at)}</span>
+            </div>
+            ${a.justification ? `<p style="font-size:var(--text-sm);margin:0">${esc(a.justification)}</p>` : ''}
+            ${a.conditions ? `<p style="font-size:var(--text-xs);color:var(--color-text-muted);white-space:pre-line;margin:var(--space-1) 0 0">${esc(a.conditions)}</p>` : ''}
+          </div>`;
+      }).join('')
+    : '<p style="font-size:var(--text-sm);color:var(--color-text-muted)">No director approvals recorded yet.</p>';
 
   const resultClass = { clear:'badge-success', potential_match:'badge-warning', confirmed_match:'badge-danger' };
-  const screensHtml = error
-    ? `<div class="alert alert-error">${esc(error.message)}</div>`
-    : (screens && screens.length)
+  const screensHtml = screensRes.error
+    ? `<p style="color:var(--color-danger);font-size:var(--text-sm)">${esc(screensRes.error.message)}</p>`
+    : screens.length
       ? `<div class="table-wrapper"><table><thead><tr><th>Date</th><th>Lists Screened</th><th>Tool</th><th>Result</th><th>Notes</th></tr></thead><tbody>
           ${screens.map(sc => `<tr>
             <td style="font-size:var(--text-sm)">${fmtDate(sc.screened_at)}</td>
@@ -832,8 +866,16 @@ async function loadCompliance() {
 
   el.innerHTML = `
     <div class="panel" style="margin-bottom:var(--space-6)">
-      <div class="panel-header"><h3>Risk Assessment</h3></div>
-      <div class="panel-body">${riskHtml}</div>
+      <div class="panel-header"><h3>Compliance Risk Score</h3></div>
+      <div class="panel-body">${scoreRows(compScores, 'compliance')}</div>
+    </div>
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header"><h3>Commercial Suitability Score</h3></div>
+      <div class="panel-body">${scoreRows(commScores, 'commercial')}</div>
+    </div>
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header"><h3>Director Approvals</h3></div>
+      <div class="panel-body">${approvalsHtml}</div>
     </div>
     <div class="panel" style="margin-bottom:var(--space-6)">
       <div class="panel-header">
@@ -1427,15 +1469,6 @@ async function submitEditCommercial(e) {
     .limit(5);
   allOnboardings = obs || [];
   onboardingData = allOnboardings[0] || null;
-
-  if (onboardingData) {
-    const { data: ra } = await supabaseClient
-      .from('supplier_risk_assessment')
-      .select('*')
-      .eq('onboarding_id', onboardingData.id)
-      .maybeSingle();
-    riskAssessmentData = ra || null;
-  }
 
   renderHeader();
 

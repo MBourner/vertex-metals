@@ -1,6 +1,6 @@
 # Vertex Metals — Development Log
 
-**Current Version:** v0.5.0  
+**Current Version:** v0.6.0  
 **Branch:** main  
 **Last updated:** June 2026  
 **Built by:** Vector Business Solutions
@@ -17,7 +17,8 @@ The portal displays its current version number at the bottom of the sidebar (`js
 | v0.2.0 | portal-update-0105 (#15) | Full portal build — order lifecycle management, supplier PO, documents, shipment tracking, invoicing, state machine |
 | v0.3.0 | dev-work-0205 (#25) | Verification queue, KYC/compliance screens, product lines & families, contacts CRM |
 | v0.4.0 | RFQ-order-workflow (#29) | RFQ multi-line architecture, customer quote with magic link, scenario-based pricing, supplier quote request PDF, order draft mode, public contact form redesign, logo update, About Us quality copy |
-| v0.5.0 | main (in progress) | ERP-style portal sidebar with new module sections, Sales/Customers homepages, and a full supplier onboarding redesign: 3-phase workflow (Stage 1 Quoting Only → Stage 2 Pre-Trade → Stage 3 Trade Ready) replacing the original 8-stage ISO 9001 flow, tier-based diligence (full vs simplified), sanctions screening + preliminary risk assessment moved into Stage 1 (KYC removed as a redundant separate layer), TOB generator, bank details capture, ESG/environmental fields, supplier reference numbers, and a tier-aware Financial Viability risk-scoring rubric. Also: redesigned customer detail page (sticky header, Overview/RFQs/Orders/Disputes/KYC tabs, Edit Customer modal, quick-action links into New RFQ / New Order); supplier detail page Products tab (link product lines to a supplier as "permitted to supply" via a new `pending` quote status, search-or-create against the product catalogue) and Edit Commercial Terms action, with the KYC tab removed from the supplier detail page entirely; Stage 1 split into Stage 1a — Registration (`onboard.html`, Jackson) and Stage 1b — Compliance Review (new `compliance-review.html`, Martyn), with a new intermediate `pending_compliance` workflow stage; Stage 1a now captures **Products Offered** (select from the product catalogue or register a new family/sub-type/product line inline, linked via `supplier_quotes` with `onboarding_review_status: 'pending_review'`), reviewed line-by-line (Approved/Rejected + notes) in a new Stage 1b "Products Offered — Review" panel — a hard gate on completing Stage 1, with rejected products kept and flagged "Rejected" on the supplier's Products tab for audit. **Phase A scoring redesign:** replaced single 1–5 weighted risk score + single-director recommendation/decision with two additive scoring axes (compliance risk + commercial suitability, each with factor-driven totals and bands), dual-director approval at Gate 1 (→ `stage1_complete`) and Gate 2 (→ `stage2_complete`) via new `gate1_compliance / gate1_commercial / gate2_compliance / gate2_commercial` `supplier_approvals` stages, decision matrix recommendation layer, bank verification moved from Stage 2 gate to Stage 3 (`trade_ready`), three new migrations (`supplier_compliance_scores`, `supplier_commercial_scores`, `supplier_onboarding.review_required`), Phase A bridging stub in `compliance-review.js` populates new tables from legacy 1–5 scores until Phase B adds the factor-selection form |
+| v0.6.0 | feature/onboarding-v2 | Supplier onboarding inline accordion (4-page wizard → single `onboard.html`), dual-director split sign-off in Stage 1b, multi-step New RFQ modal (new/existing customer flow with live search and quick-add), USD base currency for the pricing calculator (GBP conversion at sell price only), logistics flat fees in USD, Build Customer Quote button relocated to Cost Inputs tab, new internal Quote Summary tab (cost/margin/profit breakdown per line with dark totals bar), `rfq_submissions.contact_id` FK, `logistics_quotes.price_flat_usd` column |
+| v0.5.0 | main | ERP-style portal sidebar with new module sections, Sales/Customers homepages, and a full supplier onboarding redesign: 3-phase workflow (Stage 1 Quoting Only → Stage 2 Pre-Trade → Stage 3 Trade Ready) replacing the original 8-stage ISO 9001 flow, tier-based diligence (full vs simplified), sanctions screening + preliminary risk assessment moved into Stage 1 (KYC removed as a redundant separate layer), TOB generator, bank details capture, ESG/environmental fields, supplier reference numbers, and a tier-aware Financial Viability risk-scoring rubric. Also: redesigned customer detail page (sticky header, Overview/RFQs/Orders/Disputes/KYC tabs, Edit Customer modal, quick-action links into New RFQ / New Order); supplier detail page Products tab (link product lines to a supplier as "permitted to supply" via a new `pending` quote status, search-or-create against the product catalogue) and Edit Commercial Terms action, with the KYC tab removed from the supplier detail page entirely; Stage 1 split into Stage 1a — Registration (`onboard.html`, Jackson) and Stage 1b — Compliance Review (new `compliance-review.html`, Martyn), with a new intermediate `pending_compliance` workflow stage; Stage 1a now captures **Products Offered** (select from the product catalogue or register a new family/sub-type/product line inline, linked via `supplier_quotes` with `onboarding_review_status: 'pending_review'`), reviewed line-by-line (Approved/Rejected + notes) in a new Stage 1b "Products Offered — Review" panel — a hard gate on completing Stage 1, with rejected products kept and flagged "Rejected" on the supplier's Products tab for audit. **Phase A scoring redesign:** replaced single 1–5 weighted risk score + single-director recommendation/decision with two additive scoring axes (compliance risk + commercial suitability, each with factor-driven totals and bands), dual-director approval at Gate 1 (→ `stage1_complete`) and Gate 2 (→ `stage2_complete`) via new `gate1_compliance / gate1_commercial / gate2_compliance / gate2_commercial` `supplier_approvals` stages, decision matrix recommendation layer, bank verification moved from Stage 2 gate to Stage 3 (`trade_ready`), three new migrations (`supplier_compliance_scores`, `supplier_commercial_scores`, `supplier_onboarding.review_required`), Phase A bridging stub in `compliance-review.js` populates new tables from legacy 1–5 scores until Phase B adds the factor-selection form |
 
 ---
 
@@ -41,15 +42,15 @@ Eight public pages with full navigation, responsive mobile layout, and Supabase-
 
 Auth-gated management system at `/portal/`. All data in Supabase (PostgreSQL + GoTrue).
 
-#### RFQ Workflow (v0.4.0 — multi-line)
+#### RFQ Workflow (v0.6.0 — multi-line, USD pricing)
 
 The full RFQ-to-order flow:
 
-1. **RFQ received** — from the public contact form or added manually in the portal
+1. **RFQ received** — from the public contact form or via the **New RFQ** modal in the portal. The modal is a 3-step flow: choose new or existing customer → search existing contacts (live debounced search) or quick-add a new customer (creates a contact record) → fill enquiry details. Deep-linking from a customer detail page (`?contact_id=…`) skips straight to step 3 with the customer pre-filled. New RFQs store a `contact_id` FK on `rfq_submissions`.
 2. **Enquiry tab** — customer details, specifications, and a structured **Quote Lines** panel where primary and alternative lines are defined before supplier quotes are requested. Auto-creates Line 1 from the enquiry product selection.
-3. **Cost Inputs tab** — supplier quotes (per-MT, per-piece, or total price), logistics quotes (per-MT or flat fee), overhead costs (import duty, customs). Supplier quotes grouped by supplier as **pricing scenarios**. Supplier/logistics quote PDF request generator.
-4. **Pricing tab** — scenario-based multi-line calculator. Select a supplier scenario; per-line cost breakdown (FOB → freight → insurance → overheads → landed → margin → sell price). Logistics flat fees split proportionally by quantity.
-5. **Build Quote tab** — pre-populated from priced lines. Customer address pre-filled from contacts. Payment terms dropdown. T&Cs placeholder. Publishes as a branded customer-facing quote.
+3. **Cost Inputs tab** — supplier quotes (per-MT, per-piece, or total price, all in USD), logistics quotes (per-MT USD or flat USD), overhead costs in GBP (import duty, customs). Supplier quotes grouped by supplier as **pricing scenarios**. Scenario-based multi-line calculator: select a supplier; per-line cost breakdown in USD (FOB → freight → insurance → overheads) → landed cost USD → margin → sell price GBP (single FX conversion at the end). Logistics flat fees split proportionally by quantity.
+4. **Quote Summary tab** — internal business view: buyer and supplier overview, per-line table (cost USD/GBP, sell price GBP, revenue, margin badge, profit), dark totals bar (total cost USD, total revenue GBP, gross profit GBP, average margin) colour-coded green/amber/red.
+5. **Build Quote tab** — pre-populated from priced lines (sell prices in GBP). Customer address pre-filled from contacts. Payment terms dropdown. T&Cs placeholder. Publishes as a branded customer-facing quote.
 6. **Customer tab** — magic link displayed for sending to customer. Quote status tracking (issued → sent → accepted → rejected).
 
 #### Customer-Facing Quote Page
@@ -68,7 +69,7 @@ Public page at `/customer-quote/?token={uuid}` — branded HTML quote viewable b
 8. **Shipment tracking** — sea freight legs, ETA tracking.
 9. **Invoicing and settlement** — invoice drafted, reviewed, issued; payment tracking.
 
-#### Supplier Onboarding (v0.5.0 — 3-Phase Model)
+#### Supplier Onboarding (v0.6.0 — Inline Accordion)
 
 Replaces the original 8-stage ISO 9001 workflow with an 8-value `workflow_stage` model organised around trading readiness. Full detail in `docs/supplier-onboarding-process.md`.
 
@@ -77,20 +78,22 @@ draft → pending_compliance → stage1_complete → pending_stage2 → awaiting
                                                                                                                   (+ terminal: rejected)
 ```
 
-1. **Stage 1a — Registration** (`suppliers/onboard.html`) — Jackson captures company details (incl. QMS certification, export licence, generated supplier reference), address, and primary contact, then clicks "Submit for Compliance Review" (`workflow_stage → pending_compliance`).
-2. **Stage 1b — Compliance Review** (`suppliers/compliance-review.html`) — Martyn reviews the submitted company details, runs sanctions screening and a preliminary risk assessment, then clicks "Complete Stage 1 — Ready to Quote" (`workflow_stage → stage1_complete`). Completing Stage 1 means the supplier is sanctions-checked, baseline-vetted, and ready to be quoted.
-3. **Stage 2 — Pre-Trade** (`suppliers/pre-trade.html`) — sanctions/risk-assessment review (full-diligence only), ESG/environmental capture, masked bank details + verification, TOB (Terms of Business) generator with generate → send → confirm tracking, and recommendation (compliance) + decision (commercial) sign-off.
-4. **Stage 3 — Trade Ready** (`suppliers/trade-ready.html`) — accepted/default currency, payment terms, standard incoterm, DPA document, and final trade-ready sign-off.
+From v0.6.0 all four stages are delivered through a single inline accordion at `suppliers/onboard.html?supplier_id=…` (`js/portal/onboarding-accordion.js`). Completed stages collapse to a read-only summary; the active stage expands with its full form; future stages are locked. The old individual pages (`compliance-review.html`, `pre-trade.html`, `trade-ready.html`) now serve JS redirects for backwards compatibility.
 
-Diligence tiers (`OnboardingWorkflow.requiresFullDiligence()`): **full** (`manufacturing`, `materials_commodities`) gets sanctions re-screening and risk-assessment review in Stage 2; **simplified** (`logistics`, `packaging`, `service_provider`) skips those and reaches `stage2_complete` via ESG + bank details + TOB + recommendation/decision alone.
+1. **Stage 1a — Registration** — Jackson captures company details (incl. QMS certification, export licence, generated supplier reference), address, primary contact, and **Products Offered** (select from the product catalogue or register a new family/sub-type/product line inline). Submits for compliance review (`workflow_stage → pending_compliance`).
+2. **Stage 1b — Compliance Review** — split director sign-off: the Compliance Risk Score panel (Martyn) and the Commercial Suitability Score panel (Jackson) each have their own independent sign-off section. Either director can save partial progress and exit (`s1b_submitSaveAndExit`) without advancing stage; the other director resumes and completes their section. Both sign-offs required to advance (`workflow_stage → stage1_complete`).
+3. **Stage 2 — Pre-Trade** — sanctions/risk-assessment review (full-diligence only), ESG/environmental capture, masked bank details + verification, TOB (Terms of Business) generator with generate → send → confirm tracking, Gate 2 dual-director sign-off.
+4. **Stage 3 — Trade Ready** — accepted/default currency, payment terms, standard incoterm, DPA document, and final trade-ready sign-off.
+
+Diligence tiers (`OnboardingWorkflow.requiresFullDiligence()`): **full** (`manufacturing`, `materials_commodities`) gets sanctions re-screening and risk-assessment review in Stage 2; **simplified** (`logistics`, `packaging`, `service_provider`) skips those and reaches `stage2_complete` via ESG + bank details + TOB + sign-off alone.
 
 > **Flagged for review:** KYC was removed from the supplier onboarding process (2026-06-13) — supplier vetting is fully covered by the Stage 1/2 sanctions screening and risk assessment, so a separate KYC layer was redundant. The standalone KYC module (`portal/kyc/`, `js/portal/kyc.js`, `kyc_records` table) is unchanged and still used for **buyers**; a follow-up task should review how/where KYC fits the buyer onboarding process.
 
-The risk assessment's **Financial Viability** criterion now has a tier-aware rubric: full-diligence suppliers (settled via Irrevocable Letter of Credit, which hedges Vertex's capital exposure) are scored on counterparty integrity / fraud and sanctions risk (`js/portal/onboard.js`, `FINANCIAL_CRITERION.full`); simplified-track suppliers keep the original creditworthiness-based rubric (`FINANCIAL_CRITERION.simplified`), which is still under review (see Known Issues).
+The risk assessment's **Financial Viability** criterion has a tier-aware rubric: full-diligence suppliers are scored on counterparty integrity / fraud and sanctions risk; simplified-track suppliers use the original creditworthiness-based rubric (under review — see Known Issues).
 
 The onboarding pipeline (`suppliers/onboarding-pipeline.html`) tracks active onboardings by stage and completed onboardings (`trade_ready`/`rejected`) over the last 90 days.
 
-**Type-aware Stage 1 fields** (from a logistics supplier test runthrough): the Export Licence Number field is shown only for full-diligence suppliers (manufacturing, materials_commodities — only they export goods themselves); the QMS section is hidden entirely for `packaging` suppliers and is not a Stage 1 gate for them. The sanctions list links now point to the UK Sanctions List (UKSL), which replaced the OFSI Consolidated List from 28 January 2026.
+**Type-aware Stage 1 fields:** the Export Licence Number field is shown only for full-diligence suppliers; the QMS section is hidden for `packaging` suppliers. Sanctions list links point to the UK Sanctions List (UKSL), which replaced the OFSI Consolidated List from 28 January 2026.
 
 #### Customer Detail Page (v0.5.0)
 
@@ -121,6 +124,15 @@ The onboarding pipeline (`suppliers/onboarding-pipeline.html`) tracks active onb
 | `20260612d_supplier_onboarding_v2_stages.sql` | TOB tracking columns on `supplier_onboarding` (`tob_status`, `tob_generated_at/sent_at/confirmed_at`) and remap of `workflow_stage` from the old 8-value enum to the new 7-value 3-phase model |
 | `20260612e_supplier_risk_assessment_review.sql` | `reviewed_at` / `reviewed_by` on `supplier_risk_assessment` — marks Stage 2 review/refinement of the Stage 1 preliminary risk assessment |
 | `20260613_supplier_quotes_status_pending.sql` | Updates the `supplier_quotes.status` check constraint to allow a new `'pending'` value — represents a product line linked to a supplier as "permitted to supply" with no live quote yet (used by the supplier detail page's Products tab) |
+| `20260616a_supplier_compliance_scores.sql` | `supplier_compliance_scores` table + `portal_full_access` RLS — stores factor-level compliance scoring from Stage 1b |
+| `20260616b_supplier_commercial_scores.sql` | `supplier_commercial_scores` table + `portal_full_access` RLS — stores factor-level commercial scoring from Stage 1b |
+| `20260616c_supplier_onboarding_review_flag.sql` | `supplier_onboarding.review_required` boolean flag |
+
+Pending migrations (apply before v0.6.0 goes live in production):
+```sql
+ALTER TABLE rfq_submissions ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES contacts(id);
+ALTER TABLE logistics_quotes  ADD COLUMN IF NOT EXISTS price_flat_usd numeric(12,2);
+```
 
 Additional one-off SQL applied directly (not in migration files):
 ```sql

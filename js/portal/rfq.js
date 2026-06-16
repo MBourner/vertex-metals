@@ -34,22 +34,158 @@ function generateQuoteReference() {
   return `VM-Q-${new Date().getFullYear()}-${s}`;
 }
 
-// ── List page — New RFQ ───────────────────────────────────────────────────────
+// ── List page — New RFQ (multi-step) ─────────────────────────────────────────
 
-function openNewRfqModal() {
+let _nrfqContact = null;
+let _nrfqTimer   = null;
+
+async function openNewRfqModal() {
+  _nrfqContact = null;
+  clearTimeout(_nrfqTimer);
+
+  ['nrfq-new-company','nrfq-new-contact','nrfq-new-email','nrfq-new-phone','nrfq-new-country']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const searchEl = document.getElementById('nrfq-search');
+  if (searchEl) searchEl.value = '';
+  const resultsEl = document.getElementById('nrfq-search-results');
+  if (resultsEl) resultsEl.innerHTML = '';
+  const newAlert = document.getElementById('nrfq-new-alert');
+  if (newAlert) newAlert.style.display = 'none';
   document.getElementById('new-rfq-form')?.reset();
   const alertEl = document.getElementById('new-rfq-alert');
   if (alertEl) alertEl.style.display = 'none';
 
-  // Deep-link support: ?company=&email= pre-fill (used by the customer
-  // detail page's "+ New RFQ" quick action)
-  const params = new URLSearchParams(location.search);
-  const company = params.get('company');
-  const email   = params.get('email');
-  if (company) document.getElementById('nrfq-company').value = company;
-  if (email)   document.getElementById('nrfq-email').value   = email;
+  const params    = new URLSearchParams(location.search);
+  const contactId = params.get('contact_id');
+
+  if (contactId) {
+    const { data: c } = await supabaseClient
+      .from('contacts')
+      .select('id,company_name,primary_contact_name,email,phone,country')
+      .eq('id', contactId)
+      .single();
+    if (c) { _nrfqContact = c; nrfqRenderCustomerCard(); nrfqShowStep('rfq'); }
+    else   { nrfqShowStep('start'); }
+  } else {
+    nrfqShowStep('start');
+  }
 
   document.getElementById('new-rfq-modal').classList.add('open');
+}
+
+function closeNewRfqModal() {
+  document.getElementById('new-rfq-modal').classList.remove('open');
+}
+
+function nrfqShowStep(step) {
+  ['start','existing','new','rfq'].forEach(s => {
+    const el = document.getElementById(`nrfq-step-${s}`);
+    if (el) el.style.display = s === step ? '' : 'none';
+  });
+  const titles = {
+    start:    'New RFQ',
+    existing: 'New RFQ — Select Customer',
+    new:      'New RFQ — New Customer',
+    rfq:      'New RFQ — Enquiry Details',
+  };
+  const t = document.getElementById('nrfq-modal-title');
+  if (t) t.textContent = titles[step] || 'New RFQ';
+}
+
+function nrfqSearchCustomers(q) {
+  clearTimeout(_nrfqTimer);
+  const resultsEl = document.getElementById('nrfq-search-results');
+  if (!q || q.trim().length < 2) { resultsEl.innerHTML = ''; return; }
+  _nrfqTimer = setTimeout(async () => {
+    resultsEl.innerHTML = '<p style="font-size:var(--text-sm);color:var(--color-text-muted);padding:var(--space-3)">Searching…</p>';
+    const term = q.trim();
+    const { data } = await supabaseClient
+      .from('contacts')
+      .select('id,company_name,primary_contact_name,email,phone,country')
+      .eq('type', 'buyer')
+      .or(`company_name.ilike.%${term}%,primary_contact_name.ilike.%${term}%`)
+      .order('company_name')
+      .limit(10);
+    if (!data || data.length === 0) {
+      resultsEl.innerHTML = '<p style="font-size:var(--text-sm);color:var(--color-text-muted);padding:var(--space-3)">No customers found.</p>';
+      return;
+    }
+    resultsEl.innerHTML = data.map(c => `
+      <button type="button"
+        onclick="nrfqSelectContact('${esc(c.id)}')"
+        data-cid="${esc(c.id)}"
+        data-company="${esc(c.company_name)}"
+        data-contact="${esc(c.primary_contact_name||'')}"
+        data-email="${esc(c.email||'')}"
+        data-phone="${esc(c.phone||'')}"
+        data-country="${esc(c.country||'')}"
+        style="display:block;width:100%;text-align:left;padding:var(--space-3) var(--space-4);border:none;border-bottom:1px solid var(--color-border);background:var(--color-white);cursor:pointer;font-size:var(--text-sm)">
+        <strong>${esc(c.company_name)}</strong>
+        ${c.primary_contact_name ? `<span style="color:var(--color-text-muted);margin-left:var(--space-2)">${esc(c.primary_contact_name)}</span>` : ''}
+        ${c.email ? `<span style="display:block;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">${esc(c.email)}</span>` : ''}
+      </button>`).join('');
+  }, 300);
+}
+
+function nrfqSelectContact(id) {
+  const btn = document.querySelector(`[data-cid="${id}"]`);
+  if (!btn) return;
+  _nrfqContact = {
+    id,
+    company_name:         btn.dataset.company,
+    primary_contact_name: btn.dataset.contact,
+    email:                btn.dataset.email,
+    phone:                btn.dataset.phone,
+    country:              btn.dataset.country,
+  };
+  nrfqRenderCustomerCard();
+  nrfqShowStep('rfq');
+}
+
+async function nrfqCreateCustomer() {
+  const alertEl = document.getElementById('nrfq-new-alert');
+  alertEl.style.display = 'none';
+  const company = document.getElementById('nrfq-new-company').value.trim();
+  const contact = document.getElementById('nrfq-new-contact').value.trim();
+  const email   = document.getElementById('nrfq-new-email').value.trim();
+  if (!company || !contact || !email) {
+    alertEl.textContent = 'Company name, contact name and email are required.';
+    alertEl.style.display = 'block'; return;
+  }
+  const btn = document.getElementById('nrfq-new-btn');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  const { data, error } = await supabaseClient.from('contacts').insert([{
+    company_name:         company,
+    primary_contact_name: contact,
+    email,
+    phone:   document.getElementById('nrfq-new-phone').value.trim()    || null,
+    country: document.getElementById('nrfq-new-country').value.trim()  || null,
+    type:    'buyer',
+    status:  'active',
+  }]).select('id,company_name,primary_contact_name,email,phone,country').single();
+  btn.disabled = false; btn.textContent = 'Add Customer & Continue →';
+  if (error) {
+    alertEl.textContent = 'Failed to create customer: ' + error.message;
+    alertEl.style.display = 'block'; return;
+  }
+  _nrfqContact = data;
+  nrfqRenderCustomerCard();
+  nrfqShowStep('rfq');
+}
+
+function nrfqRenderCustomerCard() {
+  const el = document.getElementById('nrfq-customer-card');
+  if (!el || !_nrfqContact) return;
+  const c = _nrfqContact;
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="font-weight:600;margin-bottom:var(--space-1)">${esc(c.company_name)}</div>
+        ${c.primary_contact_name ? `<div style="font-size:var(--text-sm);color:var(--color-text-muted)">${esc(c.primary_contact_name)}${c.country ? ' · ' + esc(c.country) : ''}</div>` : ''}
+        ${c.email ? `<div style="font-size:var(--text-sm);color:var(--color-text-muted)">${esc(c.email)}</div>` : ''}
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="nrfqShowStep('start')" style="flex-shrink:0">Change</button>
+    </div>`;
 }
 
 async function submitNewRfq(e) {
@@ -57,27 +193,24 @@ async function submitNewRfq(e) {
   const alertEl = document.getElementById('new-rfq-alert');
   const btn     = document.getElementById('new-rfq-btn');
 
-  const name    = document.getElementById('nrfq-name').value.trim();
-  const company = document.getElementById('nrfq-company').value.trim();
-  const email   = document.getElementById('nrfq-email').value.trim();
-
-  if (!name || !company || !email) {
+  if (!_nrfqContact) {
     alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
-    alertEl.textContent = 'Name, company and email are required.'; return;
+    alertEl.textContent = 'No customer selected. Go back and select or create a customer.'; return;
   }
 
   btn.disabled = true; btn.textContent = 'Creating…';
+  alertEl.style.display = 'none';
 
+  const c = _nrfqContact;
   const { data, error } = await supabaseClient.from('rfq_submissions').insert([{
-    name,
-    company,
-    email,
-    phone:       document.getElementById('nrfq-phone').value.trim()   || null,
-    type:        document.getElementById('nrfq-type').value           || 'buyer',
-    role:        document.getElementById('nrfq-role').value.trim()    || null,
+    contact_id:  c.id,
+    name:        c.primary_contact_name || c.company_name,
+    company:     c.company_name,
+    email:       c.email   || null,
+    phone:       c.phone   || null,
+    type:        'buyer',
     product:     document.getElementById('nrfq-product').value.trim() || null,
     quantity_mt: parseFloat(document.getElementById('nrfq-qty').value) || null,
-    country:     document.getElementById('nrfq-country').value.trim() || null,
     message:     document.getElementById('nrfq-message').value.trim() || null,
     status:      'new',
   }]).select('id').single();
@@ -88,7 +221,6 @@ async function submitNewRfq(e) {
     btn.disabled = false; btn.textContent = 'Create RFQ'; return;
   }
 
-  // Navigate straight to the new RFQ detail page
   window.location.href = `detail.html?id=${data.id}`;
 }
 
@@ -144,13 +276,14 @@ let _calcApplied = null; // pre-fill data passed to renderBuildTab (object OR ar
 function switchTab(name) {
   _activeTab = name;
   document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-    const tabs = ['enquiry','costs','build','customer'];
+    const tabs = ['enquiry','costs','summary','build','customer'];
     btn.classList.toggle('active', tabs[i] === name);
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById(`tab-${name}`)?.classList.add('active');
 
   if (name === 'costs')    renderCostsTab();
+  if (name === 'summary')  renderSummaryTab();
   if (name === 'build')    renderBuildTab();
   if (name === 'customer') renderCustomerTab();
 }
@@ -227,7 +360,6 @@ async function renderEnquiryTab() {
       </div>
       <a href="../customers/index.html?prefill=1&name=${encodeURIComponent(data.name)}&company=${encodeURIComponent(data.company)}&email=${encodeURIComponent(data.email)}&phone=${encodeURIComponent(data.phone||'')}&type=${encodeURIComponent(data.type)}"
          class="btn btn-secondary btn-sm">+ Create Customer</a>
-      <button class="btn btn-primary btn-sm" onclick="switchTab('build')">Build Customer Quote →</button>
     </div>
 
     ${validMatch ? `
@@ -583,7 +715,9 @@ function renderLogisticsQuotesSection(quotes) {
     <thead><tr><th>Provider</th><th>Route</th><th>Mode</th><th>Pricing</th><th>Price</th><th>Validity</th><th>Status</th><th>Doc</th></tr></thead>
     <tbody>${quotes.map(q => {
       const isFlat = q.pricing_type === 'flat';
-      const price  = isFlat ? `£${fmt(q.price_flat_gbp)} flat` : `$${fmt(q.price_per_mt_usd)}/MT`;
+      const price  = isFlat
+        ? (q.price_flat_usd != null ? `$${fmt(q.price_flat_usd)} flat` : `£${fmt(q.price_flat_gbp)} flat`)
+        : `$${fmt(q.price_per_mt_usd)}/MT`;
       return `<tr>
         <td>${esc(q.contacts?.company_name || '—')}</td>
         <td>${esc([q.origin_country, q.destination_country].filter(Boolean).join(' → '))}</td>
@@ -830,7 +964,7 @@ async function openAddLogisticsQuoteModal() {
           <input type="number" class="form-input" id="lq-price-permt" step="0.01" min="0" />
         </div>
         <div class="form-group" id="lq-price-flat-group" style="display:none">
-          <label class="form-label">Flat Fee (GBP) <span style="color:var(--color-danger)">*</span></label>
+          <label class="form-label">Flat Fee (USD) <span style="color:var(--color-danger)">*</span></label>
           <input type="number" class="form-input" id="lq-price-flat" step="0.01" min="0" />
         </div>
         <div class="form-group">
@@ -900,7 +1034,7 @@ async function submitAddLogisticsQuote(e) {
       container_type:     document.getElementById('lq-container').value.trim() || null,
       pricing_type:       pricingType,
       price_per_mt_usd:   pricingType === 'per_mt' ? pricePerMt : null,
-      price_flat_gbp:     pricingType === 'flat'   ? priceFlat  : null,
+      price_flat_usd:     pricingType === 'flat'   ? priceFlat  : null,
       validity_date:      validity,
       status:             'active',
       notes:              document.getElementById('lq-notes').value.trim() || null,
@@ -999,7 +1133,9 @@ function renderPricingCalculator(sqList, lqList, ohList) {
   ).join('');
 
   const lqOpts = lqList.map(q => {
-    const price = q.pricing_type === 'flat' ? `£${fmt(q.price_flat_gbp)} flat` : `$${fmt(q.price_per_mt_usd)}/MT`;
+    const price = q.pricing_type === 'flat'
+      ? (q.price_flat_usd != null ? `$${fmt(q.price_flat_usd)} flat` : `£${fmt(q.price_flat_gbp)} flat`)
+      : `$${fmt(q.price_per_mt_usd)}/MT`;
     return `<option value="${esc(q.id)}" ${_calc.lqData?.id === q.id ? 'selected' : ''}>${esc(q.contacts?.company_name || '?')} — ${price}</option>`;
   }).join('');
 
@@ -1069,10 +1205,10 @@ function renderPricingCalculator(sqList, lqList, ohList) {
               <th style="padding:var(--space-2) var(--space-3);text-align:left;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border);white-space:nowrap">Line</th>
               <th style="padding:var(--space-2) var(--space-3);text-align:left;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Description</th>
               <th style="padding:var(--space-2) var(--space-3);text-align:left;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Qty</th>
-              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">FOB/unit</th>
-              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Freight/unit</th>
-              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Landed</th>
-              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Sell Price</th>
+              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">FOB/unit (USD)</th>
+              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Freight (USD)</th>
+              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Landed (USD)</th>
+              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Sell Price (GBP)</th>
             </tr>
           </thead>
           <tbody id="calc-lines-body">
@@ -1110,54 +1246,62 @@ function onCalcModelChange(model) {
 }
 
 function calcLinePrice(line, sqForLine, lqData, fx, ins, overheadTotal, totalQtyMt, model, manualMargin) {
-  // FOB in GBP per MT-equivalent
-  let fobGbp = 0;
+  // All intermediate costs in USD; sell price converts to GBP at the end.
+  // fx = USD per £1 (e.g. 1.27 means £1 = $1.27)
+  let fobUsd = 0;
   if (sqForLine) {
     if (sqForLine.pricing_basis === 'per_piece') {
-      const pieces = parseFloat(sqForLine.quantity_pieces || line.quantity || 1);
-      const totalFobGbp = parseFloat(sqForLine.price_per_piece || 0) * pieces / fx;
-      fobGbp = line.quantity > 0 ? totalFobGbp / line.quantity : 0;
+      const pieces     = parseFloat(sqForLine.quantity_pieces || line.quantity || 1);
+      const totalFobUsd = parseFloat(sqForLine.price_per_piece || 0) * pieces;
+      fobUsd = line.quantity > 0 ? totalFobUsd / line.quantity : 0;
     } else if (sqForLine.pricing_basis === 'total') {
-      fobGbp = line.quantity > 0 ? parseFloat(sqForLine.fob_price_usd || 0) / fx / line.quantity : 0;
+      fobUsd = line.quantity > 0 ? parseFloat(sqForLine.fob_price_usd || 0) / line.quantity : 0;
     } else {
-      fobGbp = parseFloat(sqForLine.fob_price_usd || 0) / fx;
+      fobUsd = parseFloat(sqForLine.fob_price_usd || 0);
     }
   }
 
-  // Freight in GBP per MT — proportional to this line's share of total qty
-  let freightGbpPerMt = 0;
+  // Freight in USD per MT
+  let freightUsdPerMt = 0;
   if (lqData && line.quantity > 0 && totalQtyMt > 0) {
     if (lqData.pricing_type === 'flat') {
       const myShare = line.quantity / totalQtyMt;
-      freightGbpPerMt = parseFloat(lqData.price_flat_gbp || 0) * myShare / line.quantity;
+      // price_flat_usd preferred; fall back to price_flat_gbp × fx for old records
+      const flatUsd = lqData.price_flat_usd != null
+        ? parseFloat(lqData.price_flat_usd || 0)
+        : parseFloat(lqData.price_flat_gbp || 0) * fx;
+      freightUsdPerMt = flatUsd * myShare / line.quantity;
     } else {
-      freightGbpPerMt = parseFloat(lqData.price_per_mt_usd || 0) / fx;
+      freightUsdPerMt = parseFloat(lqData.price_per_mt_usd || 0);
     }
   }
 
-  // Insurance
-  const insuranceGbp = fobGbp * (ins / 100);
+  // Insurance in USD (% of FOB USD)
+  const insuranceUsd = fobUsd * (ins / 100);
 
-  // Overheads — proportional by quantity
-  const ovhPerMt = (totalQtyMt > 0 && line.quantity > 0)
-    ? overheadTotal * (line.quantity / totalQtyMt) / line.quantity
+  // Overheads are in GBP — convert to USD equivalent for intermediate calculation
+  const ovhPerMtUsd = (totalQtyMt > 0 && line.quantity > 0)
+    ? (overheadTotal * fx) * (line.quantity / totalQtyMt) / line.quantity
     : 0;
 
-  const landed = fobGbp + freightGbpPerMt + insuranceGbp + ovhPerMt;
-  if (!landed) return null;
+  const landedUsd = fobUsd + freightUsdPerMt + insuranceUsd + ovhPerMtUsd;
+  if (!landedUsd) return null;
 
-  // Determine margin for this line
+  // Determine margin
   const pl = _allProductLines.find(p => p.id === line.product_line_id);
   let marginPct = manualMargin;
   if (model === 'standard') marginPct = pl?.default_markup_pct ?? 10;
   if (model === 'best')     marginPct = Math.max((pl?.default_markup_pct ?? 10) / 2, 3);
   if (model === 'market')   {
-    const mkt = pl?.market_reference_price_gbp;
-    marginPct = mkt && landed > 0 ? ((mkt - landed) / mkt) * 100 : manualMargin;
+    // Convert GBP market reference to USD for comparison
+    const mktUsd = pl?.market_reference_price_gbp != null ? pl.market_reference_price_gbp * fx : null;
+    marginPct = mktUsd && landedUsd > 0 ? ((mktUsd - landedUsd) / mktUsd) * 100 : manualMargin;
   }
 
-  const sellPrice = marginPct < 100 ? landed / (1 - marginPct / 100) : 0;
-  return { fobGbp, freightGbpPerMt, insuranceGbp, ovhPerMt, landed, sellPrice, marginPct, pl };
+  const sellPriceUsd = marginPct < 100 ? landedUsd / (1 - marginPct / 100) : 0;
+  const sellPriceGbp = sellPriceUsd / fx;
+
+  return { fobUsd, freightUsdPerMt, insuranceUsd, ovhPerMtUsd, landedUsd, sellPriceUsd, sellPriceGbp, marginPct, pl };
 }
 
 function recalcAllLines() {
@@ -1203,7 +1347,7 @@ function recalcAllLines() {
       </tr>`;
     }
 
-    const lineTotal = result.sellPrice * (parseFloat(line.quantity) || 0);
+    const lineTotal = result.sellPriceGbp * (parseFloat(line.quantity) || 0);
     grandTotal += lineTotal;
     _pricedLines.push({ line, result, sqForLine, lineTotal });
 
@@ -1211,10 +1355,10 @@ function recalcAllLines() {
       <td style="padding:var(--space-2) var(--space-3);font-weight:600">${line.line_number}${line.is_alternative ? ' <span class="badge badge-info" style="font-size:10px">Alt</span>' : ''}</td>
       <td style="padding:var(--space-2) var(--space-3)">${esc(line.description)}<div style="font-size:var(--text-xs);color:var(--color-text-muted)">${esc(line.grade_specification || '')}</div></td>
       <td style="padding:var(--space-2) var(--space-3)">${line.quantity ? fmt(line.quantity, 0) + ' ' + (line.quantity_unit || 'MT') : '—'}</td>
-      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums">£${fmt(result.fobGbp)}</td>
-      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums">£${fmt(result.freightGbpPerMt)}</td>
-      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums">£${fmt(result.landed)}</td>
-      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-weight:700;color:var(--color-text-primary)">£${fmt(result.sellPrice)}</td>
+      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums">$${fmt(result.fobUsd)}</td>
+      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums">$${fmt(result.freightUsdPerMt)}</td>
+      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums">$${fmt(result.landedUsd)}</td>
+      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-weight:700;color:var(--color-text-primary)">£${fmt(result.sellPriceGbp)}</td>
     </tr>`;
   }).join('');
 
@@ -1250,17 +1394,147 @@ async function applyAllLinesToQuote() {
     gradeSpec:     line.grade_specification || '',
     qty:           line.quantity || null,
     unit:          line.quantity_unit || 'MT',
-    unitPrice:     result.sellPrice,
+    unitPrice:     result.sellPriceGbp,
     sqId:          sqForLine?.id || null,
     lqId,
     model:         _calc.model,
     marginPct:     result.marginPct,
-    landed:        result.landed,
+    landed:        result.landedUsd,
   }));
 
   _quoteLines   = [];
   _activeCqId   = null;
   switchTab('build');
+}
+
+// ── Tab 3: Quote Summary ──────────────────────────────────────────────────────
+
+function renderSummaryTab() {
+  const el = document.getElementById('tab-summary');
+  if (!el) return;
+
+  if (!_pricedLines || _pricedLines.length === 0) {
+    el.innerHTML = `
+      <div class="panel"><div class="panel-body" style="text-align:center;padding:var(--space-12) var(--space-8)">
+        <div style="font-size:2.5rem;margin-bottom:var(--space-4)">📊</div>
+        <h3 style="margin-bottom:var(--space-2)">No pricing data yet</h3>
+        <p style="color:var(--color-text-muted);font-size:var(--text-sm);max-width:380px;margin:0 auto var(--space-5)">
+          Go to <strong>Cost Inputs</strong>, add supplier and logistics quotes, then run the pricing calculator.
+          The summary will appear here once pricing has been calculated.
+        </p>
+        <button class="btn btn-primary" onclick="switchTab('costs')">Go to Cost Inputs →</button>
+      </div></div>`;
+    return;
+  }
+
+  const fx           = _calc.fx || 1.27;
+  const supplierName = _costsSqList.find(q => q.supplier_id === _scenarioSupplierId)?.contacts?.company_name || 'Unknown supplier';
+  const buyer        = _rfqData;
+
+  // Totals
+  const totalRevenueGbp = _pricedLines.reduce((s, p) => s + p.lineTotal, 0);
+  const totalLandedUsd  = _pricedLines.reduce((s, p) => s + p.result.landedUsd * (parseFloat(p.line.quantity) || 0), 0);
+  const totalLandedGbp  = totalLandedUsd / fx;
+  const totalProfitGbp  = totalRevenueGbp - totalLandedGbp;
+  const avgMarginPct    = totalRevenueGbp > 0 ? (totalProfitGbp / totalRevenueGbp) * 100 : 0;
+
+  const marginBadgeClass = m => m >= 10 ? 'badge-success' : m >= 5 ? 'badge-warning' : 'badge-danger';
+  const profitColour     = p => p >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+
+  el.innerHTML = `
+    <!-- Buyer + Supplier overview -->
+    <div class="panel" style="margin-bottom:var(--space-4)">
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-8)">
+          <div>
+            <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-3)">Buyer</p>
+            <div style="font-size:var(--text-lg);font-weight:600;margin-bottom:var(--space-1)">${esc(buyer.company || '—')}</div>
+            ${buyer.name    ? `<div style="font-size:var(--text-sm);color:var(--color-text-muted)">${esc(buyer.name)}</div>` : ''}
+            ${buyer.email   ? `<div style="font-size:var(--text-sm);color:var(--color-text-muted)">${esc(buyer.email)}</div>` : ''}
+            ${buyer.country ? `<div style="font-size:var(--text-sm);color:var(--color-text-muted)">${esc(buyer.country)}</div>` : ''}
+          </div>
+          <div>
+            <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-3)">Supplier (Active Scenario)</p>
+            <div style="font-size:var(--text-lg);font-weight:600;margin-bottom:var(--space-1)">${esc(supplierName)}</div>
+            <div style="font-size:var(--text-sm);color:var(--color-text-muted)">${_pricedLines.length} line${_pricedLines.length !== 1 ? 's' : ''} priced</div>
+            <div style="font-size:var(--text-sm);color:var(--color-text-muted)">FX rate: £1 = $${fmt(fx, 3)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Per-line detail -->
+    <div class="panel" style="margin-bottom:var(--space-4)">
+      <div class="panel-body">
+        <h4 style="margin:0 0 var(--space-4)">Line Detail</h4>
+        <div class="table-wrapper" style="margin:0">
+          <table>
+            <thead><tr>
+              <th>#</th>
+              <th>Product</th>
+              <th style="text-align:right">Qty</th>
+              <th style="text-align:right">Cost/unit (USD)</th>
+              <th style="text-align:right">Cost/unit (GBP)</th>
+              <th style="text-align:right">Sell/unit (GBP)</th>
+              <th style="text-align:right">Revenue (GBP)</th>
+              <th style="text-align:right">Margin</th>
+              <th style="text-align:right">Profit (GBP)</th>
+            </tr></thead>
+            <tbody>
+              ${_pricedLines.map(({ line, result, lineTotal }) => {
+                const qty        = parseFloat(line.quantity) || 0;
+                const costGbp    = (result.landedUsd * qty) / fx;
+                const profitGbp  = lineTotal - costGbp;
+                return `<tr>
+                  <td style="font-weight:600;color:var(--color-text-muted)">${line.line_number}${line.is_alternative ? ' <span class="badge badge-info" style="font-size:10px">Alt</span>' : ''}</td>
+                  <td>
+                    <div style="font-weight:500">${esc(line.description)}</div>
+                    ${line.grade_specification ? `<div style="font-size:var(--text-xs);color:var(--color-text-muted)">${esc(line.grade_specification)}</div>` : ''}
+                  </td>
+                  <td style="text-align:right">${qty ? fmt(qty, 0) + ' ' + esc(line.quantity_unit || 'MT') : '—'}</td>
+                  <td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--color-text-muted)">$${fmt(result.landedUsd)}</td>
+                  <td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--color-text-muted)">£${fmt(result.landedUsd / fx)}</td>
+                  <td style="text-align:right;font-variant-numeric:tabular-nums">£${fmt(result.sellPriceGbp)}</td>
+                  <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">£${fmt(lineTotal)}</td>
+                  <td style="text-align:right"><span class="badge ${marginBadgeClass(result.marginPct)}">${fmt(result.marginPct, 1)}%</span></td>
+                  <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:${profitColour(profitGbp)}">£${fmt(profitGbp)}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Totals summary -->
+    <div style="background:#0a1728;border-radius:var(--radius);padding:var(--space-6)">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-6);margin-bottom:var(--space-5)">
+        <div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-1)">Total Cost</div>
+          <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:#ffffff">$${fmt(totalLandedUsd)}</div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.4);margin-top:2px">≈ £${fmt(totalLandedGbp)} at £1=$${fmt(fx,3)}</div>
+        </div>
+        <div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-1)">Total Revenue</div>
+          <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:#7ab8d4">£${fmt(totalRevenueGbp)}</div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.4);margin-top:2px">Customer quote (GBP)</div>
+        </div>
+        <div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-1)">Gross Profit</div>
+          <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:${totalProfitGbp >= 0 ? '#4ade80' : '#f87171'}">£${fmt(totalProfitGbp)}</div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.4);margin-top:2px">Revenue minus cost (GBP)</div>
+        </div>
+        <div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-1)">Average Margin</div>
+          <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:${avgMarginPct >= 10 ? '#4ade80' : avgMarginPct >= 5 ? '#fbbf24' : '#f87171'}">${fmt(avgMarginPct, 1)}%</div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.4);margin-top:2px">Across all primary lines</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,.1);padding-top:var(--space-4);display:flex;justify-content:flex-end">
+        <button class="btn btn-primary" onclick="switchTab('build')">Build Customer Quote →</button>
+      </div>
+    </div>
+  `;
 }
 
 // ── Tab 2: File upload helper ─────────────────────────────────────────────────

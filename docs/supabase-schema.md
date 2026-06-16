@@ -644,6 +644,10 @@ One row per formal approval or rejection at each workflow stage. Both Martyn's r
 | `decided_at` | `timestamptz` |  |
 | `created_at` | `timestamptz` |  |
 
+### RLS
+
+- `portal_full_access` — authenticated, full CRUD.
+
 ---
 
 ## Table `supplier_compliance_scores`
@@ -664,6 +668,10 @@ Additive compliance risk score — one row per scoring event (Gate 1 or Gate 2).
 | `computed_at` | `timestamptz` | Default `now()` |
 | `computed_by` | `uuid` | FK → auth.users — director who submitted the scoring form |
 
+### RLS
+
+- `portal_full_access` — authenticated, full CRUD.
+
 ---
 
 ## Table `supplier_commercial_scores`
@@ -683,6 +691,10 @@ Additive commercial suitability score — one row per scoring event (Gate 1 or G
 | `components` | `jsonb` | Array of `{group, factor_key, label, score}` |
 | `computed_at` | `timestamptz` | Default `now()` |
 | `computed_by` | `uuid` | FK → auth.users |
+
+### RLS
+
+- `portal_full_access` — authenticated, full CRUD.
 
 ---
 

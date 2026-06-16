@@ -48,6 +48,7 @@
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchTab('enquiry')">Enquiry</button>
       <button class="tab-btn" onclick="switchTab('costs')">Cost Inputs</button>
+      <button class="tab-btn" onclick="switchTab('summary')">Quote Summary</button>
       <button class="tab-btn" onclick="switchTab('build')">Build Quote</button>
       <button class="tab-btn" onclick="switchTab('customer')">Customer</button>
     </div>
@@ -100,10 +101,17 @@
         <!-- Pricing Calculator -->
         <div id="pricing-calculator-section"></div>
 
+        <div style="border-top:1px solid var(--color-border);padding-top:var(--space-5);margin-top:var(--space-4);display:flex;justify-content:flex-end">
+          <button class="btn btn-primary" onclick="switchTab('build')">Build Customer Quote →</button>
+        </div>
+
       </div></div>
     </div>
 
-    <!-- Tab 3: Build Quote -->
+    <!-- Tab 3: Quote Summary -->
+    <div class="tab-pane" id="tab-summary"></div>
+
+    <!-- Tab 4: Build Quote -->
     <div class="tab-pane" id="tab-build">
       <div class="panel"><div class="panel-body">
         <div id="build-quote-content"><div style="color:var(--color-text-muted)">Loading...</div></div>

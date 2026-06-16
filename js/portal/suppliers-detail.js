@@ -193,17 +193,17 @@ function headerActionsHtml(ob) {
   } else if (ob.workflow_stage === 'pending_compliance') {
     const isCompliance = PortalRoles.getRoles().includes('director_compliance');
     primary = isCompliance
-      ? `<a href="compliance-review.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Compliance Review →</a>`
+      ? `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Compliance Review →</a>`
       : `<span class="badge badge-warning">Pending Compliance Review</span>`;
   } else if (ob.workflow_stage === 'stage1_complete') {
-    primary = `<a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Begin Stage 2 →</a>`;
+    primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Begin Stage 2 →</a>`;
   } else if (ob.workflow_stage === 'pending_stage2') {
-    primary = `<a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Continue Stage 2 →</a>`;
+    primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Continue Stage 2 →</a>`;
   } else if (ob.workflow_stage === 'awaiting_supplier_info') {
-    primary = `<a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">Continue Stage 2 →</a>
+    primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">Continue Stage 2 →</a>
       <button class="btn btn-primary btn-sm" onclick="resumeVetting('${esc(ob.id)}')">Resume Vetting</button>`;
   } else if (ob.workflow_stage === 'stage2_complete') {
-    primary = `<a href="trade-ready.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Begin Stage 3 →</a>`;
+    primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Begin Stage 3 →</a>`;
   }
 
   return `${primary} ${rejectBtn} ${common}`;
@@ -330,11 +330,11 @@ async function nextBestActionHtml() {
 
   const ctas = {
     draft:                  { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Continue Registration →' },
-    pending_compliance:     { href: `compliance-review.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Compliance Review →' },
-    stage1_complete:        { href: `pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Begin Stage 2 →' },
-    pending_stage2:         { href: `pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Continue Stage 2 →' },
-    awaiting_supplier_info: { href: `pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Continue Stage 2 →' },
-    stage2_complete:        { href: `trade-ready.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Begin Stage 3 — Trade Ready Sign-off →' },
+    pending_compliance:     { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Compliance Review →' },
+    stage1_complete:        { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Begin Stage 2 →' },
+    pending_stage2:         { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Continue Stage 2 →' },
+    awaiting_supplier_info: { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Continue Stage 2 →' },
+    stage2_complete:        { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Begin Stage 3 — Trade Ready Sign-off →' },
   };
   const cta = ctas[ob.workflow_stage];
 
@@ -1006,26 +1006,26 @@ async function loadOnboarding() {
       const isCompliance = PortalRoles.getRoles().includes('director_compliance');
       advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
         <span class="badge badge-warning">Pending Compliance Review</span>
-        ${isCompliance ? `<a href="compliance-review.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Begin Compliance Review →</a>` : ''}
+        ${isCompliance ? `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Begin Compliance Review →</a>` : ''}
         ${rejectBtn}</div>`;
 
     } else if (ob.workflow_stage === 'stage1_complete') {
       advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
         <span class="badge badge-info">Ready to Quote</span>
-        <a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">
+        <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">
           Begin Stage 2 — Pre-Trade Vetting →
         </a>${rejectBtn}</div>`;
 
     } else if (ob.workflow_stage === 'pending_stage2') {
       advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center">
-        <a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">
+        <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">
           Continue Stage 2 →
         </a>${rejectBtn}</div>`;
 
     } else if (ob.workflow_stage === 'awaiting_supplier_info') {
       advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
         <span class="badge badge-warning">Awaiting Supplier Info</span>
-        <a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">
+        <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">
           Continue Stage 2 →
         </a>
         <button class="btn btn-primary btn-sm" onclick="resumeVetting('${esc(ob.id)}')">Resume Vetting</button>
@@ -1034,7 +1034,7 @@ async function loadOnboarding() {
     } else if (ob.workflow_stage === 'stage2_complete') {
       advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
         <span class="badge badge-success">Stage 2 Complete</span>
-        <a href="trade-ready.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">
+        <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">
           Begin Stage 3 — Trade Ready Sign-off →
         </a>${rejectBtn}</div>`;
     }

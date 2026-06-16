@@ -56,63 +56,97 @@
 
 <!-- New RFQ Modal -->
 <div class="modal-overlay" id="new-rfq-modal">
-  <div class="modal-box" style="max-width:600px">
-    <button class="modal-close" onclick="document.getElementById('new-rfq-modal').classList.remove('open')">✕</button>
-    <h3>New RFQ</h3>
-    <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-5)">Manually log an enquiry received by email or phone.</p>
-    <form id="new-rfq-form" onsubmit="submitNewRfq(event)">
+  <div class="modal-box" style="max-width:560px">
+    <button class="modal-close" onclick="closeNewRfqModal()">✕</button>
+    <h3 id="nrfq-modal-title" style="margin-bottom:var(--space-4)">New RFQ</h3>
+
+    <!-- Step 1: New or existing customer -->
+    <div id="nrfq-step-start">
+      <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-5)">Is this enquiry from a new or existing customer?</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
+        <button type="button" onclick="nrfqShowStep('existing')"
+          style="padding:var(--space-5);border:2px solid var(--color-border);border-radius:var(--radius);background:var(--color-white);cursor:pointer;text-align:center">
+          <div style="font-size:1.75rem;margin-bottom:var(--space-2)">👤</div>
+          <div style="font-weight:600;margin-bottom:var(--space-1)">Existing Customer</div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted)">Search and link to a known contact</div>
+        </button>
+        <button type="button" onclick="nrfqShowStep('new')"
+          style="padding:var(--space-5);border:2px solid var(--color-border);border-radius:var(--radius);background:var(--color-white);cursor:pointer;text-align:center">
+          <div style="font-size:1.75rem;margin-bottom:var(--space-2)">➕</div>
+          <div style="font-weight:600;margin-bottom:var(--space-1)">New Customer</div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted)">Add their details first, then log the RFQ</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2a: Existing customer search -->
+    <div id="nrfq-step-existing" style="display:none">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="nrfqShowStep('start')" style="margin-bottom:var(--space-4)">← Back</button>
+      <div class="form-group">
+        <label class="form-label">Search customers</label>
+        <input type="text" class="form-input" id="nrfq-search" oninput="nrfqSearchCustomers(this.value)" placeholder="Type company or contact name…" autocomplete="off" />
+      </div>
+      <div id="nrfq-search-results" style="border:1px solid var(--color-border);border-radius:var(--radius-sm);overflow:hidden;margin-top:var(--space-1)"></div>
+    </div>
+
+    <!-- Step 2b: New customer quick-add -->
+    <div id="nrfq-step-new" style="display:none">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="nrfqShowStep('start')" style="margin-bottom:var(--space-4)">← Back</button>
+      <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4)">Enter the customer's details. A customer record will be created so you can track their enquiries.</p>
       <div class="form-grid">
         <div class="form-group">
-          <label class="form-label">Contact Name <span style="color:var(--color-danger)">*</span></label>
-          <input type="text" class="form-input" id="nrfq-name" required placeholder="e.g. John Smith" />
+          <label class="form-label">Company Name <span style="color:var(--color-danger)">*</span></label>
+          <input type="text" class="form-input" id="nrfq-new-company" placeholder="e.g. Acme Manufacturing Ltd" />
         </div>
         <div class="form-group">
-          <label class="form-label">Company <span style="color:var(--color-danger)">*</span></label>
-          <input type="text" class="form-input" id="nrfq-company" required placeholder="e.g. Acme Manufacturing Ltd" />
+          <label class="form-label">Contact Name <span style="color:var(--color-danger)">*</span></label>
+          <input type="text" class="form-input" id="nrfq-new-contact" placeholder="e.g. John Smith" />
         </div>
         <div class="form-group">
           <label class="form-label">Email <span style="color:var(--color-danger)">*</span></label>
-          <input type="email" class="form-input" id="nrfq-email" required />
+          <input type="email" class="form-input" id="nrfq-new-email" />
         </div>
         <div class="form-group">
           <label class="form-label">Phone</label>
-          <input type="text" class="form-input" id="nrfq-phone" />
+          <input type="text" class="form-input" id="nrfq-new-phone" />
         </div>
-        <div class="form-group">
-          <label class="form-label">Type</label>
-          <select class="form-select" id="nrfq-type">
-            <option value="buyer">Buyer</option>
-            <option value="supplier">Supplier</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Role / Job Title</label>
-          <input type="text" class="form-input" id="nrfq-role" placeholder="e.g. Procurement Manager" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Product Interest</label>
-          <input type="text" class="form-input" id="nrfq-product" placeholder="e.g. Aluminium Alloy Core Wire" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Estimated Quantity (MT)</label>
-          <input type="number" class="form-input" id="nrfq-qty" step="0.1" min="0" placeholder="e.g. 25" />
-        </div>
-        <div class="form-group">
+        <div class="form-group" style="grid-column:1/-1">
           <label class="form-label">Country</label>
-          <input type="text" class="form-input" id="nrfq-country" placeholder="e.g. United Kingdom" />
+          <input type="text" class="form-input" id="nrfq-new-country" placeholder="e.g. United Kingdom" />
         </div>
       </div>
-      <div class="form-group" style="margin-top:var(--space-3)">
-        <label class="form-label">Message / Enquiry Detail</label>
-        <textarea class="form-textarea" id="nrfq-message" rows="4" placeholder="Paste the email content or summarise the enquiry..."></textarea>
+      <div id="nrfq-new-alert" style="display:none;margin:var(--space-3) 0;padding:var(--space-3);background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius-sm);font-size:var(--text-sm);color:var(--color-danger)"></div>
+      <div style="margin-top:var(--space-4)">
+        <button type="button" class="btn btn-primary" id="nrfq-new-btn" onclick="nrfqCreateCustomer()">Add Customer &amp; Continue →</button>
       </div>
-      <div id="new-rfq-alert" class="alert" style="display:none;margin-top:var(--space-3)"></div>
-      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5)">
-        <button type="submit" class="btn btn-primary" id="new-rfq-btn">Create RFQ</button>
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('new-rfq-modal').classList.remove('open')">Cancel</button>
-      </div>
-    </form>
+    </div>
+
+    <!-- Step 3: RFQ details -->
+    <div id="nrfq-step-rfq" style="display:none">
+      <div id="nrfq-customer-card" style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);padding:var(--space-4);margin-bottom:var(--space-5)"></div>
+      <form id="new-rfq-form" onsubmit="submitNewRfq(event)">
+        <div class="form-grid">
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Product Interest</label>
+            <input type="text" class="form-input" id="nrfq-product" placeholder="e.g. Aluminium Alloy Core Wire" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estimated Quantity (MT)</label>
+            <input type="number" class="form-input" id="nrfq-qty" step="0.1" min="0" placeholder="e.g. 25" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:var(--space-3)">
+          <label class="form-label">Message / Enquiry Detail</label>
+          <textarea class="form-textarea" id="nrfq-message" rows="4" placeholder="Paste the email content or summarise the enquiry…"></textarea>
+        </div>
+        <div id="new-rfq-alert" class="alert" style="display:none;margin-top:var(--space-3)"></div>
+        <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5)">
+          <button type="submit" class="btn btn-primary" id="new-rfq-btn">Create RFQ</button>
+          <button type="button" class="btn btn-ghost" onclick="closeNewRfqModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+
   </div>
 </div>
 

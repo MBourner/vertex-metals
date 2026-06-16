@@ -68,7 +68,7 @@ function renderHeader() {
         </div>
       </div>
       <div class="detail-header__actions">
-        <a href="../rfq/index.html?action=new&company=${encodeURIComponent(c.company_name||'')}&email=${encodeURIComponent(c.email||'')}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">+ New RFQ</a>
+        <a href="../rfq/index.html?contact_id=${encodeURIComponent(c.id)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">+ New RFQ</a>
         <a href="../orders/new.html?buyer_id=${esc(c.id)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">+ New Order</a>
         <button class="btn btn-primary btn-sm" onclick="openEditModal()">Edit Customer</button>
       </div>
@@ -221,7 +221,7 @@ async function loadRfqsTab() {
   const { data, error } = await supabaseClient
     .from('rfq_submissions')
     .select('*')
-    .ilike('company', c.company_name)
+    .or(`contact_id.eq.${c.id},company.ilike.%${c.company_name}%`)
     .order('created_at', { ascending: false });
 
   if (error) { el.innerHTML = `<div class="alert alert-error">${esc(error.message)}</div>`; return; }

@@ -34,7 +34,6 @@ const _tabLoaded = {};
 let supplierData = null;
 let allOnboardings = [];
 let onboardingData = null;
-let riskAssessmentData = null;
 
 // ── Address helpers ──────────────────────────────────────────────────────
 
@@ -153,7 +152,7 @@ function renderHeader() {
   document.getElementById('supplier-header').innerHTML = `
     <div class="supplier-header__top">
       <div class="supplier-header__id">
-        <h1>${esc(s.company_name)}</h1>
+        <h1>${countryFlagEmoji(s.country) ? `<span style="margin-right:var(--space-2)">${countryFlagEmoji(s.country)}</span>` : ''}${esc(s.company_name)}</h1>
         <div class="supplier-header__tags">
           ${s.supplier_reference ? `<span class="badge badge-neutral" style="font-family:monospace">${esc(s.supplier_reference)}</span>` : ''}
           ${s.supplier_type ? `<span class="badge badge-accent">${esc(s.supplier_type.replace(/_/g,' '))}</span>` : ''}
@@ -190,16 +189,21 @@ function headerActionsHtml(ob) {
 
   let primary = '';
   if (ob.workflow_stage === 'draft') {
-    primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Continue Stage 1 →</a>`;
+    primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Continue Registration →</a>`;
+  } else if (ob.workflow_stage === 'pending_compliance') {
+    const isCompliance = PortalRoles.getRoles().includes('director_compliance');
+    primary = isCompliance
+      ? `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Compliance Review →</a>`
+      : `<span class="badge badge-warning">Pending Compliance Review</span>`;
   } else if (ob.workflow_stage === 'stage1_complete') {
-    primary = `<a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Begin Stage 2 →</a>`;
+    primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Begin Stage 2 →</a>`;
   } else if (ob.workflow_stage === 'pending_stage2') {
-    primary = `<a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Continue Stage 2 →</a>`;
+    primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Continue Stage 2 →</a>`;
   } else if (ob.workflow_stage === 'awaiting_supplier_info') {
-    primary = `<a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">Continue Stage 2 →</a>
+    primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">Continue Stage 2 →</a>
       <button class="btn btn-primary btn-sm" onclick="resumeVetting('${esc(ob.id)}')">Resume Vetting</button>`;
   } else if (ob.workflow_stage === 'stage2_complete') {
-    primary = `<a href="trade-ready.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Begin Stage 3 →</a>`;
+    primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Begin Stage 3 →</a>`;
   }
 
   return `${primary} ${rejectBtn} ${common}`;
@@ -244,14 +248,15 @@ function commercialSnapshotHtml(s) {
   `;
 }
 
-function complianceSnapshotHtml(s, ra) {
+function complianceSnapshotHtml(s) {
+  const ob = onboardingData;
   const catClass = { low: 'badge-success', medium: 'badge-warning', high: 'badge-danger' };
   const stale = sanctionsStaleness(s.last_sanctions_screened_at);
 
   return `
     <div>
-      <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Risk Category</div>
-      ${ra?.risk_category ? `<span class="badge ${catClass[ra.risk_category]||'badge-neutral'}">${esc(ra.risk_category)} risk</span>` : '—'}
+      <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Risk Level</div>
+      ${ob?.risk_level ? `<span class="badge ${catClass[ob.risk_level]||'badge-neutral'}">${esc(ob.risk_level)} risk</span>` : '—'}
     </div>
     <div>
       <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Last Sanctions Screen</div>
@@ -300,6 +305,7 @@ async function nextBestActionHtml() {
   const s = supplierData;
   const ob = onboardingData;
   const isCommercial = PortalRoles.getRoles().includes('director_commercial');
+  const isCompliance = PortalRoles.getRoles().includes('director_compliance');
 
   if (!ob) {
     return `<p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-bottom:var(--space-3)">No onboarding process has been started for this supplier.</p>
@@ -315,20 +321,31 @@ async function nextBestActionHtml() {
     return `<p style="color:var(--color-text-muted);font-size:var(--text-sm);margin:0">Onboarding complete — supplier is Trade Ready. No outstanding actions.</p>`;
   }
 
-  const target = ob.workflow_stage === 'draft' ? 'stage1_complete'
+  const target = ob.workflow_stage === 'draft' ? 'pending_compliance'
+               : ob.workflow_stage === 'pending_compliance' ? 'stage1_complete'
                : ob.workflow_stage === 'stage2_complete' ? 'trade_ready'
                : 'stage2_complete';
 
   const gates = await OnboardingWorkflow.checkGates(ob, s, target);
 
   const ctas = {
-    draft:                  { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Continue Stage 1 →' },
-    stage1_complete:        { href: `pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Begin Stage 2 →' },
-    pending_stage2:         { href: `pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Continue Stage 2 →' },
-    awaiting_supplier_info: { href: `pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Continue Stage 2 →' },
-    stage2_complete:        { href: `trade-ready.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Begin Stage 3 — Trade Ready Sign-off →' },
+    draft:                  { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Continue Registration →' },
+    pending_compliance:     { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Compliance Review →' },
+    stage1_complete:        { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Begin Stage 2 →' },
+    pending_stage2:         { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Continue Stage 2 →' },
+    awaiting_supplier_info: { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Continue Stage 2 →' },
+    stage2_complete:        { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Begin Stage 3 — Trade Ready Sign-off →' },
   };
   const cta = ctas[ob.workflow_stage];
+
+  if (ob.workflow_stage === 'pending_compliance' && !isCompliance) {
+    return `
+      <p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-bottom:var(--space-3)">Awaiting compliance review.</p>
+      <ul style="margin:0;padding-left:var(--space-4);font-size:var(--text-sm)">
+        ${gates.blockers.map(b => `<li>${esc(b)}</li>`).join('')}
+      </ul>
+    `;
+  }
 
   if (gates.passed) {
     return `<p style="font-size:var(--text-sm);margin-bottom:var(--space-3)">All requirements for the next stage are in place.</p>
@@ -383,7 +400,7 @@ async function loadOverview() {
       </div>
       <div class="panel">
         <div class="panel-header"><h3>Compliance</h3></div>
-        <div class="panel-body overview-card-body">${complianceSnapshotHtml(s, riskAssessmentData)}</div>
+        <div class="panel-body overview-card-body">${complianceSnapshotHtml(s)}</div>
       </div>
       <div class="panel">
         <div class="panel-header"><h3>Permissions</h3></div>
@@ -469,7 +486,10 @@ function productRowHtml(q) {
     <td style="font-family:var(--font-display)">${q.status === 'pending' ? '—' : '$' + fmt(q.fob_price_usd)}</td>
     <td>${esc(q.incoterm || '—')}</td>
     <td>${q.validity_date ? fmtDate(q.validity_date) : '—'}</td>
-    <td><span class="badge ${PRODUCT_STATUS_CLASS[q.status] || 'badge-neutral'}">${esc(PRODUCT_STATUS_LABEL[q.status] || q.status)}</span></td>
+    <td>
+      <span class="badge ${PRODUCT_STATUS_CLASS[q.status] || 'badge-neutral'}">${esc(PRODUCT_STATUS_LABEL[q.status] || q.status)}</span>
+      ${q.onboarding_review_status ? `<span class="badge ${OnboardingWorkflow.PRODUCT_REVIEW_BADGE[q.onboarding_review_status] || 'badge-neutral'}" style="margin-left:var(--space-1)">${esc(OnboardingWorkflow.PRODUCT_REVIEW_LABELS[q.onboarding_review_status] || q.onboarding_review_status)}</span>` : ''}
+    </td>
     <td style="text-align:right">
       <button class="btn btn-secondary btn-sm" onclick="openEditProductModal('${esc(q.id)}')">Edit</button>
       ${q.status === 'pending' ? `<button class="btn btn-ghost btn-sm" style="color:var(--color-danger)" onclick="removeProduct('${esc(q.id)}')">Remove</button>` : ''}
@@ -757,48 +777,82 @@ async function loadDocumentsTab() {
 
 async function loadCompliance() {
   const el = document.getElementById('tab-compliance');
-  const s = supplierData;
-  const ra = riskAssessmentData;
+  const s  = supplierData;
   const stale = sanctionsStaleness(s.last_sanctions_screened_at);
+  const onbId = onboardingData?.id;
 
-  let riskHtml = '<p style="color:var(--color-text-muted);font-size:var(--text-sm)">No risk assessment on file.</p>';
-  if (ra) {
-    const profile = OnboardingWorkflow.getSupplierProfile(s.supplier_type);
-    const catClass = { low: 'badge-success', medium: 'badge-warning', high: 'badge-danger' };
-    riskHtml = `
-      <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4);flex-wrap:wrap">
-        <span class="badge ${catClass[ra.risk_category]||'badge-neutral'}">${esc(ra.risk_category||'unrated')} risk</span>
-        <span style="font-size:var(--text-sm);color:var(--color-text-muted)">Overall score: ${ra.overall_score != null ? fmt(ra.overall_score,2) : '—'}</span>
-        ${ra.reviewed_at ? `<span class="badge badge-success">Reviewed ${fmtDate(ra.reviewed_at)}</span>` : '<span class="badge badge-warning">Preliminary (not reviewed)</span>'}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-4)">
-        ${profile.riskCriteria.map(c => {
-          const score = ra[`${OnboardingWorkflow.RISK_CRITERIA_COLUMN[c]}_score`];
-          const notes = ra[`${OnboardingWorkflow.RISK_CRITERIA_COLUMN[c]}_notes`];
-          return `<div>
-            <div style="color:var(--color-text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">${esc(OnboardingWorkflow.RISK_CRITERIA_LABELS[c])}</div>
-            <div style="font-size:var(--text-sm);font-weight:600">${score != null ? score + ' / 5' : '—'}</div>
-            ${notes ? `<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">${esc(notes)}</div>` : ''}
-          </div>`;
-        }).join('')}
-      </div>
-      ${ra.overall_notes ? `<p style="margin-top:var(--space-4);font-size:var(--text-sm)">${esc(ra.overall_notes)}</p>` : ''}
-      ${ra.risk_category_override ? `<div style="margin-top:var(--space-3);padding:var(--space-3);background:rgba(217,119,6,0.06);border-radius:var(--radius-sm);font-size:var(--text-sm)">
-        <strong>Risk category manually overridden.</strong> ${esc(ra.risk_category_override_reason||'')}
-      </div>` : ''}
-    `;
+  const [compScoresRes, commScoresRes, approvalsRes, screensRes] = await Promise.all([
+    onbId
+      ? supabaseClient.from('supplier_compliance_scores').select('*').eq('onboarding_id', onbId).order('computed_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    onbId
+      ? supabaseClient.from('supplier_commercial_scores').select('*').eq('onboarding_id', onbId).order('computed_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    onbId
+      ? supabaseClient.from('supplier_approvals').select('*').eq('onboarding_id', onbId)
+          .in('approval_stage', ['gate1_compliance', 'gate1_commercial', 'gate2_compliance', 'gate2_commercial'])
+          .order('decided_at', { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+    supabaseClient.from('sanctions_screens').select('*').eq('subject_id', supplierId).order('screened_at', { ascending: false }),
+  ]);
+
+  const compScores = compScoresRes.data || [];
+  const commScores = commScoresRes.data || [];
+  const approvals  = approvalsRes.data  || [];
+  const screens    = screensRes.data    || [];
+
+  function scoreRows(scores, type) {
+    if (!scores.length) return '<p style="font-size:var(--text-sm);color:var(--color-text-muted)">No scores recorded yet.</p>';
+    return scores.map(score => {
+      const bandClass = type === 'compliance'
+        ? (score.rating_band === 'Low Risk' ? 'badge-success' : score.rating_band === 'Medium Risk' ? 'badge-warning' : 'badge-danger')
+        : ((score.rating_band === 'Strategic Supplier' || score.rating_band === 'Strong Fit') ? 'badge-success' : score.rating_band === 'Moderate Fit' ? 'badge-warning' : 'badge-neutral');
+      const pills = (score.components || []).map(c => {
+        const cls = c.score < 0 ? 'score-pill score-pill-positive' : c.score > 0 ? 'score-pill score-pill-risk' : 'score-pill score-pill-neutral';
+        return `<span class="${cls}">${esc(c.label)} ${c.score > 0 ? '+' : ''}${c.score}</span>`;
+      }).join(' ');
+      return `
+        <div style="padding:var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-sm);margin-bottom:var(--space-3)">
+          <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-bottom:${pills ? 'var(--space-2)' : '0'}">
+            <span class="badge badge-neutral" style="font-size:10px">Gate ${score.gate}</span>
+            <span class="badge ${bandClass}">${esc(score.rating_band)}</span>
+            <span style="font-size:var(--text-sm);color:var(--color-text-muted)">Score: ${score.total_score !== null ? score.total_score : '—'}</span>
+            <span style="font-size:var(--text-xs);color:var(--color-text-muted);margin-left:auto">${fmtDate(score.computed_at)}</span>
+          </div>
+          ${pills ? `<div style="display:flex;flex-wrap:wrap;gap:4px">${pills}</div>` : ''}
+        </div>`;
+    }).join('');
   }
 
-  const { data: screens, error } = await supabaseClient
-    .from('sanctions_screens')
-    .select('*')
-    .eq('subject_id', supplierId)
-    .order('screened_at', { ascending: false });
+  const GATE_LABELS = {
+    gate1_compliance: 'Gate 1 — Compliance Director',
+    gate1_commercial: 'Gate 1 — Commercial Director',
+    gate2_compliance: 'Gate 2 — Compliance Director',
+    gate2_commercial: 'Gate 2 — Commercial Director',
+  };
+
+  const approvalsHtml = approvals.length
+    ? approvals.map(a => {
+        const decClass = (a.decision === 'reject' || a.decision === 'rejected') ? 'badge-danger'
+          : (a.decision === 'approve_with_conditions' || a.decision === 'approved_with_conditions') ? 'badge-warning'
+          : 'badge-success';
+        return `
+          <div style="padding:var(--space-3) var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-sm);margin-bottom:var(--space-3)">
+            <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-bottom:${a.justification ? 'var(--space-2)' : '0'}">
+              <span style="font-size:var(--text-xs);color:var(--color-text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em">${esc(GATE_LABELS[a.approval_stage] || a.approval_stage)}</span>
+              <span class="badge ${decClass}">${esc(a.decision.replace(/_/g,' '))}</span>
+              <span style="font-size:var(--text-xs);color:var(--color-text-muted);margin-left:auto">${fmtDate(a.decided_at)}</span>
+            </div>
+            ${a.justification ? `<p style="font-size:var(--text-sm);margin:0">${esc(a.justification)}</p>` : ''}
+            ${a.conditions ? `<p style="font-size:var(--text-xs);color:var(--color-text-muted);white-space:pre-line;margin:var(--space-1) 0 0">${esc(a.conditions)}</p>` : ''}
+          </div>`;
+      }).join('')
+    : '<p style="font-size:var(--text-sm);color:var(--color-text-muted)">No director approvals recorded yet.</p>';
 
   const resultClass = { clear:'badge-success', potential_match:'badge-warning', confirmed_match:'badge-danger' };
-  const screensHtml = error
-    ? `<div class="alert alert-error">${esc(error.message)}</div>`
-    : (screens && screens.length)
+  const screensHtml = screensRes.error
+    ? `<p style="color:var(--color-danger);font-size:var(--text-sm)">${esc(screensRes.error.message)}</p>`
+    : screens.length
       ? `<div class="table-wrapper"><table><thead><tr><th>Date</th><th>Lists Screened</th><th>Tool</th><th>Result</th><th>Notes</th></tr></thead><tbody>
           ${screens.map(sc => `<tr>
             <td style="font-size:var(--text-sm)">${fmtDate(sc.screened_at)}</td>
@@ -812,8 +866,16 @@ async function loadCompliance() {
 
   el.innerHTML = `
     <div class="panel" style="margin-bottom:var(--space-6)">
-      <div class="panel-header"><h3>Risk Assessment</h3></div>
-      <div class="panel-body">${riskHtml}</div>
+      <div class="panel-header"><h3>Compliance Risk Score</h3></div>
+      <div class="panel-body">${scoreRows(compScores, 'compliance')}</div>
+    </div>
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header"><h3>Commercial Suitability Score</h3></div>
+      <div class="panel-body">${scoreRows(commScores, 'commercial')}</div>
+    </div>
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-header"><h3>Director Approvals</h3></div>
+      <div class="panel-body">${approvalsHtml}</div>
     </div>
     <div class="panel" style="margin-bottom:var(--space-6)">
       <div class="panel-header">
@@ -937,26 +999,33 @@ async function loadOnboarding() {
 
     if (ob.workflow_stage === 'draft') {
       advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center">
-        <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Continue Stage 1 →</a>
+        <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Continue Registration →</a>
+        ${rejectBtn}</div>`;
+
+    } else if (ob.workflow_stage === 'pending_compliance') {
+      const isCompliance = PortalRoles.getRoles().includes('director_compliance');
+      advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
+        <span class="badge badge-warning">Pending Compliance Review</span>
+        ${isCompliance ? `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Begin Compliance Review →</a>` : ''}
         ${rejectBtn}</div>`;
 
     } else if (ob.workflow_stage === 'stage1_complete') {
       advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
         <span class="badge badge-info">Ready to Quote</span>
-        <a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">
+        <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">
           Begin Stage 2 — Pre-Trade Vetting →
         </a>${rejectBtn}</div>`;
 
     } else if (ob.workflow_stage === 'pending_stage2') {
       advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center">
-        <a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">
+        <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">
           Continue Stage 2 →
         </a>${rejectBtn}</div>`;
 
     } else if (ob.workflow_stage === 'awaiting_supplier_info') {
       advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
         <span class="badge badge-warning">Awaiting Supplier Info</span>
-        <a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">
+        <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">
           Continue Stage 2 →
         </a>
         <button class="btn btn-primary btn-sm" onclick="resumeVetting('${esc(ob.id)}')">Resume Vetting</button>
@@ -965,7 +1034,7 @@ async function loadOnboarding() {
     } else if (ob.workflow_stage === 'stage2_complete') {
       advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
         <span class="badge badge-success">Stage 2 Complete</span>
-        <a href="trade-ready.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">
+        <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">
           Begin Stage 3 — Trade Ready Sign-off →
         </a>${rejectBtn}</div>`;
     }
@@ -1125,6 +1194,10 @@ function openEditAddressModal() {
           </div>
         </div>
         <div class="form-group">
+          <label class="form-label">Country</label>
+          <select class="form-select" id="addr-country">${countryOptionsHtml(s.country)}</select>
+        </div>
+        <div class="form-group">
           <label class="form-label" style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
             <input type="checkbox" id="addr-dispatch-different" ${dispatchDifferent ? 'checked' : ''} onchange="document.getElementById('addr-dispatch-fields').style.display=this.checked?'flex':'none'" />
             Goods are dispatched from a different address (e.g. separate warehouse)
@@ -1151,7 +1224,7 @@ function openEditAddressModal() {
           </div>
           <div class="form-group">
             <label class="form-label">Dispatch Country</label>
-            <input type="text" class="form-input" id="addr-dispatch-country" value="${esc(s.dispatch_country || '')}" placeholder="Country goods ship from" />
+            <select class="form-select" id="addr-dispatch-country">${countryOptionsHtml(s.dispatch_country)}</select>
           </div>
         </div>
       </div>
@@ -1175,11 +1248,12 @@ async function submitEditAddress(e) {
     address_line_2: document.getElementById('addr-line2')?.value.trim() || null,
     city:           document.getElementById('addr-city')?.value.trim()  || null,
     postcode:       document.getElementById('addr-postcode')?.value.trim() || null,
+    country:        document.getElementById('addr-country')?.value || null,
     dispatch_address_line_1: dispatchDifferent ? (document.getElementById('addr-dispatch-line1')?.value.trim() || null) : null,
     dispatch_address_line_2: dispatchDifferent ? (document.getElementById('addr-dispatch-line2')?.value.trim() || null) : null,
     dispatch_city:           dispatchDifferent ? (document.getElementById('addr-dispatch-city')?.value.trim()  || null) : null,
     dispatch_postcode:       dispatchDifferent ? (document.getElementById('addr-dispatch-postcode')?.value.trim() || null) : null,
-    dispatch_country:        dispatchDifferent ? (document.getElementById('addr-dispatch-country')?.value.trim() || null) : null,
+    dispatch_country:        dispatchDifferent ? (document.getElementById('addr-dispatch-country')?.value || null) : null,
   };
 
   const { error } = await supabaseClient.from('contacts').update(payload).eq('id', supplierId);
@@ -1395,15 +1469,6 @@ async function submitEditCommercial(e) {
     .limit(5);
   allOnboardings = obs || [];
   onboardingData = allOnboardings[0] || null;
-
-  if (onboardingData) {
-    const { data: ra } = await supabaseClient
-      .from('supplier_risk_assessment')
-      .select('*')
-      .eq('onboarding_id', onboardingData.id)
-      .maybeSingle();
-    riskAssessmentData = ra || null;
-  }
 
   renderHeader();
 

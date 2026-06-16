@@ -131,6 +131,13 @@
 .badge-neutral  { background: #f3f4f6; color: var(--color-text-muted); }
 .badge-accent   { background: rgba(122,184,212,0.15); color: var(--color-accent-dark); }
 
+/* ─── Score pills (additive scoring, compliance/commercial) ─ */
+.score-pill         { font-size: var(--text-xs); font-weight: 700; padding: 2px 8px; border-radius: 9999px; white-space: nowrap; font-family: var(--font-display); }
+.score-pill-risk    { background: rgba(220,38,38,0.1);  color: var(--color-danger); }
+.score-pill-positive{ background: rgba(22,163,74,0.1);  color: var(--color-success); }
+.score-pill-neutral { background: rgba(0,0,0,0.06);     color: var(--color-text-muted); }
+.score-pill-danger  { background: rgba(220,38,38,0.15); color: var(--color-danger); font-style: italic; }
+
 /* ─── Stat cards (portal dashboard) ─────────────────────── */
 
 .stat-card {
@@ -361,6 +368,18 @@ tr.row-danger  { background: var(--color-danger-bg); }
   margin-bottom: var(--space-6);
   padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--color-border);
+}
+
+/* .btn-ghost defaults to white text/border for dark backgrounds (sidebar, topbar);
+   override to a dark variant when used inside a light modal */
+.modal-box .btn-ghost {
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+.modal-box .btn-ghost:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-muted);
+  background: var(--color-surface);
 }
 
 .modal-close {

@@ -19,7 +19,7 @@ function daysSince(d) {
   return Math.floor((Date.now() - new Date(d)) / 86400000);
 }
 
-const ACTIVE_STAGES    = ['draft', 'stage1_complete', 'pending_stage2', 'awaiting_supplier_info', 'stage2_complete'];
+const ACTIVE_STAGES    = ['draft', 'pending_compliance', 'stage1_complete', 'pending_stage2', 'awaiting_supplier_info', 'stage2_complete'];
 const COMPLETED_STAGES = ['trade_ready', 'rejected'];
 
 let activeRows    = [];

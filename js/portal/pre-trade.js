@@ -31,8 +31,10 @@ const onboardingId = params.get('onboarding_id');
 let contact = null;
 let onboarding = null;
 let isFullDiligence = false;
-let riskAssessment = null;
 let bankEditMode = false;
+let gate1ComplianceScore = null;
+let gate1CommercialScore = null;
+let gate2Approvals = {};
 
 const SANCTIONS_LISTS = [
   { name: 'UK Sanctions List', url: 'https://search-uk-sanctions-list.service.gov.uk/' },
@@ -255,163 +257,284 @@ async function submitRescreen() {
   await loadSanctionsReview();
 }
 
-// ── Risk Assessment Review (full-diligence only) ────────────────────────
-//
-// The applicable criteria and their weighting in the overall score come
-// from OnboardingWorkflow.SUPPLIER_TYPE_PROFILES (js/portal/supplier-
-// onboarding.js) — both full-diligence types currently score all five.
+// ── Compliance & Commercial Scores Review ────────────────────────────────
 
-function getScores(criteria) {
-  return criteria.map(c => {
-    const val = document.getElementById(`score-${c}`)?.value;
-    return val ? parseFloat(val) : null;
-  });
-}
+const COMPLIANCE_GROUP_LABELS = {
+  corporate_risk:    'Corporate Risk',
+  jurisdiction_risk: 'Jurisdiction Risk',
+  product_risk:      'Product Risk',
+  screening_results: 'Screening Results',
+  controls:          'Controls & Mitigants',
+};
+const COMMERCIAL_GROUP_LABELS = {
+  product_fit:       'Product Fit',
+  buyer_demand:      'Buyer Demand',
+  volume_capability: 'Volume Capability',
+  export_capability: 'Export Capability',
+  quality_certs:     'Quality Certifications',
+  responsiveness:    'Responsiveness',
+};
 
-function updateOverallScore() {
-  const criteria = OnboardingWorkflow.getRiskCriteria(contact.supplier_type);
-  const scores = getScores(criteria);
-  criteria.forEach((c, i) => {
-    const disp = document.getElementById(`score-display-${c}`);
-    if (disp) disp.textContent = scores[i] !== null ? scores[i] : '—';
-  });
+async function loadScoresPanel() {
+  const [compRes, commRes] = await Promise.all([
+    supabaseClient.from('supplier_compliance_scores').select('*')
+      .eq('onboarding_id', onboardingId).eq('gate', 1)
+      .order('computed_at', { ascending: false }).limit(1).maybeSingle(),
+    supabaseClient.from('supplier_commercial_scores').select('*')
+      .eq('onboarding_id', onboardingId).eq('gate', 1)
+      .order('computed_at', { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  gate1ComplianceScore = compRes.data || null;
+  gate1CommercialScore = commRes.data || null;
 
-  const overall = OnboardingWorkflow.computeOverall(scores, criteria);
-  const cat = OnboardingWorkflow.riskCategory(overall, scores);
-  const baseCat = OnboardingWorkflow.riskCategoryFromScore(overall);
+  renderScoresSummary();
 
-  const scoreVal    = document.getElementById('overall-score-value');
-  const scoreBadge  = document.getElementById('overall-risk-badge');
-  const badgeEl     = document.getElementById('overall-score-badge');
-  const overrideSec = document.getElementById('override-section');
-  const escalationNote = document.getElementById('overall-score-escalation-note');
-
-  if (scoreVal) scoreVal.textContent = overall !== null ? overall.toFixed(2) : '—';
-  if (overrideSec) overrideSec.style.display = overall !== null ? 'block' : 'none';
-
-  const badgeClass = cat === 'high' ? 'badge-danger' : cat === 'medium' ? 'badge-warning' : 'badge-success';
-  const badgeHtml = cat ? `<span class="badge ${badgeClass}">${cat} risk</span>` : '';
-  if (scoreBadge) scoreBadge.innerHTML = badgeHtml;
-  if (badgeEl) badgeEl.innerHTML = badgeHtml;
-
-  if (escalationNote) {
-    const escalated = cat && cat !== baseCat;
-    escalationNote.textContent = escalated
-      ? `Escalated from ${baseCat} — at least one criterion scored 4/5 or higher.`
-      : '';
-    escalationNote.style.display = escalated ? 'block' : 'none';
+  if (gate1ComplianceScore || gate1CommercialScore) {
+    document.getElementById('scores-update-toggle').style.display = 'block';
+    document.getElementById('toggle-score-update-btn').addEventListener('click', () => {
+      const form = document.getElementById('scores-update-form');
+      const opening = form.style.display === 'none' || form.style.display === '';
+      form.style.display = opening ? 'block' : 'none';
+      document.getElementById('toggle-score-update-btn').textContent =
+        opening ? 'Hide Score Update Form' : 'Update Scores for Gate 2';
+      if (opening) {
+        renderComplianceUpdateForm();
+        renderCommercialUpdateForm();
+        updateComplianceLiveScore();
+        updateCommercialLiveScore();
+      }
+    });
   }
+
+  const { data: gate2Rows } = await supabaseClient.from('supplier_approvals')
+    .select('*').eq('onboarding_id', onboardingId)
+    .in('approval_stage', ['gate2_compliance', 'gate2_commercial']);
+  gate2Approvals = {};
+  for (const row of (gate2Rows || [])) gate2Approvals[row.approval_stage] = row;
+
+  renderGate2SignoffPanel();
+  updateGate2MatrixRec();
 }
 
-function prefillRiskAssessment(ra) {
-  OnboardingWorkflow.RISK_CRITERIA.forEach(c => {
-    const score = ra[`${OnboardingWorkflow.RISK_CRITERIA_COLUMN[c]}_score`];
-    if (score != null) {
-      const sel = document.getElementById(`score-${c}`);
-      if (sel) sel.value = String(score);
+function renderScoresSummary() {
+  const el = document.getElementById('scores-summary-cards');
+  const cs = gate1ComplianceScore;
+  const cm = gate1CommercialScore;
+
+  if (!cs && !cm) {
+    el.innerHTML = '<p style="font-size:var(--text-sm);color:var(--color-text-muted)">No additive scores recorded at Gate 1. This supplier may have been onboarded before the Phase B scoring model was introduced.</p>';
+    return;
+  }
+
+  const compBandClass = !cs ? 'badge-neutral'
+    : cs.rating_band === 'Low Risk' ? 'badge-success'
+    : cs.rating_band === 'Medium Risk' ? 'badge-warning'
+    : 'badge-danger';
+
+  const commBandClass = !cm ? 'badge-neutral'
+    : (cm.rating_band === 'Strategic Supplier' || cm.rating_band === 'Strong Fit') ? 'badge-success'
+    : cm.rating_band === 'Moderate Fit' ? 'badge-warning'
+    : 'badge-neutral';
+
+  function compPills(components) {
+    if (!components?.length) return '';
+    return components.map(c => {
+      const cls = c.score < 0 ? 'score-pill score-pill-positive'
+        : c.score > 0 ? 'score-pill score-pill-risk'
+        : 'score-pill score-pill-neutral';
+      const sign = c.score > 0 ? '+' : '';
+      return `<span class="${cls}">${esc(c.label)} ${sign}${c.score}</span>`;
+    }).join(' ');
+  }
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);margin-bottom:var(--space-2)">
+      <div style="padding:var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-sm)">
+        <div style="font-size:var(--text-xs);color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--space-2)">Compliance Risk (Gate 1)</div>
+        ${cs ? `
+          <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2)">
+            <span class="badge ${compBandClass}">${esc(cs.rating_band)}</span>
+            <span style="font-size:var(--text-sm);color:var(--color-text-muted)">Score: ${cs.total_score !== null ? cs.total_score : '—'}</span>
+          </div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-2)">${fmtDate(cs.computed_at)}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">${compPills(cs.components)}</div>`
+          : '<span class="badge badge-neutral">Not scored</span>'}
+      </div>
+      <div style="padding:var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-sm)">
+        <div style="font-size:var(--text-xs);color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--space-2)">Commercial Suitability (Gate 1)</div>
+        ${cm ? `
+          <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2)">
+            <span class="badge ${commBandClass}">${esc(cm.rating_band)}</span>
+            <span style="font-size:var(--text-sm);color:var(--color-text-muted)">Score: ${cm.total_score}</span>
+          </div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-2)">${fmtDate(cm.computed_at)}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">${compPills(cm.components)}</div>`
+          : '<span class="badge badge-neutral">Not scored</span>'}
+      </div>
+    </div>`;
+}
+
+function updateGate2MatrixRec() {
+  const el = document.getElementById('gate2-matrix-rec');
+  if (!el) return;
+  const cs = gate1ComplianceScore;
+  const cm = gate1CommercialScore;
+  if (!cs || !cm) {
+    el.textContent = 'Gate 1 scores required to derive a matrix recommendation.';
+    return;
+  }
+  const rec = OnboardingWorkflow.matrixRecommendation(cs.rating_band, cm.rating_band);
+  const recClass = rec.includes('Reject') || rec.includes('Prohibited') ? 'badge-danger'
+    : (rec.includes('Excellent') || rec.includes('Good')) ? 'badge-success' : 'badge-warning';
+  el.innerHTML = `Gate 1 matrix recommendation: <span class="badge ${recClass}">${esc(rec)}</span>`;
+}
+
+function renderComplianceUpdateForm() {
+  const groups  = OnboardingWorkflow.COMPLIANCE_FACTOR_GROUPS_BY_TYPE[contact.supplier_type]
+    || Object.keys(OnboardingWorkflow.COMPLIANCE_FACTORS);
+  const factors = OnboardingWorkflow.COMPLIANCE_FACTORS;
+  const existingKeys = new Set((gate1ComplianceScore?.components || []).map(c => c.factor_key));
+  if (gate1ComplianceScore?.rating_band === 'Prohibited') existingKeys.add('sanctions_match');
+
+  let html = '';
+  for (const group of groups) {
+    html += `<div style="margin-bottom:var(--space-4)">
+      <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--color-text-muted);margin-bottom:var(--space-2)">${esc(COMPLIANCE_GROUP_LABELS[group] || group)}</div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-2)">`;
+    for (const factor of (factors[group] || [])) {
+      const isChecked = existingKeys.has(factor.key);
+      const pill = factor.autoReject
+        ? `<span class="score-pill score-pill-danger">Hard reject</span>`
+        : (() => {
+            const cls = factor.score < 0 ? 'score-pill score-pill-positive'
+              : factor.score > 0 ? 'score-pill score-pill-risk' : 'score-pill score-pill-neutral';
+            return `<span class="${cls}">${factor.score > 0 ? '+' : ''}${factor.score}</span>`;
+          })();
+      html += `<label style="display:flex;align-items:center;gap:var(--space-3);cursor:pointer;font-size:var(--text-sm)">
+        <input type="checkbox" class="compliance-factor-check" data-key="${esc(factor.key)}"
+          style="accent-color:var(--color-accent)" ${isChecked ? 'checked' : ''}
+          onchange="updateComplianceLiveScore()" />
+        <span style="flex:1">${esc(factor.label)}</span>${pill}
+      </label>`;
     }
-    const notes = ra[`${OnboardingWorkflow.RISK_CRITERIA_COLUMN[c]}_notes`];
-    if (notes) {
-      const el = document.getElementById(`notes-${c}`);
-      if (el) el.value = notes;
+    html += `</div></div>`;
+  }
+  document.getElementById('compliance-factors-container').innerHTML = html;
+}
+
+function updateComplianceLiveScore() {
+  const keys   = Array.from(document.querySelectorAll('.compliance-factor-check:checked')).map(c => c.dataset.key);
+  const result = OnboardingWorkflow.computeComplianceScore(keys, contact.supplier_type);
+  const totalEl = document.getElementById('compliance-total');
+  const bandEl  = document.getElementById('compliance-band-badge');
+  if (totalEl) totalEl.textContent = result.prohibited ? '—' : (result.total ?? 0);
+  if (bandEl) {
+    const cls = result.band === 'Low Risk' ? 'badge-success'
+      : result.band === 'Medium Risk' ? 'badge-warning' : 'badge-danger';
+    bandEl.innerHTML = `<span class="badge ${cls}">${esc(result.band)}</span>`;
+  }
+}
+
+function renderCommercialUpdateForm() {
+  const factors     = OnboardingWorkflow.COMMERCIAL_FACTORS;
+  const existingKeys = new Set((gate1CommercialScore?.components || []).map(c => c.factor_key));
+
+  let html = '';
+  for (const [group, flist] of Object.entries(factors)) {
+    html += `<div style="margin-bottom:var(--space-4)">
+      <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--color-text-muted);margin-bottom:var(--space-2)">${esc(COMMERCIAL_GROUP_LABELS[group] || group)}</div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-2)">`;
+    for (const factor of flist) {
+      const isChecked = existingKeys.has(factor.key);
+      html += `<label style="display:flex;align-items:center;gap:var(--space-3);cursor:pointer;font-size:var(--text-sm)">
+        <input type="radio" class="commercial-factor-radio" name="commercial-${esc(group)}" value="${esc(factor.key)}"
+          style="accent-color:var(--color-accent)" ${isChecked ? 'checked' : ''}
+          onchange="updateCommercialLiveScore()" />
+        <span style="flex:1">${esc(factor.label)}</span>
+        <span class="score-pill score-pill-positive">+${factor.score}</span>
+      </label>`;
     }
-  });
-  if (ra.overall_notes) document.getElementById('overall-notes').value = ra.overall_notes;
-  if (ra.risk_category_override) {
-    const chk = document.getElementById('override-check');
-    if (chk) chk.checked = true;
-    document.getElementById('override-reason-group').style.display = 'block';
-    document.getElementById('override-category-group').style.display = 'block';
-    if (ra.risk_category_override_reason) document.getElementById('override-reason').value = ra.risk_category_override_reason;
-    const cat = document.getElementById('override-category');
-    if (cat && ra.risk_category) cat.value = ra.risk_category;
+    html += `</div></div>`;
   }
-  updateOverallScore();
+  document.getElementById('commercial-factors-container').innerHTML = html;
 }
 
-async function loadRiskReview() {
-  const { data } = await supabaseClient
-    .from('supplier_risk_assessment').select('*').eq('onboarding_id', onboardingId).maybeSingle();
-  riskAssessment = data || null;
-  if (riskAssessment) prefillRiskAssessment(riskAssessment);
-  updateRiskReviewStatus();
-}
-
-function updateRiskReviewStatus() {
-  const statusEl = document.getElementById('risk-review-status');
-  const btn = document.getElementById('risk-review-btn');
-  if (!riskAssessment) {
-    statusEl.textContent = 'No preliminary risk assessment found for this onboarding.';
-    if (btn) btn.disabled = true;
-    return;
-  }
-  if (riskAssessment.reviewed_at) {
-    statusEl.innerHTML = `<span class="badge badge-success">Reviewed</span> Reviewed ${fmtDate(riskAssessment.reviewed_at)}.`;
-    if (btn) btn.textContent = 'Update Reviewed Risk Assessment';
-  } else {
-    statusEl.textContent = 'Preliminary assessment from Stage 1 — not yet reviewed for Stage 2.';
-    if (btn) btn.textContent = 'Mark Risk Assessment Reviewed';
+function updateCommercialLiveScore() {
+  const keys   = Array.from(document.querySelectorAll('.commercial-factor-radio:checked')).map(r => r.value);
+  const result = OnboardingWorkflow.computeCommercialScore(keys);
+  const totalEl = document.getElementById('commercial-total');
+  const bandEl  = document.getElementById('commercial-band-badge');
+  if (totalEl) totalEl.textContent = result.total ?? 0;
+  if (bandEl) {
+    const cls = (result.band === 'Strategic Supplier' || result.band === 'Strong Fit') ? 'badge-success'
+      : result.band === 'Moderate Fit' ? 'badge-warning' : 'badge-neutral';
+    bandEl.innerHTML = `<span class="badge ${cls}">${esc(result.band)}</span>`;
   }
 }
 
-async function submitRiskReview() {
-  if (!riskAssessment) return;
+// ── Gate 2 — Director Sign-off ────────────────────────────────────────────
 
-  const criteria = OnboardingWorkflow.getRiskCriteria(contact.supplier_type);
-  const scores = getScores(criteria);
-  if (scores.some(s => s === null)) {
-    alert('Please score all required criteria before marking the assessment reviewed.');
-    return;
-  }
-  const overrideChecked = document.getElementById('override-check')?.checked;
-  if (overrideChecked && !document.getElementById('override-reason')?.value.trim()) {
-    alert('Please provide an override reason.');
-    return;
-  }
+function buildGate2ApprovalReadOnly(row, label) {
+  const decClass = row.decision === 'reject' ? 'badge-danger'
+    : row.decision === 'approve_with_conditions' ? 'badge-warning' : 'badge-success';
+  return `
+    <div style="padding:var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-sm)">
+      <div style="font-size:var(--text-xs);color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--space-2)">${esc(label)}</div>
+      <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-bottom:${row.justification ? 'var(--space-2)' : '0'}">
+        <span class="badge ${decClass}">${esc(row.decision.replace(/_/g, ' '))}</span>
+        <span style="font-size:var(--text-xs);color:var(--color-text-muted)">${fmtDate(row.decided_at)}</span>
+      </div>
+      ${row.justification ? `<p style="font-size:var(--text-sm);margin:0">${esc(row.justification)}</p>` : ''}
+      ${row.conditions ? `<p style="font-size:var(--text-xs);color:var(--color-text-muted);white-space:pre-line;margin:var(--space-1) 0 0">${esc(row.conditions)}</p>` : ''}
+    </div>`;
+}
 
-  const btn = document.getElementById('risk-review-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
+function buildGate2ApprovalForm(role, label, options) {
+  return `
+    <div style="padding:var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-sm)">
+      <div style="font-size:var(--text-xs);color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--space-3)">${esc(label)}</div>
+      <div class="form-group">
+        <label class="form-label" for="gate2-${esc(role)}-decision">Decision <span class="required">*</span></label>
+        <select class="form-select" id="gate2-${esc(role)}-decision" onchange="toggleGate2ConditionsField('${esc(role)}')">
+          <option value="">Select…</option>
+          ${options.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="gate2-${esc(role)}-justification">Justification <span class="required">*</span></label>
+        <textarea class="form-textarea" id="gate2-${esc(role)}-justification" rows="3" placeholder="Summarise your assessment and the basis for your decision…"></textarea>
+      </div>
+      <div class="form-group" id="gate2-${esc(role)}-conditions-group" style="display:none">
+        <label class="form-label" for="gate2-${esc(role)}-conditions">Conditions (one per line) <span class="required">*</span></label>
+        <textarea class="form-textarea" id="gate2-${esc(role)}-conditions" rows="3" placeholder="List any conditions that must be satisfied before trading begins…"></textarea>
+      </div>
+    </div>`;
+}
 
-  const user = await getCurrentUser();
-  const overall = OnboardingWorkflow.computeOverall(scores, criteria);
-  const riskCat = overrideChecked
-    ? (document.getElementById('override-category')?.value || OnboardingWorkflow.riskCategory(overall, scores))
-    : OnboardingWorkflow.riskCategory(overall, scores);
-  const notes = criteria.map(c => document.getElementById(`notes-${c}`)?.value.trim() || null);
+function toggleGate2ConditionsField(role) {
+  const dec = document.getElementById(`gate2-${role}-decision`)?.value;
+  const grp = document.getElementById(`gate2-${role}-conditions-group`);
+  if (grp) grp.style.display = dec === 'approve_with_conditions' ? 'block' : 'none';
+}
 
-  const payload = {
-    ...OnboardingWorkflow.buildRiskScorePayload(criteria, scores, notes),
-    overall_score:                 overall,
-    risk_category:                 riskCat,
-    overall_notes:                 document.getElementById('overall-notes')?.value.trim()    || null,
-    risk_category_override:        !!overrideChecked,
-    risk_category_override_reason: overrideChecked ? (document.getElementById('override-reason')?.value.trim() || null) : null,
-    reviewed_at:                   new Date().toISOString(),
-    reviewed_by:                   user?.id,
-  };
+function renderGate2SignoffPanel() {
+  const compRow = gate2Approvals['gate2_compliance'];
+  const commRow = gate2Approvals['gate2_commercial'];
 
-  const { error } = await supabaseClient.from('supplier_risk_assessment').update(payload).eq('id', riskAssessment.id);
-  if (error) {
-    alert('Failed to save risk assessment: ' + error.message);
-    btn.disabled = false;
-    updateRiskReviewStatus();
-    return;
-  }
+  document.getElementById('gate2-compliance-section').innerHTML = compRow
+    ? buildGate2ApprovalReadOnly(compRow, 'Compliance Director (Martyn)')
+    : buildGate2ApprovalForm('compliance', 'Compliance Director (Martyn)', [
+        { value: 'approve',                 label: 'Approve' },
+        { value: 'approve_with_conditions', label: 'Approve with Conditions' },
+        { value: 'reject',                  label: 'Reject' },
+      ]);
 
-  await supabaseClient.from('supplier_onboarding')
-    .update({ risk_level: riskCat, updated_at: new Date().toISOString() })
-    .eq('id', onboardingId);
-
-  await OnboardingWorkflow.logEvent(contact.id, onboardingId, 'risk_assessment_saved',
-    `Risk assessment reviewed at Stage 2. Overall score: ${overall?.toFixed(2)} → ${riskCat} risk.${overrideChecked ? ' (Category overridden)' : ''}`,
-    { overall_score: overall, risk_category: riskCat, override: !!overrideChecked, reviewed: true }
-  );
-
-  riskAssessment = { ...riskAssessment, ...payload };
-  onboarding.risk_level = riskCat;
-  btn.disabled = false;
-  updateRiskReviewStatus();
+  document.getElementById('gate2-commercial-section').innerHTML = commRow
+    ? buildGate2ApprovalReadOnly(commRow, 'Commercial Director (Jackson)')
+    : buildGate2ApprovalForm('commercial', 'Commercial Director (Jackson)', [
+        { value: 'approve', label: 'Approve' },
+        { value: 'reject',  label: 'Reject'  },
+      ]);
 }
 
 // ── ESG / Environmental ─────────────────────────────────────────────────
@@ -628,158 +751,6 @@ async function markTobConfirmedHandler() {
   }
 }
 
-// ── Recommendation / Decision ────────────────────────────────────────────
-
-function renderRecDecPanels() {
-  const roles = PortalRoles.getRoles();
-  const isCompliance = roles.includes('director_compliance');
-  const isCommercial = roles.includes('director_commercial');
-
-  const recPanel     = document.getElementById('recommendation-panel');
-  const decPanel     = document.getElementById('decision-panel');
-  const summaryPanel = document.getElementById('rec-dec-summary-panel');
-
-  recPanel.style.display = (isCompliance && !onboarding.recommendation) ? '' : 'none';
-  decPanel.style.display = (isCommercial && onboarding.recommendation && !onboarding.decision) ? '' : 'none';
-
-  if (decPanel.style.display !== 'none') {
-    document.getElementById('decision-rec-note').innerHTML =
-      `<div style="padding:var(--space-3);background:var(--color-surface);border-radius:var(--radius-sm);font-size:var(--text-sm)">Compliance recommendation: <strong>${esc(onboarding.recommendation.replace(/_/g,' '))}</strong></div>`;
-  }
-
-  if (onboarding.recommendation || onboarding.decision) {
-    summaryPanel.style.display = '';
-    document.getElementById('rec-dec-summary').innerHTML = `
-      ${onboarding.recommendation ? `<div><div style="color:var(--color-text-muted);font-size:var(--text-xs);margin-bottom:2px;text-transform:uppercase;font-weight:600;letter-spacing:.08em">Compliance Recommendation</div>
-        <span class="badge ${onboarding.recommendation === 'reject' ? 'badge-danger' : onboarding.recommendation === 'approve_with_conditions' ? 'badge-warning' : 'badge-success'}">${esc(onboarding.recommendation.replace(/_/g,' '))}</span>
-        ${onboarding.recommendation_rationale ? `<p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)">${esc(onboarding.recommendation_rationale)}</p>` : ''}
-        ${onboarding.conditions_summary ? `<p style="margin:var(--space-2) 0 0;font-size:var(--text-xs);color:var(--color-text-muted);white-space:pre-line">${esc(onboarding.conditions_summary)}</p>` : ''}
-      </div>` : ''}
-      ${onboarding.decision ? `<div><div style="color:var(--color-text-muted);font-size:var(--text-xs);margin-bottom:2px;text-transform:uppercase;font-weight:600;letter-spacing:.08em">Final Decision</div>
-        <span class="badge ${onboarding.decision === 'rejected' ? 'badge-danger' : onboarding.decision === 'approved_with_conditions' ? 'badge-warning' : 'badge-success'}">${esc(onboarding.decision.replace(/_/g,' '))}</span>
-        ${onboarding.decision_justification ? `<p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)">${esc(onboarding.decision_justification)}</p>` : ''}
-      </div>` : ''}`;
-  } else {
-    summaryPanel.style.display = 'none';
-  }
-}
-
-async function submitRecommendation() {
-  const decision   = document.getElementById('rec-decision')?.value;
-  const rationale  = document.getElementById('rec-rationale')?.value.trim();
-  const conditions = document.getElementById('rec-conditions')?.value.trim();
-  const errEl      = document.getElementById('rec-error');
-  errEl.style.display = 'none';
-
-  if (!decision || !rationale) {
-    errEl.textContent = 'Recommendation and rationale are required.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  const btn = document.getElementById('rec-submit-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
-
-  const user = await getCurrentUser();
-  const payload = {
-    recommendation:              decision,
-    recommendation_rationale:    rationale,
-    conditions_summary:          conditions || null,
-    recommendation_submitted_at: new Date().toISOString(),
-    updated_at:                  new Date().toISOString(),
-  };
-
-  const { error } = await supabaseClient.from('supplier_onboarding').update(payload).eq('id', onboardingId);
-  if (error) {
-    errEl.textContent = error.message;
-    errEl.style.display = 'block';
-    btn.disabled = false;
-    btn.textContent = 'Submit Recommendation';
-    return;
-  }
-
-  await supabaseClient.from('supplier_approvals').insert({
-    supplier_id:    contact.id,
-    onboarding_id:  onboardingId,
-    approval_stage: 'recommendation',
-    approver_id:    user?.id,
-    approver_role:  'director_compliance',
-    decision,
-    justification:  rationale,
-    conditions:     conditions || null,
-  });
-
-  await OnboardingWorkflow.logEvent(contact.id, onboardingId, 'recommendation_submitted',
-    `Compliance recommendation submitted: "${decision.replace(/_/g,' ')}". Rationale: ${rationale.slice(0,120)}${rationale.length>120?'…':''}`,
-    { recommendation: decision }
-  );
-
-  Object.assign(onboarding, payload);
-  renderRecDecPanels();
-}
-
-async function submitDecision() {
-  const decision      = document.getElementById('dec-decision')?.value;
-  const justification = document.getElementById('dec-justification')?.value.trim();
-  const errEl         = document.getElementById('dec-error');
-  errEl.style.display = 'none';
-
-  if (!decision || !justification) {
-    errEl.textContent = 'Decision and justification are required.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  const btn = document.getElementById('dec-submit-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
-
-  const user = await getCurrentUser();
-  const payload = {
-    decision,
-    decision_justification: justification,
-    decision_by:            user?.id,
-    decision_at:            new Date().toISOString(),
-    updated_at:             new Date().toISOString(),
-  };
-
-  const { error } = await supabaseClient.from('supplier_onboarding').update(payload).eq('id', onboardingId);
-  if (error) {
-    errEl.textContent = error.message;
-    errEl.style.display = 'block';
-    btn.disabled = false;
-    btn.textContent = 'Record Decision';
-    return;
-  }
-
-  await supabaseClient.from('supplier_approvals').insert({
-    supplier_id:    contact.id,
-    onboarding_id:  onboardingId,
-    approval_stage: 'final_approval',
-    approver_id:    user?.id,
-    approver_role:  'director_commercial',
-    decision,
-    justification,
-  });
-
-  await OnboardingWorkflow.logEvent(contact.id, onboardingId,
-    decision === 'rejected' ? 'rejection_decision' : 'approval_decision',
-    `Final decision recorded by Director (Commercial): "${decision.replace(/_/g,' ')}". ${justification.slice(0,120)}${justification.length>120?'…':''}`,
-    { decision }
-  );
-
-  Object.assign(onboarding, payload);
-
-  if (decision === 'rejected') {
-    await OnboardingWorkflow.rejectOnboarding(onboardingId, onboarding.workflow_stage, justification);
-    location.href = `detail.html?id=${contact.id}`;
-    return;
-  }
-
-  renderRecDecPanels();
-}
-
 // ── Save Progress & Exit / Complete Stage 2 ──────────────────────────────
 
 async function submitSaveAndExit() {
@@ -816,21 +787,114 @@ async function submitCompleteStage2() {
   const errEl = document.getElementById('pt-error');
   errEl.style.display = 'none';
 
-  const btn = document.getElementById('complete-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
-
-  const result = await OnboardingWorkflow.advanceStage(onboardingId, 'stage2_complete');
-  if (!result.ok) {
-    errEl.innerHTML = '<strong>Cannot complete Stage 2 yet:</strong>' + OnboardingWorkflow.renderBlockers(result.blockers);
+  // Validate justification / conditions for any filled-but-unsaved sign-off sections
+  const missing = [];
+  for (const role of ['compliance', 'commercial']) {
+    if (gate2Approvals[`gate2_${role}`]) continue;
+    const dec  = document.getElementById(`gate2-${role}-decision`)?.value;
+    const just = (document.getElementById(`gate2-${role}-justification`)?.value || '').trim();
+    if (dec && !just) missing.push(`${role} director Gate 2 justification`);
+    if (dec === 'approve_with_conditions') {
+      const cond = (document.getElementById(`gate2-${role}-conditions`)?.value || '').trim();
+      if (!cond) missing.push(`${role} director Gate 2 conditions`);
+    }
+  }
+  if (missing.length) {
+    errEl.textContent = `Please complete: ${missing.join('; ')}.`;
     errEl.style.display = 'block';
-    btn.disabled = false;
-    btn.textContent = 'Complete Stage 2 →';
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
   }
 
-  location.href = `detail.html?id=${contact.id}`;
+  const btn = document.getElementById('complete-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const user = await getCurrentUser();
+
+    // Save Gate 2 scores if the update form is open and has selections
+    const scoresFormEl = document.getElementById('scores-update-form');
+    if (scoresFormEl && scoresFormEl.style.display !== 'none') {
+      const compKeys = Array.from(document.querySelectorAll('.compliance-factor-check:checked')).map(c => c.dataset.key);
+      if (compKeys.length > 0) {
+        const compResult = OnboardingWorkflow.computeComplianceScore(compKeys, contact.supplier_type);
+        await supabaseClient.from('supplier_compliance_scores').insert({
+          supplier_id:   contact.id,
+          onboarding_id: onboardingId,
+          gate:          2,
+          total_score:   compResult.prohibited ? 0 : compResult.total,
+          rating_band:   compResult.band,
+          components:    compResult.components,
+          computed_by:   user?.id || null,
+        });
+        if (!compResult.prohibited) {
+          const legacyLevel = compResult.band === 'Low Risk' ? 'low'
+            : compResult.band === 'Medium Risk' ? 'medium' : 'high';
+          await supabaseClient.from('supplier_onboarding')
+            .update({ risk_level: legacyLevel, updated_at: new Date().toISOString() })
+            .eq('id', onboardingId);
+        }
+      }
+
+      const commKeys = Array.from(document.querySelectorAll('.commercial-factor-radio:checked')).map(r => r.value);
+      if (commKeys.length > 0) {
+        const commResult = OnboardingWorkflow.computeCommercialScore(commKeys);
+        await supabaseClient.from('supplier_commercial_scores').insert({
+          supplier_id:   contact.id,
+          onboarding_id: onboardingId,
+          gate:          2,
+          total_score:   commResult.total,
+          rating_band:   commResult.band,
+          components:    commResult.components,
+          computed_by:   user?.id || null,
+        });
+      }
+    }
+
+    // Save Gate 2 approvals for each director section that has been filled in
+    for (const role of ['compliance', 'commercial']) {
+      if (gate2Approvals[`gate2_${role}`]) continue;
+      const decision = document.getElementById(`gate2-${role}-decision`)?.value;
+      if (!decision) continue;
+      const justification = (document.getElementById(`gate2-${role}-justification`)?.value || '').trim();
+      const conditions    = (document.getElementById(`gate2-${role}-conditions`)?.value    || '').trim() || null;
+      await supabaseClient.from('supplier_approvals').insert({
+        supplier_id:    contact.id,
+        onboarding_id:  onboardingId,
+        approval_stage: `gate2_${role}`,
+        approver_id:    user?.id,
+        approver_role:  role === 'compliance' ? 'director_compliance' : 'director_commercial',
+        decision,
+        justification,
+        conditions:     decision === 'approve_with_conditions' ? conditions : null,
+        decided_at:     new Date().toISOString(),
+      });
+      // Update local state so re-clicks don't re-save
+      gate2Approvals[`gate2_${role}`] = { decision, justification, decided_at: new Date().toISOString() };
+    }
+
+    const result = await OnboardingWorkflow.advanceStage(onboardingId, 'stage2_complete');
+    if (!result.ok) {
+      errEl.innerHTML = '<strong>Cannot complete Stage 2 yet:</strong>' + OnboardingWorkflow.renderBlockers(result.blockers);
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Complete Stage 2 →';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Refresh panel so the newly-saved approval renders read-only
+      renderGate2SignoffPanel();
+      return;
+    }
+
+    location.href = `detail.html?id=${contact.id}`;
+
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Complete Stage 2 →';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────
@@ -874,27 +938,19 @@ async function submitCompleteStage2() {
 
   if (isFullDiligence) {
     document.getElementById('sanctions-review-panel').style.display = '';
-    document.getElementById('risk-review-panel').style.display = '';
-    await Promise.all([loadSanctionsReview(), loadRiskReview()]);
+    await loadSanctionsReview();
   }
+
+  await loadScoresPanel();
 
   loadEsg();
   renderBankSection();
   renderTobSection();
-  renderRecDecPanels();
 
   document.getElementById('esg-save-btn').addEventListener('click', submitEsg);
   document.getElementById('tob-generate-btn').addEventListener('click', generateTob);
   document.getElementById('tob-sent-btn').addEventListener('click', markTobSentHandler);
   document.getElementById('tob-confirmed-btn').addEventListener('click', markTobConfirmedHandler);
-  document.getElementById('risk-review-btn')?.addEventListener('click', submitRiskReview);
-
-  document.getElementById('rec-decision')?.addEventListener('change', function() {
-    document.getElementById('rec-conditions-group').style.display =
-      this.value === 'approve_with_conditions' ? 'block' : 'none';
-  });
-  document.getElementById('rec-submit-btn')?.addEventListener('click', submitRecommendation);
-  document.getElementById('dec-submit-btn')?.addEventListener('click', submitDecision);
 
   document.getElementById('save-exit-btn').addEventListener('click', submitSaveAndExit);
   document.getElementById('complete-btn').addEventListener('click', submitCompleteStage2);

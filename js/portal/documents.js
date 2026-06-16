@@ -61,7 +61,7 @@ function expiryStatus(expiryDate) {
 }
 
 function expiryBadge(doc) {
-  if (!doc.expiry_date) return '';
+  if (!doc.expiry_date) return `<span style="font-size:var(--text-xs);color:var(--color-text-muted)">No expiry</span>`;
   const status = expiryStatus(doc.expiry_date);
   if (status === 'expired')  return `<span class="badge badge-danger" style="font-size:10px">Expired ${fmtDate(doc.expiry_date)}</span>`;
   if (status === 'expiring') return `<span class="badge badge-warning" style="font-size:10px">Expires ${fmtDate(doc.expiry_date)}</span>`;
@@ -234,6 +234,10 @@ function openUploadModal(docType, docLabel, isMandatory) {
         <label class="form-label" for="up-expiry">Expiry Date</label>
         <input type="date" class="form-input" id="up-expiry" />
         <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:4px">Defaults to 12 months from today if left blank.</div>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:var(--text-sm);cursor:pointer">
+          <input type="checkbox" id="up-no-expiry" onchange="toggleExpiryInput()" />
+          Does not expire
+        </label>
       </div>
       <div class="form-group" id="up-reason-group" style="display:${nextVersion > 1 ? '' : 'none'}">
         <label class="form-label" for="up-reason">Reason for Update</label>
@@ -255,6 +259,13 @@ function openUploadModal(docType, docLabel, isMandatory) {
       document.getElementById('up-reason-group').style.display = nv > 1 ? '' : 'none';
     });
   }
+}
+
+function toggleExpiryInput() {
+  const noExpiry = document.getElementById('up-no-expiry').checked;
+  const input = document.getElementById('up-expiry');
+  input.disabled = noExpiry;
+  if (noExpiry) input.value = '';
 }
 
 async function submitUpload(docType, docLabel) {
@@ -291,9 +302,10 @@ async function submitUpload(docType, docLabel) {
       return;
     }
 
-    // Default expiry: 12 months from today if left blank, applied to the whole batch
+    // Default expiry: 12 months from today if left blank, unless "Does not expire" is checked, applied to the whole batch
+    const noExpiry = document.getElementById('up-no-expiry')?.checked;
     let expiry = document.getElementById('up-expiry')?.value || null;
-    if (!expiry) {
+    if (!expiry && !noExpiry) {
       const d = new Date();
       d.setFullYear(d.getFullYear() + 1);
       expiry = d.toISOString().split('T')[0];

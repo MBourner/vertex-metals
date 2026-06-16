@@ -1,6 +1,6 @@
 # Supplier Onboarding Process — Vertex Metals Portal
 
-**Version:** 3.0 (3-Phase / Trading-Readiness Redesign)
+**Version:** 3.1 (Additive Scoring + Dual-Director Approval Gates)
 **Last updated:** June 2026
 **Supersedes:** Version 2.0 (ISO 9001 8-stage redesign)
 
@@ -10,10 +10,10 @@
 
 | Role | Person | Portal Role Value | Responsibilities |
 |------|--------|-------------------|------------------|
-| Director — Commercial | Jackson Paul | `director_commercial` | Supplier identification, enquiry assessment, intake, Stage 1 registration, final approval/rejection decision, annual audit of sample onboarding decisions |
-| Director — Operations & Compliance | Martyn Bourner | `director_compliance` | Sanctions screening, risk assessment, document collection, ESG/bank/TOB vetting, recommendation |
+| Director — Commercial | Jackson Paul | `director_commercial` | Supplier identification, enquiry assessment, intake, Stage 1 registration, Gate 1 commercial sign-off, Gate 2 commercial sign-off, annual audit of sample onboarding decisions |
+| Director — Operations & Compliance | Martyn Bourner | `director_compliance` | Sanctions screening, risk assessment, document collection, ESG/bank/TOB vetting, Gate 1 compliance sign-off, Gate 2 compliance sign-off |
 
-Either director can complete Stage 1 or Stage 2 — role-specific form sections (recommendation vs. final decision) are gated inside `onboard.js`/`pre-trade.js`, not by page access.
+Stage 1 is now explicitly split by role: Jackson submits Stage 1a — Registration (`onboard.html`) for compliance review, and Martyn completes Stage 1b — Compliance Review (`compliance-review.html`), which marks the supplier "Ready to Quote". Stage 2 remains either-director, with role-specific form sections (recommendation vs. final decision) gated inside `pre-trade.js`, not by page access.
 
 ---
 
@@ -31,10 +31,11 @@ UAT of the earlier 8-stage ISO 9001 workflow found it too granular and front-loa
 
 ## Workflow Stages
 
-`supplier_onboarding.workflow_stage` is a 7-value, app-enforced enum (no DB CHECK constraint):
+`supplier_onboarding.workflow_stage` is an 8-value, app-enforced enum (no DB CHECK constraint):
 
 ```
-draft                   ──► Stage 1 in progress ("Pending Stage 1" on the pipeline)
+draft                   ──► Stage 1a in progress ("Pending Stage 1" on the pipeline)
+pending_compliance      ──► Stage 1a submitted, awaiting compliance review
 stage1_complete         ──► Stage 1 Complete (Ready to Quote)
 pending_stage2          ──► Stage 2 in progress
 awaiting_supplier_info  ──► Stage 2 paused, waiting on the supplier
@@ -51,12 +52,18 @@ Website contact form ──► Supplier Enquiry (portal)
             ┌───────────────────┴───────────────────┐
           Decline                                  Convert
     (reason recorded)                                 │
-                                          ┌────────────▼────────────┐
-                                          │   STAGE 1 — onboard.html │
-                                          │   "Quoting Only"         │
-                                          │   workflow_stage:        │
-                                          │   draft → stage1_complete│
-                                          └────────────┬────────────┘
+                                          ┌────────────▼─────────────────┐
+                                          │  STAGE 1a — onboard.html      │
+                                          │  "Registration" (Jackson)     │
+                                          │  workflow_stage:               │
+                                          │  draft → pending_compliance    │
+                                          └────────────┬───────────────────┘
+                                                        │  Submitted for compliance review
+                                          ┌─────────────▼───────────────────────┐
+                                          │  STAGE 1b — compliance-review.html   │
+                                          │  "Compliance Review" (Martyn)        │
+                                          │  pending_compliance → stage1_complete│
+                                          └─────────────┬─────────────────────────┘
                                                         │  Ready to Quote
                                           ┌─────────────▼─────────────┐
                                           │  STAGE 2 — pre-trade.html  │
@@ -94,6 +101,83 @@ Sanctions screening and the preliminary risk assessment are required for **all**
 
 ---
 
+## Scoring Model (Phase A — additive axes)
+
+Introduced in Phase A (June 2026) alongside the dual-director gate model. Two independent scores are computed at each gate checkpoint (Gate 1 → `stage1_complete`, Gate 2 → `stage2_complete`) and stored in `supplier_compliance_scores` and `supplier_commercial_scores`.
+
+### Compliance Risk Score
+
+Additive factor selection across up to five groups (groups available depend on `supplier_type` — see `COMPLIANCE_FACTOR_GROUPS_BY_TYPE`):
+
+| Group | What it covers |
+|---|---|
+| `corporate_risk` | Trading history, ownership structure complexity, UBO verification |
+| `jurisdiction_risk` | Country risk (low / medium / high) |
+| `product_risk` | Standard industrial metals → precious → conflict minerals / dual-use |
+| `screening_results` | Sanctions screening outcome; `sanctions_match` is an auto-reject regardless of total |
+| `controls` | Mitigating factors: ISO 9001, listed company, audited financials, major customers |
+
+Each factor carries a score (positive = risk driver, negative = mitigant). The sum maps to a band:
+
+| Total | Band |
+|---|---|
+| ≤ 20 | Low Risk |
+| 21–40 | Medium Risk |
+| 41–60 | High Risk |
+| > 60 | Very High Risk |
+| `sanctions_match` selected | Prohibited (hard reject) |
+
+### Commercial Suitability Score
+
+Six groups, one factor selected per group (radio selection):
+
+| Group | Options |
+|---|---|
+| `product_fit` | Core strategic / Adjacent / Opportunistic |
+| `buyer_demand` | Existing demand / Strong expected / Unknown |
+| `volume_capability` | Large / Medium / Small |
+| `export_capability` | Experienced exporter / Some history / Domestic only |
+| `quality_certs` | ISO 9001 / Documented QMS / None |
+| `responsiveness` | Responsive & professional / Average / Poor |
+
+Total maps to a band:
+
+| Total | Band |
+|---|---|
+| ≤ 30 | Poor Fit |
+| 31–60 | Moderate Fit |
+| 61–80 | Strong Fit |
+| > 80 | Strategic Supplier |
+
+### Decision Matrix
+
+`matrixRecommendation(complianceBand, commercialBand)` maps the two axes to a recommendation string used by Phase B sign-off panels:
+
+| | High commercial (Strategic / Strong) | Medium (Moderate Fit) | Low (Poor Fit) |
+|---|---|---|---|
+| **Low Risk** | Excellent Target | Good Target | Optional |
+| **Medium Risk** | Proceed with Controls | Case-by-Case | Usually No |
+| **High Risk** | Exceptional Approval Only | Usually No | Reject |
+| **Very High Risk** | Default Reject (joint exceptional approval required) | ← | ← |
+| **Prohibited** | Hard Reject | ← | ← |
+
+### Dual-Director Approval Gates
+
+Rather than a single `recommendation` + `decision` pair, each gate requires two sign-offs from different roles, written as `supplier_approvals` rows:
+
+| Gate | `approval_stage` | Role | Notes |
+|---|---|---|---|
+| Gate 1 → `stage1_complete` | `gate1_compliance` | `director_compliance` (Martyn) | Null-safe: only enforced once at least one Gate 1 row exists (protects in-flight onboardings from the old model) |
+| Gate 1 → `stage1_complete` | `gate1_commercial` | `director_commercial` (Jackson) | As above |
+| Gate 2 → `stage2_complete` | `gate2_compliance` | `director_compliance` | Always enforced |
+| Gate 2 → `stage2_complete` | `gate2_commercial` | `director_commercial` | Always enforced |
+
+### Phase A bridging stub
+
+Phase B (director review UIs) is not yet built. During Phase A, `compliance-review.js` saves a bridging row to `supplier_compliance_scores` at Gate 1 by mapping the legacy 1–5 overall score to the nearest band (`low → 'Low Risk'`, `medium → 'Medium Risk'`, `high → 'High Risk'`). The commercial score stub is saved with `total_score: 0`, `rating_band: 'Poor Fit'`, empty components. Phase B will replace this entirely with the factor-selection form.
+
+---
+
 ## Pre-Stage: Supplier Enquiry
 
 ### Source 1 — Website contact form (Partners/Suppliers page)
@@ -112,9 +196,9 @@ Jackson can also raise an enquiry manually in the portal (`source = 'manual_entr
 
 ---
 
-## Stage 1 — Quoting Only (`portal/suppliers/onboard.html`, `js/portal/onboard.js`)
+## Stage 1a — Registration (`portal/suppliers/onboard.html`, `js/portal/onboard.js`)
 
-Stage 1 is a multi-panel page. A draft can be saved and resumed at any point ("Save Progress & Exit" → `workflow_stage = 'draft'`).
+Jackson's intake form. A draft can be saved and resumed at any point ("Save Progress & Exit" → `workflow_stage = 'draft'`).
 
 ### 1. Company Details
 
@@ -132,9 +216,30 @@ Registered/HQ address (line 1/2, city, postcode, country). A separate dispatch/w
 
 Primary contact name, email, phone.
 
-### 4. Sanctions Screening (all supplier types)
+### Products Offered
 
-Martyn or Jackson screens the supplier against:
+The product lines this supplier is offering to supply. Jackson either selects an existing product line from the catalogue (family → product, where the product label shows `sub_type — name`), or registers a brand-new product line inline — picking an existing family or creating a new one (`product_families`), plus a sub-type and product name (`product_lines`, `active: true`). A free-text **Specification** field (grade/size/standard etc.) applies to either path.
+
+Each product added creates a `supplier_quotes` row once the contact record exists (`status: 'pending'`, placeholder `fob_price_usd: 0`, `incoterm: 'FOB'`, `onboarding_review_status: 'pending_review'`) — the same "permitted to supply, no live quote yet" link used by the supplier detail page's Products tab. Products can be removed before submission (deletes the row); this section can be left empty.
+
+### Submitting for Compliance Review
+
+**"Submit for Compliance Review"** runs `checkGates(onboarding, contact, 'pending_compliance')`, which requires:
+
+- Company name, registration number, country, supplier type, primary contact name, email, supplier reference all set
+- `qms_certification` recorded (any of the four values, including `'none'`, satisfies the gate) — **not required for `packaging` suppliers**, where the field is hidden
+
+On success: `workflow_stage → 'pending_compliance'`, `vetting_assigned_to` set (looked up from the `director_compliance` user), `stage_advanced` (+ `onboarding_created` / `enquiry_converted` where applicable) logged. The supplier now appears as **"Pending Compliance Review"** on the pipeline and its detail page, with a "Compliance Review →" action shown to Martyn.
+
+---
+
+## Stage 1b — Compliance Review (`portal/suppliers/compliance-review.html`, `js/portal/compliance-review.js`)
+
+Martyn's compliance sign-off. URL: `compliance-review.html?supplier_id={contactId}&onboarding_id={onboardingId}`. A read-only Supplier Summary panel shows the company/address/contact details Jackson captured in Stage 1a.
+
+### 1. Sanctions Screening (all supplier types)
+
+Martyn screens the supplier against:
 
 | List | |
 |---|---|
@@ -144,7 +249,7 @@ Martyn or Jackson screens the supplier against:
 
 Result (`result`, `screened_at`, `tool_used`, `match_resolution_notes`) is recorded as a `sanctions_screens` row (`subject_type = 'contact'`, `subject_id = contacts.id`). A confirmed match triggers rejection (`OnboardingWorkflow.rejectOnboarding`) rather than allowing Stage 1 to complete.
 
-### 5. Preliminary Risk Assessment (all supplier types)
+### 2. Preliminary Risk Assessment (all supplier types)
 
 Guided scoring form, written to a new `supplier_risk_assessment` row (`onboarding_id` = this onboarding):
 
@@ -168,7 +273,7 @@ Guided scoring form, written to a new `supplier_risk_assessment` row (`onboardin
 
 **Financial viability — simplified track (`logistics`, `packaging`, `service_provider`)**: these suppliers are paid directly by Vertex on standard terms, so traditional creditworthiness applies. Definition unchanged for now (1 = strong/audited accounts … 5 = no financial information obtainable) — *under review, may be revised separately*.
 
-The Stage 1 form (`onboard.html`) swaps the Financial Viability description and score options automatically based on the selected supplier type. The Stage 2 Risk Assessment Review panel (`pre-trade.html`, full-diligence only) always shows the LC-based definitions.
+The Stage 1b form (`compliance-review.html`) swaps the Financial Viability description and score options automatically based on the supplier's type. The Stage 2 Risk Assessment Review panel (`pre-trade.html`, full-diligence only) always shows the LC-based definitions.
 
 Overall score (average) and derived category:
 
@@ -180,16 +285,22 @@ Overall score (average) and derived category:
 
 The assessor can override the computed category with a mandatory reason (`risk_category_override`, `risk_category_override_reason`). For full-diligence suppliers this assessment is **preliminary** — it is reviewed and refined in Stage 2 (see below). For simplified-track suppliers, this assessment stands as final.
 
+### 3. Products Offered — Review
+
+If Jackson registered any products offered in Stage 1a, they appear here as a table (Family/Sub-type, Product, Specification) with a per-row **Review** select (Pending Review / Approved / Rejected) and a **Notes** field, defaulting to each row's stored `onboarding_review_status` / `onboarding_review_notes`. If none were offered, the panel shows "No products were offered during registration."
+
+On "Complete Stage 1 — Ready to Quote", each row's `onboarding_review_status` / `onboarding_review_notes` is saved back to its `supplier_quotes` row. Rejected products are **kept, not deleted** — they remain visible on the supplier's Products tab flagged "Rejected" for audit, but should not be pursued for quoting.
+
 ### Completing Stage 1
 
 **"Complete Stage 1 — Ready to Quote"** runs `checkGates(onboarding, contact, 'stage1_complete')`, which requires:
 
-- Company name, registration number, country, supplier type, primary contact name, email, supplier reference all set
-- `qms_certification` recorded (any of the four values, including `'none'`, satisfies the gate) — **not required for `packaging` suppliers**, where the field is hidden
+- `workflow_stage` must already be `'pending_compliance'` (i.e. Stage 1a has been submitted)
 - A `sanctions_screens` row exists for this contact
 - A `supplier_risk_assessment` row exists for this onboarding
+- Every product offered during Stage 1a has been reviewed — no `supplier_quotes` row for this supplier may remain `onboarding_review_status = 'pending_review'`
 
-On success: `workflow_stage → 'stage1_complete'`, `vetting_assigned_to` set, `stage_advanced` (+ `onboarding_created` / `enquiry_converted` where applicable) logged. The supplier is now **Ready to Quote** — `supplier_quotes` can reference it — and appears with a "Begin Stage 2 — Pre-Trade Vetting →" action on its detail page.
+On success: `workflow_stage → 'stage1_complete'`, `stage_advanced` logged. The supplier is now **Ready to Quote** — `supplier_quotes` can reference it — and appears with a "Begin Stage 2 — Pre-Trade Vetting →" action on its detail page.
 
 ---
 
@@ -252,16 +363,14 @@ Relocated from the old detail-page forms (`buildRecommendationForm`/`submitRecom
 
 **"Complete Stage 2 →"** runs `checkGates(onboarding, contact, 'stage2_complete')`, which requires:
 
-- `bank_account_number` or `bank_iban` present
-- `bank_account_verified_in_name === true`
 - `tob_status === 'confirmed'`
-- `recommendation` + `recommendation_rationale` present
-- `decision` + `decision_justification` present
-- **Full-diligence only:**
-  - A `sanctions_screens` row dated within 12 months
-  - The `supplier_risk_assessment` row has `reviewed_at IS NOT NULL`
+- Gate 2 compliance sign-off — a `supplier_approvals` row with `approval_stage = 'gate2_compliance'` and `decision != 'reject'`
+- Gate 2 commercial sign-off — a `supplier_approvals` row with `approval_stage = 'gate2_commercial'` and `decision != 'reject'`
+- **Full-diligence only:** a `sanctions_screens` row dated within 12 months
 
-On success: `workflow_stage → 'stage2_complete'`, `activated_at = now()` (reused column, meaning "Stage 2 complete" timestamp), `contacts.approval_status` set to `approved` or `conditionally_approved` (per `decision`), `stage_advanced` logged. The supplier now shows "Begin Stage 3 — Trade Ready Sign-off →".
+> **Phase A note:** Gate 2 sign-off forms (Phase B) are not yet built. Until Phase B is deployed, no Gate 2 rows will exist and the stage will be blockable only by the TOB status and sanctions screen.
+
+On success: `workflow_stage → 'stage2_complete'`, `activated_at = now()` (reused column, meaning "Stage 2 complete" timestamp), `stage_advanced` logged. The supplier now shows "Begin Stage 3 — Trade Ready Sign-off →".
 
 ---
 
@@ -291,6 +400,8 @@ Pass/fail summary of the `trade_ready` gates. **"Mark Trade Ready →"** runs `c
 - `workflow_stage === 'stage2_complete'`
 - `accepted_currencies` non-empty, `default_currency`, `payment_terms_initial`, `payment_terms_subsequent`, `standard_incoterm` all set
 - A current `supplier_documents` row with `document_type = 'dpa'`, `is_current = true`
+- `bank_account_number` or `bank_iban` present (moved from Stage 2 gate in Phase A redesign)
+- `bank_account_verified_in_name === true`
 
 On success: `workflow_stage → 'trade_ready'`. The supplier can now be attached to trades and receive supplier quotes against any `accepted_currencies`.
 

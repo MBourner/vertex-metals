@@ -392,8 +392,12 @@
 | `created_at` | `timestamptz` |  |
 | `updated_at` | `timestamptz` |  |
 | `product_line_id` | `uuid` |  Nullable |
+| `onboarding_review_status` | `text` |  Nullable, app-enforced enum |
+| `onboarding_review_notes` | `text` |  Nullable |
 
 `pending` represents a product line linked to a supplier as "permitted to supply" with no live quote yet (added from the supplier detail page's Products tab, with placeholder `fob_price_usd: 0` and `incoterm: 'FOB'`). It is excluded from all `.eq('status','active')` lookups used by the calculator, RFQ matching, and supplier PO selection until edited with real pricing.
+
+`onboarding_review_status` is `NULL` for product links not created via onboarding (e.g. added later from the supplier detail page's Products tab), or one of `pending_review | approved | rejected` for products offered during Stage 1a registration and reviewed by compliance during Stage 1b. `onboarding_review_notes` holds the compliance director's notes for that review. Rejected rows are kept (not deleted) for audit, flagged "Rejected" on the Products tab.
 
 ## Table `trades`
 
@@ -530,7 +534,7 @@ Central workflow state machine for each onboarding attempt. Jackson raises it; M
 | `id` | `uuid` | Primary |
 | `contact_id` | `uuid` | FK → contacts |
 | `enquiry_id` | `uuid` |  Nullable FK → supplier_enquiries |
-| `workflow_stage` | `text` | App-enforced enum (no DB CHECK constraint), redesigned in migration 20260612d: `'draft'` \| `'stage1_complete'` \| `'pending_stage2'` \| `'awaiting_supplier_info'` \| `'stage2_complete'` \| `'trade_ready'` \| `'rejected'`. See `docs/supplier-onboarding-process.md` for the 3-phase model |
+| `workflow_stage` | `text` | App-enforced enum (no DB CHECK constraint), redesigned in migration 20260612d: `'draft'` \| `'pending_compliance'` \| `'stage1_complete'` \| `'pending_stage2'` \| `'awaiting_supplier_info'` \| `'stage2_complete'` \| `'trade_ready'` \| `'rejected'`. See `docs/supplier-onboarding-process.md` for the 3-phase model |
 | `risk_level` | `text` |  Nullable — `'low'` \| `'medium'` \| `'high'` |
 | `raised_by` | `uuid` |  Nullable FK → auth.users (Jackson) |
 | `vetting_assigned_to` | `uuid` |  Nullable FK → auth.users (Martyn) |
@@ -549,6 +553,8 @@ Central workflow state machine for each onboarding attempt. Jackson raises it; M
 | `tob_generated_at` | `timestamptz` |  Nullable — added in migration 20260612d |
 | `tob_sent_at` | `timestamptz` |  Nullable — added in migration 20260612d |
 | `tob_confirmed_at` | `timestamptz` |  Nullable — added in migration 20260612d |
+| `review_required` | `boolean` | Default `false` — added in migration 20260616c. Set `true` when an ad-hoc edit causes a meaningful change to compliance or commercial scoring bands. Used by Phase D ad-hoc recompute and Exceptions Review |
+| `review_required_reason` | `text` |  Nullable — added in migration 20260616c. Human-readable reason for the flag |
 
 ---
 
@@ -629,7 +635,7 @@ One row per formal approval or rejection at each workflow stage. Both Martyn's r
 | `id` | `uuid` | Primary |
 | `supplier_id` | `uuid` | FK → contacts |
 | `onboarding_id` | `uuid` | FK → supplier_onboarding |
-| `approval_stage` | `text` | `'screening'` \| `'documents'` \| `'compliance'` \| `'recommendation'` \| `'final_approval'` |
+| `approval_stage` | `text` | `'screening'` \| `'documents'` \| `'compliance'` \| `'recommendation'` \| `'final_approval'` \| `'gate1_compliance'` \| `'gate1_commercial'` \| `'gate2_compliance'` \| `'gate2_commercial'` — Phase A+ adds four dual-director gate values replacing the old single recommendation/decision pattern |
 | `approver_id` | `uuid` | FK → auth.users |
 | `approver_role` | `text` | `'director_commercial'` \| `'director_compliance'` |
 | `decision` | `text` | `'approved'` \| `'approved_with_conditions'` \| `'rejected'` |
@@ -637,6 +643,58 @@ One row per formal approval or rejection at each workflow stage. Both Martyn's r
 | `conditions` | `text` |  Nullable — required when decision = `'approved_with_conditions'` |
 | `decided_at` | `timestamptz` |  |
 | `created_at` | `timestamptz` |  |
+
+### RLS
+
+- `portal_full_access` — authenticated, full CRUD.
+
+---
+
+## Table `supplier_compliance_scores`
+
+Additive compliance risk score — one row per scoring event (Gate 1 or Gate 2). Versioned; prior rows are retained for audit. Added in migration 20260616a, replacing the legacy 1–5 `supplier_risk_assessment` weighted model (which remains readable for in-flight records).
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `supplier_id` | `uuid` | FK → contacts |
+| `onboarding_id` | `uuid` | FK → supplier_onboarding |
+| `gate` | `smallint` | `1` or `2` — which gate checkpoint this score relates to |
+| `total_score` | `int` | Additive sum of selected factor scores (null if `Prohibited`) |
+| `rating_band` | `text` | `'Low Risk'` \| `'Medium Risk'` \| `'High Risk'` \| `'Very High Risk'` \| `'Prohibited'` |
+| `components` | `jsonb` | Array of `{group, factor_key, label, score}` — full factor breakdown for explainability |
+| `computed_at` | `timestamptz` | Default `now()` |
+| `computed_by` | `uuid` | FK → auth.users — director who submitted the scoring form |
+
+### RLS
+
+- `portal_full_access` — authenticated, full CRUD.
+
+---
+
+## Table `supplier_commercial_scores`
+
+Additive commercial suitability score — one row per scoring event (Gate 1 or Gate 2). Second scoring axis alongside compliance risk; answers "how valuable is this supplier to Vertex?". Added in migration 20260616b.
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `supplier_id` | `uuid` | FK → contacts |
+| `onboarding_id` | `uuid` | FK → supplier_onboarding |
+| `gate` | `smallint` | `1` or `2` |
+| `total_score` | `int` | Additive sum of selected factor scores |
+| `rating_band` | `text` | `'Poor Fit'` \| `'Moderate Fit'` \| `'Strong Fit'` \| `'Strategic Supplier'` |
+| `components` | `jsonb` | Array of `{group, factor_key, label, score}` |
+| `computed_at` | `timestamptz` | Default `now()` |
+| `computed_by` | `uuid` | FK → auth.users |
+
+### RLS
+
+- `portal_full_access` — authenticated, full CRUD.
 
 ---
 

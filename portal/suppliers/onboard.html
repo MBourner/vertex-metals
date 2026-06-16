@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stage 1 — Supplier Onboarding — Vertex Metals Portal</title>
+  <title>Stage 1a — Supplier Registration — Vertex Metals Portal</title>
   <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -11,11 +11,6 @@
     .check-icon.pass  { background:rgba(22,163,74,0.1); }
     .check-icon.fail  { background:rgba(220,38,38,0.1); }
     .check-icon.warn  { background:rgba(217,119,6,0.1); }
-    .criterion-card { border:1px solid var(--color-border); border-radius:var(--radius); padding:var(--space-5); display:flex; flex-direction:column; gap:var(--space-4); }
-    .criterion-header { display:flex; align-items:center; justify-content:space-between; gap:var(--space-4); }
-    .criterion-name { font-family:var(--font-display); font-weight:600; font-size:var(--text-sm); }
-    .score-display { font-family:var(--font-display); font-size:var(--text-2xl); font-weight:700; color:var(--color-accent); min-width:2rem; text-align:center; }
-    .overall-score-box { padding:var(--space-6); background:var(--color-navy); border-radius:var(--radius); text-align:center; }
   </style>
 </head>
 <body class="portal-body">
@@ -26,7 +21,7 @@
       <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
-      <span class="topbar-title">Stage 1 — Quoting Only Registration</span>
+      <span class="topbar-title">Stage 1a — Supplier Registration</span>
     </div>
     <a href="../enquiries/index.html" class="btn btn-ghost btn-sm">← Enquiry Queue</a>
   </div>
@@ -42,8 +37,8 @@
 
     <div class="portal-page-header" style="margin-bottom:var(--space-6)">
       <div>
-        <h1>Stage 1 — Quoting Only Registration</h1>
-        <p>Capture the supplier's identity, run a baseline sanctions screen, and complete a preliminary risk assessment. Once complete, the supplier is "Ready to Quote" — pre-trade vetting (Stage 2) follows separately.</p>
+        <h1>Stage 1a — Supplier Registration</h1>
+        <p>Capture the supplier's identity, company details, address and primary contact. Once submitted, the request goes to the compliance director for sanctions screening and a preliminary risk assessment (Stage 1b) before the supplier becomes "Ready to Quote".</p>
       </div>
     </div>
 
@@ -225,188 +220,18 @@
         </div>
       </div>
 
-      <!-- ── Sanctions Screening ───────────────────────────────── -->
+      <!-- ── Products Offered ──────────────────────────────────── -->
       <div class="panel" style="margin-bottom:var(--space-5)">
         <div class="panel-header">
-          <h3>Sanctions Screening</h3>
-          <span id="sanctions-status-badge"></span>
+          <h3>Products Offered</h3>
+          <button type="button" class="btn btn-secondary btn-sm" id="add-product-offered-btn">+ Add Product</button>
         </div>
-        <div class="panel-body" style="display:flex;flex-direction:column;gap:var(--space-4)">
-          <div style="font-size:var(--text-sm)">
-            Check the supplier name against the following consolidated lists before recording a result:
-            <div style="display:flex;flex-wrap:wrap;gap:var(--space-3);margin-top:var(--space-2)" id="sanctions-list-links"></div>
-          </div>
-          <div id="sanctions-section">
-            <div style="color:var(--color-text-muted)">Loading…</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── Preliminary Risk Assessment ───────────────────────── -->
-      <div class="panel" style="margin-bottom:var(--space-5)">
-        <div class="panel-header">
-          <h3>Preliminary Risk Assessment</h3>
-          <div id="overall-score-badge" style="font-size:var(--text-sm);color:var(--color-text-muted)">Score: —</div>
-        </div>
-        <div class="panel-body" style="display:flex;flex-direction:column;gap:var(--space-5)">
-          <p style="font-size:var(--text-sm);color:var(--color-text-muted)">Score each criterion from 1 (very low risk) to 5 (very high risk) based on information available at registration. Add notes to document the evidence behind each score. <strong>This is a preliminary assessment</strong> — for manufacturing and materials/commodities suppliers it is reviewed and refined during Stage 2 vetting.</p>
-
-          <div class="criterion-card" id="criterion-financial">
-            <div class="criterion-header">
-              <div>
-                <div class="criterion-name">Financial Viability</div>
-                <div id="financial-criterion-desc" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">Payment history, company age, availability of accounts or credit references</div>
-              </div>
-              <div class="score-display" id="score-display-financial">—</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="score-financial">Score</label>
-              <select class="form-select" id="score-financial" onchange="updateOverallScore()">
-                <option value="">Select…</option>
-                <option value="1">1 — Strong: listed or well-established company with audited accounts</option>
-                <option value="2">2 — Good: private SME with accessible trade references</option>
-                <option value="3">3 — Adequate: limited documentation; smaller operation</option>
-                <option value="4">4 — Limited: new company or opaque financial structure</option>
-                <option value="5">5 — Very limited: no financial information obtainable</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="notes-financial">Notes</label>
-              <textarea class="form-textarea" id="notes-financial" rows="2" placeholder="Evidence for this score…"></textarea>
-            </div>
-          </div>
-
-          <div class="criterion-card" id="criterion-quality">
-            <div class="criterion-header">
-              <div>
-                <div class="criterion-name">Quality Certification</div>
-                <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">ISO 9001, BIS, IATF, or equivalent quality management standards held</div>
-              </div>
-              <div class="score-display" id="score-display-quality">—</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="score-quality">Score</label>
-              <select class="form-select" id="score-quality" onchange="updateOverallScore()">
-                <option value="">Select…</option>
-                <option value="1">1 — ISO 9001 or IATF/BIS equivalent, current certificate</option>
-                <option value="2">2 — Some certifications held; equivalent but not ISO 9001</option>
-                <option value="3">3 — Quality system in place, no formal certification</option>
-                <option value="4">4 — Limited quality controls; informal processes only</option>
-                <option value="5">5 — No quality certifications or documented procedures</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="notes-quality">Notes</label>
-              <textarea class="form-textarea" id="notes-quality" rows="2" placeholder="Certifications confirmed, expiry dates, any gaps…"></textarea>
-            </div>
-          </div>
-
-          <div class="criterion-card" id="criterion-regulatory">
-            <div class="criterion-header">
-              <div>
-                <div class="criterion-name">Regulatory Compliance</div>
-                <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">Licensing, permits, export controls, and regulatory standing in country of operation</div>
-              </div>
-              <div class="score-display" id="score-display-regulatory">—</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="score-regulatory">Score</label>
-              <select class="form-select" id="score-regulatory" onchange="updateOverallScore()">
-                <option value="">Select…</option>
-                <option value="1">1 — Fully licensed, good standing, no known compliance issues</option>
-                <option value="2">2 — All required licenses held; minor administrative issues only</option>
-                <option value="3">3 — Most licenses in place; some gaps or renewal pending</option>
-                <option value="4">4 — Uncertain licensing; compliance risks identified</option>
-                <option value="5">5 — Known regulatory issues, sanctions adjacency, or missing critical licenses</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="notes-regulatory">Notes</label>
-              <textarea class="form-textarea" id="notes-regulatory" rows="2" placeholder="Licensing status, any known regulatory issues…"></textarea>
-            </div>
-          </div>
-
-          <div class="criterion-card" id="criterion-geographic">
-            <div class="criterion-header">
-              <div>
-                <div class="criterion-name">Geographic Risk</div>
-                <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">Country-level sanctions exposure, political stability, FATF status</div>
-              </div>
-              <div class="score-display" id="score-display-geographic">—</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="score-geographic">Score</label>
-              <select class="form-select" id="score-geographic" onchange="updateOverallScore()">
-                <option value="">Select…</option>
-                <option value="1">1 — Low-risk jurisdiction: UK, EU, established OECD country</option>
-                <option value="2">2 — Medium-low: established trading partner, minor country risk</option>
-                <option value="3">3 — Medium: some country risk; enhanced screening required</option>
-                <option value="4">4 — Higher-risk jurisdiction: additional due diligence required</option>
-                <option value="5">5 — High-risk or FATF grey/black-listed jurisdiction</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="notes-geographic">Notes</label>
-              <textarea class="form-textarea" id="notes-geographic" rows="2" placeholder="Country risk assessment, FATF status, any sanctions adjacency…"></textarea>
-            </div>
-          </div>
-
-          <div class="criterion-card" id="criterion-continuity">
-            <div class="criterion-header">
-              <div>
-                <div class="criterion-name">Supply Continuity</div>
-                <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">Capacity, single-source risk, logistics infrastructure, track record of reliable delivery</div>
-              </div>
-              <div class="score-display" id="score-display-continuity">—</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="score-continuity">Score</label>
-              <select class="form-select" id="score-continuity" onchange="updateOverallScore()">
-                <option value="">Select…</option>
-                <option value="1">1 — Multiple facilities, strong capacity, established export routes</option>
-                <option value="2">2 — Single facility but high capacity; established logistics</option>
-                <option value="3">3 — Adequate capacity; some dependency on single facility or route</option>
-                <option value="4">4 — Limited capacity; disruption risk; thin logistics infrastructure</option>
-                <option value="5">5 — Single source, very limited capacity; high disruption risk</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="notes-continuity">Notes</label>
-              <textarea class="form-textarea" id="notes-continuity" rows="2" placeholder="Capacity, known supply chain weaknesses, logistics arrangements…"></textarea>
-            </div>
-          </div>
-
-          <div class="overall-score-box">
-            <div style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:var(--space-2)">Overall Risk Score</div>
-            <div style="font-size:var(--text-4xl);font-weight:700;color:#fff;margin-bottom:var(--space-2)" id="overall-score-value">—</div>
-            <div id="overall-risk-badge"></div>
-            <div id="overall-score-escalation-note" style="display:none;font-size:var(--text-xs);color:#fca5a5;margin-top:var(--space-2)"></div>
-            <div style="font-size:var(--text-xs);color:rgba(255,255,255,0.4);margin-top:var(--space-2)">1.0–2.3 = Low · 2.4–3.6 = Medium · 3.7–5.0 = High</div>
-          </div>
-
-          <div id="override-section" style="padding:var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-sm);display:none">
-            <label style="display:flex;gap:var(--space-3);align-items:center;cursor:pointer;margin-bottom:var(--space-3)">
-              <input type="checkbox" id="override-check" onchange="document.getElementById('override-reason-group').style.display=this.checked?'block':'none';document.getElementById('override-category-group').style.display=this.checked?'block':'none'" style="accent-color:var(--color-accent)" />
-              <span style="font-size:var(--text-sm);font-weight:600">Override computed risk category</span>
-            </label>
-            <div id="override-reason-group" style="display:none" class="form-group">
-              <label class="form-label" for="override-reason">Override reason <span class="required">*</span></label>
-              <textarea class="form-textarea" id="override-reason" rows="2" placeholder="Explain why the computed category does not reflect the actual risk…"></textarea>
-            </div>
-            <div class="form-group" id="override-category-group" style="display:none">
-              <label class="form-label" for="override-category">Correct risk category</label>
-              <select class="form-select" id="override-category">
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="overall-notes">Overall Assessment Notes</label>
-            <textarea class="form-textarea" id="overall-notes" rows="3" placeholder="Summarise the key risk factors and your overall assessment of this supplier…"></textarea>
-          </div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <p style="font-size:var(--text-sm);color:var(--color-text-muted)">Product lines this supplier is offering to supply. Reviewed individually by compliance during Stage 1b.</p>
+          <div class="table-wrapper"><table>
+            <thead><tr><th>Family / Sub-type</th><th>Product</th><th>Specification</th><th></th></tr></thead>
+            <tbody id="products-offered-body"><tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);padding:var(--space-6)">No products added yet.</td></tr></tbody>
+          </table></div>
         </div>
       </div>
 
@@ -416,10 +241,19 @@
       <div style="display:flex;gap:var(--space-3);justify-content:flex-end;margin-bottom:var(--space-10)">
         <a href="../enquiries/index.html" class="btn btn-ghost">Cancel</a>
         <button type="button" class="btn btn-ghost" id="save-exit-btn">Save Progress &amp; Exit</button>
-        <button type="button" class="btn btn-primary" id="complete-btn">Complete Stage 1 — Ready to Quote</button>
+        <button type="button" class="btn btn-primary" id="complete-btn">Submit for Compliance Review</button>
       </div>
 
     </form>
+  </div>
+</div>
+
+<!-- Add Product Modal -->
+<div class="modal-overlay" id="add-product-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('add-product-modal').classList.remove('open')">✕</button>
+    <h3>Add Product</h3>
+    <div id="add-product-form-container"></div>
   </div>
 </div>
 

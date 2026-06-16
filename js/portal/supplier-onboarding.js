@@ -20,12 +20,13 @@ const OnboardingWorkflow = (() => {
   // non-terminal stage.
 
   const STAGE_SEQUENCE = [
-    'draft', 'stage1_complete', 'pending_stage2',
+    'draft', 'pending_compliance', 'stage1_complete', 'pending_stage2',
     'awaiting_supplier_info', 'stage2_complete', 'trade_ready'
   ];
 
   const STAGE_LABELS = {
     draft:                  'Draft',
+    pending_compliance:     'Pending Compliance Review',
     stage1_complete:        'Stage 1 Complete (Ready to Quote)',
     pending_stage2:         'Pending Stage 2',
     awaiting_supplier_info: 'Awaiting Supplier Info',
@@ -40,6 +41,7 @@ const OnboardingWorkflow = (() => {
 
   const STAGE_BADGE = {
     draft:                  'badge-neutral',
+    pending_compliance:     'badge-warning',
     stage1_complete:        'badge-info',
     pending_stage2:         'badge-warning',
     awaiting_supplier_info: 'badge-warning',
@@ -50,7 +52,7 @@ const OnboardingWorkflow = (() => {
 
   // Stages shown in the progress bar (trade_ready is the finish line)
   const PROGRESS_STAGES = [
-    'draft', 'stage1_complete', 'pending_stage2', 'stage2_complete', 'trade_ready'
+    'draft', 'pending_compliance', 'stage1_complete', 'pending_stage2', 'stage2_complete', 'trade_ready'
   ];
 
   // ── Supplier-type profiles ──────────────────────────────────────────────
@@ -141,6 +143,26 @@ const OnboardingWorkflow = (() => {
     },
   };
 
+  // ── Products Offered review (Stage 1a → Stage 1b) ───────────────────────
+  //
+  // supplier_quotes rows added during Stage 1a registration carry an
+  // onboarding_review_status ('pending_review' | 'approved' | 'rejected'),
+  // set/updated by compliance during Stage 1b. NULL means the link wasn't
+  // created via the onboarding flow (e.g. added later from the supplier
+  // detail page's Products tab) and isn't part of this review.
+
+  const PRODUCT_REVIEW_LABELS = {
+    pending_review: 'Pending Review',
+    approved:        'Approved',
+    rejected:        'Rejected',
+  };
+
+  const PRODUCT_REVIEW_BADGE = {
+    pending_review: 'badge-warning',
+    approved:        'badge-success',
+    rejected:        'badge-danger',
+  };
+
   function getSupplierProfile(supplierType) {
     return SUPPLIER_TYPE_PROFILES[supplierType] || SUPPLIER_TYPE_PROFILES.service_provider;
   }
@@ -161,7 +183,7 @@ const OnboardingWorkflow = (() => {
   // staff can gather what's needed before starting Stage 1 / Stage 2 — kept
   // in sync with checkGates() by deriving from the same supplier-type profile
   // rather than maintaining a separate static list.
-  function buildStage1Prerequisites(supplierType) {
+  function buildStage1aPrerequisites(supplierType) {
     const profile = getSupplierProfile(supplierType);
     const items = [
       'Legal company name, registration/incorporation number, country, and VAT/GST number',
@@ -173,9 +195,7 @@ const OnboardingWorkflow = (() => {
     if (profile.showExportLicence) {
       items.push("Export licence number, if applicable in the supplier's jurisdiction");
     }
-    const criteriaLabels = profile.riskCriteria.map(c => RISK_CRITERIA_LABELS[c]).join(', ');
-    items.push(`Information to score a preliminary risk assessment: ${criteriaLabels}`);
-    items.push("Not needed yet — bank details, ESG information and Terms of Business are covered in Stage 2");
+    items.push("Not needed yet — sanctions screening, preliminary risk assessment, bank details, ESG information and Terms of Business are covered later in the onboarding process");
     return items;
   }
 
@@ -282,7 +302,7 @@ const OnboardingWorkflow = (() => {
   async function checkGates(onboarding, contact, targetStage) {
     const blockers = [];
 
-    if (targetStage === 'stage1_complete') {
+    if (targetStage === 'pending_compliance') {
       if (!contact.company_name?.trim())
         blockers.push('Company name is required');
       if (!contact.company_registration_number?.trim())
@@ -299,6 +319,11 @@ const OnboardingWorkflow = (() => {
         blockers.push('Supplier reference must be generated');
       if (!contact.qms_certification && getSupplierProfile(contact.supplier_type).showQms)
         blockers.push('Quality management system status must be recorded');
+    }
+
+    if (targetStage === 'stage1_complete') {
+      if (onboarding.workflow_stage !== 'pending_compliance')
+        blockers.push('Basic company information must be submitted for compliance review before Stage 1 can be completed');
 
       const { count: ssCount } = await supabaseClient
         .from('sanctions_screens')
@@ -313,6 +338,14 @@ const OnboardingWorkflow = (() => {
         .eq('onboarding_id', onboarding.id);
       if (!raCount)
         blockers.push('A preliminary risk assessment must be completed');
+
+      const { count: pendingProductsCount } = await supabaseClient
+        .from('supplier_quotes')
+        .select('id', { count: 'exact', head: true })
+        .eq('supplier_id', onboarding.contact_id)
+        .eq('onboarding_review_status', 'pending_review');
+      if (pendingProductsCount)
+        blockers.push('All products offered must be reviewed (approved or rejected) before Stage 1 can be completed');
     }
 
     if (targetStage === 'pending_stage2') {
@@ -587,6 +620,8 @@ const OnboardingWorkflow = (() => {
     if (stage === 'pending_stage2' || stage === 'awaiting_supplier_info')
                                       return { label: 'Pre-Trade Vetting', badgeClass: 'badge-warning' };
     if (stage === 'stage1_complete') return { label: 'Quote-Eligible',    badgeClass: 'badge-info' };
+    if (stage === 'pending_compliance')
+                                      return { label: 'Pending Compliance Review', badgeClass: 'badge-warning' };
     return                                   { label: 'Prospect',         badgeClass: 'badge-neutral' };
   }
 
@@ -714,7 +749,7 @@ const OnboardingWorkflow = (() => {
     getSupplierProfile,
     getRiskCriteria,
     getRequiredDocs,
-    buildStage1Prerequisites,
+    buildStage1aPrerequisites,
     buildStage2Prerequisites,
     buildRiskScorePayload,
     computeOverall,
@@ -742,7 +777,9 @@ const OnboardingWorkflow = (() => {
     RISK_CRITERIA_LABELS,
     RISK_CRITERIA_COLUMN,
     RISK_CRITERIA_WEIGHTS,
-    SUPPLIER_TYPE_PROFILES
+    SUPPLIER_TYPE_PROFILES,
+    PRODUCT_REVIEW_LABELS,
+    PRODUCT_REVIEW_BADGE
   };
 
 })();

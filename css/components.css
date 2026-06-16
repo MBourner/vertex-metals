@@ -363,6 +363,18 @@ tr.row-danger  { background: var(--color-danger-bg); }
   border-bottom: 1px solid var(--color-border);
 }
 
+/* .btn-ghost defaults to white text/border for dark backgrounds (sidebar, topbar);
+   override to a dark variant when used inside a light modal */
+.modal-box .btn-ghost {
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+.modal-box .btn-ghost:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-muted);
+  background: var(--color-surface);
+}
+
 .modal-close {
   position: absolute;
   top: var(--space-4);

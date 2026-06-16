@@ -1,11 +1,12 @@
 /**
- * Vertex Metals Portal — Stage 1 (Quoting Only Registration)
+ * Vertex Metals Portal — Stage 1a (Supplier Registration)
  * Handles portal/suppliers/onboard.html
  *
- * Captures company identity, address, primary contact, sanctions screening,
- * and a preliminary risk assessment. On "Complete Stage 1" the onboarding
- * moves to workflow_stage='stage1_complete'
- * (Ready to Quote). "Save Progress & Exit" persists a 'draft' for later resumption.
+ * Captures company identity, address, and primary contact. On "Submit for
+ * Compliance Review" the onboarding moves to workflow_stage='pending_compliance',
+ * handing off to the compliance director for Stage 1b (sanctions screening
+ * and preliminary risk assessment — compliance-review.html). "Save Progress &
+ * Exit" persists a 'draft' for later resumption.
  *
  * If ?enquiry_id is in the URL, fields are pre-filled from the enquiry.
  * If ?supplier_id is in the URL, an existing contact is loaded — either to
@@ -17,10 +18,6 @@ function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
-}
 
 const params      = new URLSearchParams(location.search);
 const enquiryId   = params.get('enquiry_id');
@@ -30,8 +27,12 @@ const reonboardId = params.get('supplier_id'); // existing contact — resume dr
 
 let contactId  = null;
 let onboardingId = null;
-let existingSanctionsScreen = null;
-let existingRiskAssessment  = null;
+
+// Products Offered (Stage 1a) — { db_id, product_line_id, product, metal_family, sub_type, specification }
+let productsOffered   = [];
+let removedProductIds = [];
+let productFamilies   = [];
+let productLinesCache = [];
 
 const CONTACT_TYPE_MAP = {
   manufacturing:         'supplier',
@@ -41,240 +42,10 @@ const CONTACT_TYPE_MAP = {
   service_provider:      'other',
 };
 
-const SANCTIONS_LISTS = [
-  { name: 'UK Sanctions List', url: 'https://search-uk-sanctions-list.service.gov.uk/' },
-  { name: 'UN',                url: 'https://www.un.org/securitycouncil/content/un-sc-consolidated-list' },
-  { name: 'EU',                url: 'https://www.sanctionsmap.eu/#/main' },
-];
-
-// ── Risk assessment scoring ─────────────────────────────────────────────
-//
-// Which of the five criteria apply, and their relative weight in the
-// overall score, are driven by OnboardingWorkflow.SUPPLIER_TYPE_PROFILES
-// (see js/portal/supplier-onboarding.js) — keyed off the selected
-// Supplier Type.
-
-// Financial Viability rubric is tier-dependent. Full-diligence suppliers
-// (manufacturing / materials_commodities) are settled by Irrevocable Letter
-// of Credit, which hedges Vertex's capital exposure if goods aren't shipped —
-// so the score reflects counterparty integrity / fraud and sanctions risk
-// rather than balance-sheet strength. Simplified-track suppliers (logistics,
-// packaging, service_provider) are paid directly on standard terms, so the
-// traditional creditworthiness framing still applies.
-const FINANCIAL_CRITERION = {
-  full: {
-    description: 'Settled by Irrevocable Letter of Credit, which hedges Vertex Metals’ capital exposure if goods are not shipped. Score reflects counterparty integrity and fraud/sanctions risk rather than balance-sheet strength.',
-    options: [
-      ['1', '1 — Strong: publicly listed, state-owned enterprise, or provides full audited accounts (e.g. SAIL)'],
-      ['2', '2 — Good: private entity, but provides verified tax certificates, active export licences, and evidence of recent international shipments'],
-      ['3', '3 — Acceptable (with LC): private entity, limited public footprint, but banking details match corporate registry and quality is independently verified (e.g. ASI reports)'],
-      ['4', '4 — Elevated risk: newly incorporated (under 12 months), missing tax documentation, or pushing for non-standard payment terms — requires MLRO sign-off'],
-      ['5', '5 — Unacceptable: cannot provide basic corporate registration, requests third-party payments, or matched on adverse media/sanctions'],
-    ],
-  },
-  simplified: {
-    description: 'Payment history, company age, availability of accounts or credit references',
-    options: [
-      ['1', '1 — Strong: listed or well-established company with audited accounts'],
-      ['2', '2 — Good: private SME with accessible trade references'],
-      ['3', '3 — Adequate: limited documentation; smaller operation'],
-      ['4', '4 — Limited: new company or opaque financial structure'],
-      ['5', '5 — Very limited: no financial information obtainable'],
-    ],
-  },
-};
-
-function renderFinancialCriterion() {
-  const supplierType = document.getElementById('ob-type')?.value;
-  const tier = OnboardingWorkflow.requiresFullDiligence(supplierType) ? 'full' : 'simplified';
-  const def = FINANCIAL_CRITERION[tier];
-
-  const descEl = document.getElementById('financial-criterion-desc');
-  if (descEl) descEl.textContent = def.description;
-
-  const sel = document.getElementById('score-financial');
-  if (sel) {
-    const current = sel.value;
-    sel.innerHTML = '<option value="">Select…</option>' +
-      def.options.map(([v, label]) => `<option value="${esc(v)}">${esc(label)}</option>`).join('');
-    if (current) sel.value = current;
-  }
-}
-
-function getScores(criteria) {
-  return criteria.map(c => {
-    const val = document.getElementById(`score-${c}`)?.value;
-    return val ? parseFloat(val) : null;
-  });
-}
-
-// Shows/hides each criterion card based on which risk criteria apply to the
-// selected supplier type (OnboardingWorkflow.SUPPLIER_TYPE_PROFILES).
-function applyCriteriaVisibility(supplierType) {
-  const criteria = OnboardingWorkflow.getRiskCriteria(supplierType);
-  OnboardingWorkflow.RISK_CRITERIA.forEach(c => {
-    const card = document.getElementById(`criterion-${c}`);
-    if (card) card.style.display = criteria.includes(c) ? '' : 'none';
-  });
-}
-
-function updateOverallScore() {
-  const supplierType = document.getElementById('ob-type')?.value;
-  const criteria = OnboardingWorkflow.getRiskCriteria(supplierType);
-  const scores = getScores(criteria);
-  criteria.forEach((c, i) => {
-    const disp = document.getElementById(`score-display-${c}`);
-    if (disp) disp.textContent = scores[i] !== null ? scores[i] : '—';
-  });
-
-  const overall = OnboardingWorkflow.computeOverall(scores, criteria);
-  const cat = OnboardingWorkflow.riskCategory(overall, scores);
-  const baseCat = OnboardingWorkflow.riskCategoryFromScore(overall);
-
-  const scoreVal   = document.getElementById('overall-score-value');
-  const scoreBadge = document.getElementById('overall-risk-badge');
-  const badgeEl    = document.getElementById('overall-score-badge');
-  const overrideSec = document.getElementById('override-section');
-  const escalationNote = document.getElementById('overall-score-escalation-note');
-
-  if (scoreVal) scoreVal.textContent = overall !== null ? overall.toFixed(2) : '—';
-  if (overrideSec) overrideSec.style.display = overall !== null ? 'block' : 'none';
-
-  const badgeClass = cat === 'high' ? 'badge-danger' : cat === 'medium' ? 'badge-warning' : 'badge-success';
-  const badgeHtml = cat ? `<span class="badge ${badgeClass}">${cat} risk</span>` : '';
-  if (scoreBadge) scoreBadge.innerHTML = badgeHtml;
-  if (badgeEl) badgeEl.innerHTML = badgeHtml;
-
-  if (escalationNote) {
-    const escalated = cat && cat !== baseCat;
-    escalationNote.textContent = escalated
-      ? `Escalated from ${baseCat} — at least one criterion scored 4/5 or higher.`
-      : '';
-    escalationNote.style.display = escalated ? 'block' : 'none';
-  }
-}
-
-function prefillRiskAssessment(ra) {
-  OnboardingWorkflow.RISK_CRITERIA.forEach(c => {
-    const score = ra[`${OnboardingWorkflow.RISK_CRITERIA_COLUMN[c]}_score`];
-    if (score != null) {
-      const sel = document.getElementById(`score-${c}`);
-      if (sel) sel.value = String(score);
-    }
-    const notes = ra[`${OnboardingWorkflow.RISK_CRITERIA_COLUMN[c]}_notes`];
-    if (notes) setVal(`notes-${c}`, notes);
-  });
-  setVal('overall-notes', ra.overall_notes);
-  if (ra.risk_category_override) {
-    const chk = document.getElementById('override-check');
-    if (chk) chk.checked = true;
-    document.getElementById('override-reason-group').style.display = 'block';
-    document.getElementById('override-category-group').style.display = 'block';
-    setVal('override-reason', ra.risk_category_override_reason);
-    const cat = document.getElementById('override-category');
-    if (cat && ra.risk_category) cat.value = ra.risk_category;
-  }
-  updateOverallScore();
-}
-
-// ── Sanctions screening panel ───────────────────────────────────────────
-
-function renderSanctionsListLinks() {
-  document.getElementById('sanctions-list-links').innerHTML = SANCTIONS_LISTS.map(l =>
-    `<a href="${esc(l.url)}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">${esc(l.name)} →</a>`
-  ).join('');
-}
-
-async function loadSanctionsSection() {
-  if (contactId) {
-    const { data } = await supabaseClient
-      .from('sanctions_screens')
-      .select('id, screened_at, lists_screened, tool_used, result, match_resolution_notes')
-      .eq('subject_id', contactId)
-      .order('screened_at', { ascending: false })
-      .limit(1);
-    existingSanctionsScreen = data?.[0] || null;
-  }
-  renderSanctionsSection();
-}
-
-function renderSanctionsSection() {
-  const el = document.getElementById('sanctions-section');
-  const badgeEl = document.getElementById('sanctions-status-badge');
-  const RESULT_CLASS = { clear: 'badge-success', potential_match: 'badge-warning', confirmed_match: 'badge-danger' };
-  const companyName = document.getElementById('ob-company')?.value || '';
-
-  if (existingSanctionsScreen) {
-    const s = existingSanctionsScreen;
-    badgeEl.innerHTML = `<span class="badge badge-success">Screen on file</span>`;
-    el.innerHTML = `
-      <div style="padding:var(--space-4);background:rgba(22,163,74,0.06);border:1px solid rgba(22,163,74,0.2);border-radius:var(--radius-sm);margin-bottom:var(--space-4)">
-        <div style="font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-2)">Sanctions screen on file</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:var(--space-3);font-size:var(--text-sm)">
-          <div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Date</div>${fmtDate(s.screened_at)}</div>
-          <div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Lists</div>${(s.lists_screened||[]).join(', ')||'—'}</div>
-          <div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Result</div><span class="badge ${RESULT_CLASS[s.result]||'badge-neutral'}">${esc(s.result?.replace('_',' '))}</span></div>
-          ${s.tool_used ? `<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Tool</div>${esc(s.tool_used)}</div>` : ''}
-        </div>
-        ${s.match_resolution_notes ? `<p style="font-size:var(--text-xs);color:var(--color-text-muted);margin:var(--space-2) 0 0">${esc(s.match_resolution_notes)}</p>` : ''}
-      </div>
-      <p style="font-size:var(--text-sm);color:var(--color-text-muted)">A screen is on file for this supplier and satisfies the Stage 1 requirement.</p>`;
-    return;
-  }
-
-  badgeEl.innerHTML = `<span class="badge badge-danger">Screen required</span>`;
-  el.innerHTML = buildNewScreenForm(companyName);
-}
-
-function buildNewScreenForm(companyName) {
-  const today = new Date().toISOString().split('T')[0];
-  return `
-    <div style="display:flex;flex-direction:column;gap:var(--space-4)">
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label" for="s-name">Subject Name Screened</label>
-          <input type="text" class="form-input" id="s-name" value="${esc(companyName)}" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="s-date">Screening Date</label>
-          <input type="date" class="form-input" id="s-date" value="${today}" />
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Lists Screened</label>
-        <div style="display:flex;flex-wrap:wrap;gap:var(--space-4)">
-          ${SANCTIONS_LISTS.map(l =>
-            `<label style="display:flex;gap:var(--space-2);align-items:center;font-size:var(--text-sm);cursor:pointer">
-              <input type="checkbox" class="list-check" value="${esc(l.name)}" style="accent-color:var(--color-accent)" checked /> ${esc(l.name)}
-            </label>`).join('')}
-        </div>
-      </div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label" for="s-tool">Screening Tool / Source</label>
-          <input type="text" class="form-input" id="s-tool" placeholder="e.g. Dow Jones, ComplyAdvantage, manual" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="s-result">Result <span class="required">*</span></label>
-          <select class="form-select" id="s-result">
-            <option value="">Select result…</option>
-            <option value="clear">Clear — no matches</option>
-            <option value="potential_match">Potential match — investigated and cleared</option>
-            <option value="confirmed_match">Confirmed match</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="s-notes">Notes / Match Resolution</label>
-        <textarea class="form-textarea" id="s-notes" rows="2" placeholder="Any potential matches and how they were resolved…"></textarea>
-      </div>
-    </div>`;
-}
-
 // Updates the "Before you begin" checklist for the selected supplier type.
 function renderPrerequisites() {
   const supplierType = document.getElementById('ob-type')?.value;
-  const items = OnboardingWorkflow.buildStage1Prerequisites(supplierType);
+  const items = OnboardingWorkflow.buildStage1aPrerequisites(supplierType);
   const list = document.getElementById('prereq-list');
   if (list) list.innerHTML = items.map(item => `<li>${esc(item)}</li>`).join('');
 }
@@ -283,8 +54,6 @@ function onSupplierTypeChange() {
   const supplierType = document.getElementById('ob-type')?.value;
   const profile = OnboardingWorkflow.getSupplierProfile(supplierType);
 
-  renderFinancialCriterion();
-  applyCriteriaVisibility(supplierType);
   renderPrerequisites();
 
   // Export licence only applies to suppliers exporting goods themselves.
@@ -301,8 +70,6 @@ function onSupplierTypeChange() {
       document.getElementById('ob-qms-details').style.display = 'none';
     }
   }
-
-  updateOverallScore();
 }
 
 // ── Pre-fill from enquiry / existing contact ────────────────────────────
@@ -352,6 +119,21 @@ async function loadExistingContact() {
   if (!c) return;
   contactId = reonboardId;
 
+  const { data: products } = await supabaseClient
+    .from('supplier_quotes')
+    .select('id, product_line_id, product, specification, product_line:product_lines(metal_family, sub_type, name)')
+    .eq('supplier_id', contactId)
+    .not('onboarding_review_status', 'is', null);
+  productsOffered = (products || []).map(p => ({
+    db_id:           p.id,
+    product_line_id: p.product_line_id,
+    product:         p.product_line?.name || p.product,
+    metal_family:    p.product_line?.metal_family || '',
+    sub_type:        p.product_line?.sub_type || '',
+    specification:   p.specification,
+  }));
+  renderProductsOffered();
+
   const { data: obRows } = await supabaseClient
     .from('supplier_onboarding')
     .select('id, workflow_stage')
@@ -359,6 +141,14 @@ async function loadExistingContact() {
     .order('created_at', { ascending: false })
     .limit(1);
   const latestOb = obRows?.[0];
+
+  // onboard.html only handles in-progress drafts or re-onboarding a
+  // previously rejected supplier — any other stage means Stage 1a is
+  // already submitted, so send the user to the supplier detail page instead.
+  if (latestOb && !['draft', 'rejected'].includes(latestOb.workflow_stage)) {
+    location.href = `detail.html?id=${reonboardId}`;
+    return;
+  }
 
   document.getElementById('enquiry-banner').style.display = 'block';
   document.getElementById('enquiry-banner-text').textContent = latestOb?.workflow_stage === 'draft'
@@ -476,6 +266,239 @@ async function insertContact(payload) {
   throw new Error('Failed to create supplier record: ' + error.message);
 }
 
+// ── Products Offered ─────────────────────────────────────────────────────
+
+async function loadProductCatalogue() {
+  try {
+    const { data, error } = await supabaseClient.from('product_families').select('*').order('name');
+    if (error) throw error;
+    productFamilies = (data || []).filter(f => f.active !== false);
+  } catch (error) {
+    console.warn('Unable to load product_families table, falling back to distinct metal_family values:', error.message);
+    const { data: allFamilies } = await supabaseClient.from('product_lines').select('metal_family').order('metal_family');
+    const names = [...new Set((allFamilies || []).map(r => r.metal_family).filter(Boolean))];
+    productFamilies = names.map(name => ({ id: null, name, active: true }));
+  }
+
+  const { data: lines } = await supabaseClient
+    .from('product_lines')
+    .select('id, name, metal_family, sub_type')
+    .eq('active', true)
+    .order('metal_family').order('sub_type').order('name');
+  productLinesCache = lines || [];
+}
+
+function renderProductsOffered() {
+  const tbody = document.getElementById('products-offered-body');
+  if (!tbody) return;
+
+  if (productsOffered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);padding:var(--space-6)">No products added yet.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = productsOffered.map((p, idx) => `
+    <tr>
+      <td>${esc(p.metal_family || '—')}${p.sub_type ? ` / ${esc(p.sub_type)}` : ''}</td>
+      <td style="font-weight:600">${esc(p.product)}</td>
+      <td>${esc(p.specification || '—')}</td>
+      <td style="text-align:right"><button type="button" class="btn btn-ghost btn-sm" onclick="removeProductOffered(${idx})">Remove</button></td>
+    </tr>`).join('');
+}
+
+function openAddProductModal() {
+  const container = document.getElementById('add-product-form-container');
+  container.innerHTML = buildAddProductForm();
+  document.getElementById('add-product-modal').classList.add('open');
+}
+
+function buildAddProductForm() {
+  const familyOptions = productFamilies.map(f => `<option value="${esc(f.name)}">${esc(f.name)}</option>`).join('');
+
+  return `
+    <form id="add-product-form" onsubmit="submitAddProduct(event)">
+      <div class="form-group" style="margin-bottom:var(--space-4)">
+        <label class="form-label">Source</label>
+        <div style="display:flex;gap:var(--space-5)">
+          <label style="display:flex;align-items:center;gap:var(--space-2);font-weight:normal">
+            <input type="radio" name="add-product-mode" value="catalogue" checked onchange="onAddProductModeChange()" /> From catalogue
+          </label>
+          <label style="display:flex;align-items:center;gap:var(--space-2);font-weight:normal">
+            <input type="radio" name="add-product-mode" value="new" onchange="onAddProductModeChange()" /> New product line
+          </label>
+        </div>
+      </div>
+
+      <div id="add-product-catalogue-fields" class="form-grid" style="margin-bottom:var(--space-4)">
+        <div class="form-group">
+          <label class="form-label">Family <span class="required">*</span></label>
+          <select class="form-select" id="add-product-family" onchange="onAddProductFamilyChange()">
+            <option value="">— Select family —</option>
+            ${familyOptions}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Product <span class="required">*</span></label>
+          <select class="form-select" id="add-product-line">
+            <option value="">— Select family first —</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="add-product-new-fields" class="form-grid" style="margin-bottom:var(--space-4);display:none">
+        <div class="form-group">
+          <label class="form-label">Family <span class="required">*</span></label>
+          <select class="form-select" id="add-product-new-family" onchange="onAddProductNewFamilyChange()">
+            <option value="">— Select family —</option>
+            ${familyOptions}
+            <option value="__new__">— New family —</option>
+          </select>
+          <input type="text" class="form-input" id="add-product-new-family-name" placeholder="New family name" style="display:none;margin-top:var(--space-2)" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sub-type</label>
+          <input type="text" class="form-input" id="add-product-new-subtype" placeholder="e.g. Alloy Wire, EC Grade, 6XXX Series" />
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Product Name <span class="required">*</span></label>
+          <input type="text" class="form-input" id="add-product-new-name" placeholder="e.g. Aluminium Alloy Core Wire EC Grade" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Specification</label>
+        <input type="text" class="form-input" id="add-product-spec" placeholder="Grade, size, standard, etc. the supplier offers" />
+      </div>
+
+      <div id="add-product-alert" class="alert" style="display:none;margin-top:var(--space-3)"></div>
+
+      <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5)">
+        <button type="submit" class="btn btn-primary">Add Product</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-product-modal').classList.remove('open')">Cancel</button>
+      </div>
+    </form>`;
+}
+
+function onAddProductModeChange() {
+  const mode = document.querySelector('input[name="add-product-mode"]:checked')?.value;
+  document.getElementById('add-product-catalogue-fields').style.display = mode === 'catalogue' ? '' : 'none';
+  document.getElementById('add-product-new-fields').style.display = mode === 'new' ? '' : 'none';
+}
+
+function onAddProductFamilyChange() {
+  const family = document.getElementById('add-product-family')?.value;
+  const sel = document.getElementById('add-product-line');
+  const lines = productLinesCache.filter(pl => pl.metal_family === family);
+
+  if (!family || lines.length === 0) {
+    sel.innerHTML = '<option value="">— Select family first —</option>';
+    return;
+  }
+
+  sel.innerHTML = '<option value="">— Select product —</option>' +
+    lines.map(pl => `<option value="${esc(pl.id)}">${esc(pl.sub_type ? `${pl.sub_type} — ${pl.name}` : pl.name)}</option>`).join('');
+}
+
+function onAddProductNewFamilyChange() {
+  const val = document.getElementById('add-product-new-family')?.value;
+  document.getElementById('add-product-new-family-name').style.display = val === '__new__' ? '' : 'none';
+}
+
+async function submitAddProduct(e) {
+  e.preventDefault();
+  const alertEl = document.getElementById('add-product-alert');
+  const showError = (msg) => {
+    alertEl.style.display = 'block';
+    alertEl.className = 'alert alert-error';
+    alertEl.textContent = msg;
+  };
+
+  const mode = document.querySelector('input[name="add-product-mode"]:checked')?.value;
+  const specification = document.getElementById('add-product-spec')?.value.trim() || null;
+
+  let productLineId, product, metalFamily, subType;
+
+  if (mode === 'catalogue') {
+    productLineId = document.getElementById('add-product-line')?.value;
+    if (!productLineId) return showError('Select a product from the catalogue.');
+
+    const pl = productLinesCache.find(p => p.id === productLineId);
+    if (!pl) return showError('Selected product could not be found.');
+    product = pl.name;
+    metalFamily = pl.metal_family;
+    subType = pl.sub_type;
+
+  } else {
+    const familySel = document.getElementById('add-product-new-family')?.value;
+    const newFamilyName = document.getElementById('add-product-new-family-name')?.value.trim();
+    subType = document.getElementById('add-product-new-subtype')?.value.trim() || null;
+    product = document.getElementById('add-product-new-name')?.value.trim();
+
+    if (!familySel) return showError('Select or create a family.');
+    if (familySel === '__new__' && !newFamilyName) return showError('Enter a name for the new family.');
+    if (!product) return showError('Enter a product name.');
+
+    metalFamily = familySel === '__new__' ? newFamilyName : familySel;
+
+    if (familySel === '__new__') {
+      await supabaseClient.from('product_families').insert({ name: metalFamily, active: true });
+    }
+
+    const { data: newPl, error: plErr } = await supabaseClient
+      .from('product_lines')
+      .insert({ metal_family: metalFamily, sub_type: subType, name: product, active: true })
+      .select('id').single();
+    if (plErr) return showError('Failed to create product line: ' + plErr.message);
+
+    productLineId = newPl.id;
+    productLinesCache.push({ id: productLineId, name: product, metal_family: metalFamily, sub_type: subType });
+  }
+
+  if (productsOffered.some(p => p.product_line_id === productLineId)) {
+    return showError('This product has already been added.');
+  }
+
+  productsOffered.push({ db_id: null, product_line_id: productLineId, product, metal_family: metalFamily, sub_type: subType, specification });
+  renderProductsOffered();
+  document.getElementById('add-product-modal').classList.remove('open');
+}
+
+function removeProductOffered(idx) {
+  const entry = productsOffered[idx];
+  if (entry.db_id) removedProductIds.push(entry.db_id);
+  productsOffered.splice(idx, 1);
+  renderProductsOffered();
+}
+
+// Persists productsOffered/removedProductIds to supplier_quotes once the
+// contact record exists. Called from both Save & Exit and Submit for Review.
+async function syncProductsOffered(supplierId) {
+  for (const p of productsOffered) {
+    if (p.db_id) continue;
+    const { data, error } = await supabaseClient
+      .from('supplier_quotes')
+      .insert({
+        supplier_id:               supplierId,
+        product_line_id:           p.product_line_id,
+        product:                   p.product,
+        specification:             p.specification,
+        incoterm:                  'FOB',
+        fob_price_usd:             0,
+        status:                    'pending',
+        onboarding_review_status:  'pending_review',
+      })
+      .select('id').single();
+    if (error) throw new Error('Failed to save offered product: ' + error.message);
+    p.db_id = data.id;
+  }
+
+  if (removedProductIds.length) {
+    const { error } = await supabaseClient.from('supplier_quotes').delete().in('id', removedProductIds);
+    if (error) throw new Error('Failed to remove product: ' + error.message);
+    removedProductIds = [];
+  }
+}
+
 // ── Save Progress & Exit ─────────────────────────────────────────────────
 
 async function submitSaveAndExit() {
@@ -505,6 +528,8 @@ async function submitSaveAndExit() {
       if (error) throw new Error('Failed to update supplier record: ' + error.message);
     }
 
+    await syncProductsOffered(contactId);
+
     if (!onboardingId) {
       const { data: onboarding, error: obErr } = await supabaseClient
         .from('supplier_onboarding')
@@ -533,9 +558,9 @@ async function submitSaveAndExit() {
   }
 }
 
-// ── Complete Stage 1 ──────────────────────────────────────────────────────
+// ── Submit for Compliance Review ─────────────────────────────────────────
 
-async function submitStage1Complete() {
+async function submitForComplianceReview() {
   const errEl = document.getElementById('ob-error');
   errEl.style.display = 'none';
 
@@ -547,7 +572,6 @@ async function submitStage1Complete() {
   const contactEmail = document.getElementById('ob-contact-email')?.value.trim();
   const qms          = document.getElementById('ob-qms')?.value;
   const profile      = OnboardingWorkflow.getSupplierProfile(supplierType);
-  const criteria     = OnboardingWorkflow.getRiskCriteria(supplierType);
 
   const missing = [];
   if (!company)      missing.push('Company Name');
@@ -558,32 +582,11 @@ async function submitStage1Complete() {
   if (!contactEmail) missing.push('Email');
   if (!qms && profile.showQms) missing.push('Quality Management System');
 
-  // Sanctions screening
-  let sanctionsResult = existingSanctionsScreen?.result || null;
-  if (!existingSanctionsScreen) {
-    sanctionsResult = document.getElementById('s-result')?.value || null;
-    if (!sanctionsResult) missing.push('Sanctions Screening Result');
-  }
-
-  // Risk assessment
-  const scores = getScores(criteria);
-  if (!existingRiskAssessment && scores.some(s => s === null)) {
-    missing.push('Preliminary Risk Assessment (all required criteria)');
-  }
-  const overrideChecked = document.getElementById('override-check')?.checked;
-  if (overrideChecked && !document.getElementById('override-reason')?.value.trim()) {
-    missing.push('Risk assessment override reason');
-  }
-
   if (missing.length) {
     errEl.textContent = `Please complete: ${missing.join(', ')}.`;
     errEl.style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
-  }
-
-  if (sanctionsResult === 'confirmed_match') {
-    if (!confirm('A confirmed sanctions match will result in this onboarding being rejected. Proceed?')) return;
   }
 
   const btn = document.getElementById('complete-btn');
@@ -609,7 +612,7 @@ async function submitStage1Complete() {
         );
         if (!proceed) {
           btn.disabled = false;
-          btn.textContent = 'Complete Stage 1 — Ready to Quote';
+          btn.textContent = 'Submit for Compliance Review';
           return;
         }
       }
@@ -618,6 +621,8 @@ async function submitStage1Complete() {
       const { error } = await supabaseClient.from('contacts').update(payload).eq('id', contactId);
       if (error) throw new Error('Failed to update supplier record: ' + error.message);
     }
+
+    await syncProductsOffered(contactId);
 
     // ── 2. Upsert onboarding record ──────────────────────────────────
     if (!onboardingId) {
@@ -654,96 +659,24 @@ async function submitStage1Complete() {
       }
     }
 
-    // ── 3. Sanctions screen ───────────────────────────────────────────
-    if (!existingSanctionsScreen) {
-      const lists = Array.from(document.querySelectorAll('.list-check:checked')).map(el => el.value);
-      const { data: screen, error: sErr } = await supabaseClient.from('sanctions_screens').insert({
-        subject_type:           'contact',
-        subject_id:             contactId,
-        subject_name_snapshot:  document.getElementById('s-name')?.value.trim(),
-        screened_at:            document.getElementById('s-date')?.value
-                                  ? new Date(document.getElementById('s-date').value).toISOString()
-                                  : new Date().toISOString(),
-        screened_by:            user?.id,
-        lists_screened:         lists,
-        tool_used:              document.getElementById('s-tool')?.value.trim() || null,
-        result:                 sanctionsResult,
-        match_resolution_notes: document.getElementById('s-notes')?.value.trim() || null,
-      }).select('id').single();
-      if (sErr) throw new Error('Failed to save sanctions screen: ' + sErr.message);
-
-      await supabaseClient.from('contacts').update({
-        last_sanctions_screened_at: new Date().toISOString(),
-        last_sanctions_result:      sanctionsResult,
-      }).eq('id', contactId);
-
-      await OnboardingWorkflow.logEvent(contactId, onboardingId, 'sanctions_linked',
-        `Sanctions screen recorded: result = ${sanctionsResult}.`, { screen_id: screen.id }
-      );
-    }
-
-    // ── 4. Preliminary risk assessment ────────────────────────────────
-    let riskCat = existingRiskAssessment?.risk_category || null;
-    if (!existingRiskAssessment) {
-      const overall = OnboardingWorkflow.computeOverall(scores, criteria);
-      const isOverride = overrideChecked || false;
-      riskCat = isOverride
-        ? (document.getElementById('override-category')?.value || OnboardingWorkflow.riskCategory(overall, scores))
-        : OnboardingWorkflow.riskCategory(overall, scores);
-      const nextYear = new Date(); nextYear.setFullYear(nextYear.getFullYear() + 1);
-      const notes = criteria.map(c => document.getElementById(`notes-${c}`)?.value.trim() || null);
-
-      const { error: raErr } = await supabaseClient.from('supplier_risk_assessment').insert({
-        supplier_id:                    contactId,
-        onboarding_id:                  onboardingId,
-        ...OnboardingWorkflow.buildRiskScorePayload(criteria, scores, notes),
-        overall_score:                  overall,
-        risk_category:                  riskCat,
-        overall_notes:                  document.getElementById('overall-notes')?.value.trim()    || null,
-        risk_category_override:         isOverride,
-        risk_category_override_reason:  isOverride ? (document.getElementById('override-reason')?.value.trim() || null) : null,
-        assessed_by:                    user?.id,
-        assessment_date:                new Date().toISOString(),
-        next_assessment_due:            nextYear.toISOString().split('T')[0],
-      });
-      if (raErr) throw new Error('Failed to save risk assessment: ' + raErr.message);
-
-      await supabaseClient.from('supplier_onboarding')
-        .update({ risk_level: riskCat, updated_at: new Date().toISOString() })
-        .eq('id', onboardingId);
-
-      await OnboardingWorkflow.logEvent(contactId, onboardingId, 'risk_assessment_saved',
-        `Preliminary risk assessment completed. Overall score: ${overall?.toFixed(2)} → ${riskCat} risk.${isOverride ? ' (Category overridden)' : ''}`,
-        { overall_score: overall, risk_category: riskCat, override: isOverride }
-      );
-    }
-
-    // ── 5. Confirmed sanctions match → reject immediately ─────────────
-    if (sanctionsResult === 'confirmed_match') {
-      await OnboardingWorkflow.rejectOnboarding(onboardingId, 'stage1_complete',
-        'Confirmed sanctions match identified during Stage 1 screening.');
-      location.href = `detail.html?id=${contactId}`;
-      return;
-    }
-
-    // ── 6. Advance to stage1_complete ─────────────────────────────────
-    const result = await OnboardingWorkflow.advanceStage(onboardingId, 'stage1_complete');
+    // ── 3. Advance to pending_compliance ──────────────────────────────
+    const result = await OnboardingWorkflow.advanceStage(onboardingId, 'pending_compliance');
     if (!result.ok) {
-      errEl.innerHTML = '<strong>Saved, but Stage 1 cannot be marked complete yet:</strong>' + OnboardingWorkflow.renderBlockers(result.blockers);
+      errEl.innerHTML = '<strong>Saved, but cannot be submitted for compliance review yet:</strong>' + OnboardingWorkflow.renderBlockers(result.blockers);
       errEl.style.display = 'block';
       btn.disabled = false;
-      btn.textContent = 'Complete Stage 1 — Ready to Quote';
+      btn.textContent = 'Submit for Compliance Review';
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    location.href = `detail.html?id=${contactId}&onboarding_new=1`;
+    location.href = `detail.html?id=${contactId}`;
 
   } catch (err) {
     errEl.textContent = err.message;
     errEl.style.display = 'block';
     btn.disabled = false;
-    btn.textContent = 'Complete Stage 1 — Ready to Quote';
+    btn.textContent = 'Submit for Compliance Review';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }
@@ -754,12 +687,14 @@ async function submitStage1Complete() {
   const user = await getCurrentUser();
   if (document.getElementById('user-email')) document.getElementById('user-email').textContent = user?.email || '';
 
-  renderSanctionsListLinks();
-
   document.getElementById('save-exit-btn').addEventListener('click', submitSaveAndExit);
-  document.getElementById('complete-btn').addEventListener('click', submitStage1Complete);
+  document.getElementById('complete-btn').addEventListener('click', submitForComplianceReview);
   document.getElementById('ob-type').addEventListener('change', onSupplierTypeChange);
   document.getElementById('ob-qms').addEventListener('change', toggleQmsFields);
+  document.getElementById('add-product-offered-btn').addEventListener('click', openAddProductModal);
+
+  await loadProductCatalogue();
+  renderProductsOffered();
 
   if (enquiryId)   await loadEnquiry();
   if (reonboardId) await loadExistingContact();
@@ -770,13 +705,4 @@ async function submitStage1Complete() {
 
   toggleQmsFields();
   onSupplierTypeChange();
-
-  await loadSanctionsSection();
-
-  if (onboardingId) {
-    const { data: ra } = await supabaseClient
-      .from('supplier_risk_assessment').select('*').eq('onboarding_id', onboardingId).maybeSingle();
-    existingRiskAssessment = ra || null;
-    if (existingRiskAssessment) prefillRiskAssessment(existingRiskAssessment);
-  }
 })();

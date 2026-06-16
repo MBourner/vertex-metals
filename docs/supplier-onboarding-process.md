@@ -13,7 +13,7 @@
 | Director — Commercial | Jackson Paul | `director_commercial` | Supplier identification, enquiry assessment, intake, Stage 1 registration, final approval/rejection decision, annual audit of sample onboarding decisions |
 | Director — Operations & Compliance | Martyn Bourner | `director_compliance` | Sanctions screening, risk assessment, document collection, ESG/bank/TOB vetting, recommendation |
 
-Either director can complete Stage 1 or Stage 2 — role-specific form sections (recommendation vs. final decision) are gated inside `onboard.js`/`pre-trade.js`, not by page access.
+Stage 1 is now explicitly split by role: Jackson submits Stage 1a — Registration (`onboard.html`) for compliance review, and Martyn completes Stage 1b — Compliance Review (`compliance-review.html`), which marks the supplier "Ready to Quote". Stage 2 remains either-director, with role-specific form sections (recommendation vs. final decision) gated inside `pre-trade.js`, not by page access.
 
 ---
 
@@ -31,10 +31,11 @@ UAT of the earlier 8-stage ISO 9001 workflow found it too granular and front-loa
 
 ## Workflow Stages
 
-`supplier_onboarding.workflow_stage` is a 7-value, app-enforced enum (no DB CHECK constraint):
+`supplier_onboarding.workflow_stage` is an 8-value, app-enforced enum (no DB CHECK constraint):
 
 ```
-draft                   ──► Stage 1 in progress ("Pending Stage 1" on the pipeline)
+draft                   ──► Stage 1a in progress ("Pending Stage 1" on the pipeline)
+pending_compliance      ──► Stage 1a submitted, awaiting compliance review
 stage1_complete         ──► Stage 1 Complete (Ready to Quote)
 pending_stage2          ──► Stage 2 in progress
 awaiting_supplier_info  ──► Stage 2 paused, waiting on the supplier
@@ -51,12 +52,18 @@ Website contact form ──► Supplier Enquiry (portal)
             ┌───────────────────┴───────────────────┐
           Decline                                  Convert
     (reason recorded)                                 │
-                                          ┌────────────▼────────────┐
-                                          │   STAGE 1 — onboard.html │
-                                          │   "Quoting Only"         │
-                                          │   workflow_stage:        │
-                                          │   draft → stage1_complete│
-                                          └────────────┬────────────┘
+                                          ┌────────────▼─────────────────┐
+                                          │  STAGE 1a — onboard.html      │
+                                          │  "Registration" (Jackson)     │
+                                          │  workflow_stage:               │
+                                          │  draft → pending_compliance    │
+                                          └────────────┬───────────────────┘
+                                                        │  Submitted for compliance review
+                                          ┌─────────────▼───────────────────────┐
+                                          │  STAGE 1b — compliance-review.html   │
+                                          │  "Compliance Review" (Martyn)        │
+                                          │  pending_compliance → stage1_complete│
+                                          └─────────────┬─────────────────────────┘
                                                         │  Ready to Quote
                                           ┌─────────────▼─────────────┐
                                           │  STAGE 2 — pre-trade.html  │
@@ -112,9 +119,9 @@ Jackson can also raise an enquiry manually in the portal (`source = 'manual_entr
 
 ---
 
-## Stage 1 — Quoting Only (`portal/suppliers/onboard.html`, `js/portal/onboard.js`)
+## Stage 1a — Registration (`portal/suppliers/onboard.html`, `js/portal/onboard.js`)
 
-Stage 1 is a multi-panel page. A draft can be saved and resumed at any point ("Save Progress & Exit" → `workflow_stage = 'draft'`).
+Jackson's intake form. A draft can be saved and resumed at any point ("Save Progress & Exit" → `workflow_stage = 'draft'`).
 
 ### 1. Company Details
 
@@ -132,9 +139,30 @@ Registered/HQ address (line 1/2, city, postcode, country). A separate dispatch/w
 
 Primary contact name, email, phone.
 
-### 4. Sanctions Screening (all supplier types)
+### Products Offered
 
-Martyn or Jackson screens the supplier against:
+The product lines this supplier is offering to supply. Jackson either selects an existing product line from the catalogue (family → product, where the product label shows `sub_type — name`), or registers a brand-new product line inline — picking an existing family or creating a new one (`product_families`), plus a sub-type and product name (`product_lines`, `active: true`). A free-text **Specification** field (grade/size/standard etc.) applies to either path.
+
+Each product added creates a `supplier_quotes` row once the contact record exists (`status: 'pending'`, placeholder `fob_price_usd: 0`, `incoterm: 'FOB'`, `onboarding_review_status: 'pending_review'`) — the same "permitted to supply, no live quote yet" link used by the supplier detail page's Products tab. Products can be removed before submission (deletes the row); this section can be left empty.
+
+### Submitting for Compliance Review
+
+**"Submit for Compliance Review"** runs `checkGates(onboarding, contact, 'pending_compliance')`, which requires:
+
+- Company name, registration number, country, supplier type, primary contact name, email, supplier reference all set
+- `qms_certification` recorded (any of the four values, including `'none'`, satisfies the gate) — **not required for `packaging` suppliers**, where the field is hidden
+
+On success: `workflow_stage → 'pending_compliance'`, `vetting_assigned_to` set (looked up from the `director_compliance` user), `stage_advanced` (+ `onboarding_created` / `enquiry_converted` where applicable) logged. The supplier now appears as **"Pending Compliance Review"** on the pipeline and its detail page, with a "Compliance Review →" action shown to Martyn.
+
+---
+
+## Stage 1b — Compliance Review (`portal/suppliers/compliance-review.html`, `js/portal/compliance-review.js`)
+
+Martyn's compliance sign-off. URL: `compliance-review.html?supplier_id={contactId}&onboarding_id={onboardingId}`. A read-only Supplier Summary panel shows the company/address/contact details Jackson captured in Stage 1a.
+
+### 1. Sanctions Screening (all supplier types)
+
+Martyn screens the supplier against:
 
 | List | |
 |---|---|
@@ -144,7 +172,7 @@ Martyn or Jackson screens the supplier against:
 
 Result (`result`, `screened_at`, `tool_used`, `match_resolution_notes`) is recorded as a `sanctions_screens` row (`subject_type = 'contact'`, `subject_id = contacts.id`). A confirmed match triggers rejection (`OnboardingWorkflow.rejectOnboarding`) rather than allowing Stage 1 to complete.
 
-### 5. Preliminary Risk Assessment (all supplier types)
+### 2. Preliminary Risk Assessment (all supplier types)
 
 Guided scoring form, written to a new `supplier_risk_assessment` row (`onboarding_id` = this onboarding):
 
@@ -168,7 +196,7 @@ Guided scoring form, written to a new `supplier_risk_assessment` row (`onboardin
 
 **Financial viability — simplified track (`logistics`, `packaging`, `service_provider`)**: these suppliers are paid directly by Vertex on standard terms, so traditional creditworthiness applies. Definition unchanged for now (1 = strong/audited accounts … 5 = no financial information obtainable) — *under review, may be revised separately*.
 
-The Stage 1 form (`onboard.html`) swaps the Financial Viability description and score options automatically based on the selected supplier type. The Stage 2 Risk Assessment Review panel (`pre-trade.html`, full-diligence only) always shows the LC-based definitions.
+The Stage 1b form (`compliance-review.html`) swaps the Financial Viability description and score options automatically based on the supplier's type. The Stage 2 Risk Assessment Review panel (`pre-trade.html`, full-diligence only) always shows the LC-based definitions.
 
 Overall score (average) and derived category:
 
@@ -180,16 +208,22 @@ Overall score (average) and derived category:
 
 The assessor can override the computed category with a mandatory reason (`risk_category_override`, `risk_category_override_reason`). For full-diligence suppliers this assessment is **preliminary** — it is reviewed and refined in Stage 2 (see below). For simplified-track suppliers, this assessment stands as final.
 
+### 3. Products Offered — Review
+
+If Jackson registered any products offered in Stage 1a, they appear here as a table (Family/Sub-type, Product, Specification) with a per-row **Review** select (Pending Review / Approved / Rejected) and a **Notes** field, defaulting to each row's stored `onboarding_review_status` / `onboarding_review_notes`. If none were offered, the panel shows "No products were offered during registration."
+
+On "Complete Stage 1 — Ready to Quote", each row's `onboarding_review_status` / `onboarding_review_notes` is saved back to its `supplier_quotes` row. Rejected products are **kept, not deleted** — they remain visible on the supplier's Products tab flagged "Rejected" for audit, but should not be pursued for quoting.
+
 ### Completing Stage 1
 
 **"Complete Stage 1 — Ready to Quote"** runs `checkGates(onboarding, contact, 'stage1_complete')`, which requires:
 
-- Company name, registration number, country, supplier type, primary contact name, email, supplier reference all set
-- `qms_certification` recorded (any of the four values, including `'none'`, satisfies the gate) — **not required for `packaging` suppliers**, where the field is hidden
+- `workflow_stage` must already be `'pending_compliance'` (i.e. Stage 1a has been submitted)
 - A `sanctions_screens` row exists for this contact
 - A `supplier_risk_assessment` row exists for this onboarding
+- Every product offered during Stage 1a has been reviewed — no `supplier_quotes` row for this supplier may remain `onboarding_review_status = 'pending_review'`
 
-On success: `workflow_stage → 'stage1_complete'`, `vetting_assigned_to` set, `stage_advanced` (+ `onboarding_created` / `enquiry_converted` where applicable) logged. The supplier is now **Ready to Quote** — `supplier_quotes` can reference it — and appears with a "Begin Stage 2 — Pre-Trade Vetting →" action on its detail page.
+On success: `workflow_stage → 'stage1_complete'`, `stage_advanced` logged. The supplier is now **Ready to Quote** — `supplier_quotes` can reference it — and appears with a "Begin Stage 2 — Pre-Trade Vetting →" action on its detail page.
 
 ---
 

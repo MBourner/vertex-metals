@@ -153,7 +153,7 @@ function renderHeader() {
   document.getElementById('supplier-header').innerHTML = `
     <div class="supplier-header__top">
       <div class="supplier-header__id">
-        <h1>${esc(s.company_name)}</h1>
+        <h1>${countryFlagEmoji(s.country) ? `<span style="margin-right:var(--space-2)">${countryFlagEmoji(s.country)}</span>` : ''}${esc(s.company_name)}</h1>
         <div class="supplier-header__tags">
           ${s.supplier_reference ? `<span class="badge badge-neutral" style="font-family:monospace">${esc(s.supplier_reference)}</span>` : ''}
           ${s.supplier_type ? `<span class="badge badge-accent">${esc(s.supplier_type.replace(/_/g,' '))}</span>` : ''}
@@ -190,7 +190,12 @@ function headerActionsHtml(ob) {
 
   let primary = '';
   if (ob.workflow_stage === 'draft') {
-    primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Continue Stage 1 →</a>`;
+    primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Continue Registration →</a>`;
+  } else if (ob.workflow_stage === 'pending_compliance') {
+    const isCompliance = PortalRoles.getRoles().includes('director_compliance');
+    primary = isCompliance
+      ? `<a href="compliance-review.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Compliance Review →</a>`
+      : `<span class="badge badge-warning">Pending Compliance Review</span>`;
   } else if (ob.workflow_stage === 'stage1_complete') {
     primary = `<a href="pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Begin Stage 2 →</a>`;
   } else if (ob.workflow_stage === 'pending_stage2') {
@@ -300,6 +305,7 @@ async function nextBestActionHtml() {
   const s = supplierData;
   const ob = onboardingData;
   const isCommercial = PortalRoles.getRoles().includes('director_commercial');
+  const isCompliance = PortalRoles.getRoles().includes('director_compliance');
 
   if (!ob) {
     return `<p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-bottom:var(--space-3)">No onboarding process has been started for this supplier.</p>
@@ -315,20 +321,31 @@ async function nextBestActionHtml() {
     return `<p style="color:var(--color-text-muted);font-size:var(--text-sm);margin:0">Onboarding complete — supplier is Trade Ready. No outstanding actions.</p>`;
   }
 
-  const target = ob.workflow_stage === 'draft' ? 'stage1_complete'
+  const target = ob.workflow_stage === 'draft' ? 'pending_compliance'
+               : ob.workflow_stage === 'pending_compliance' ? 'stage1_complete'
                : ob.workflow_stage === 'stage2_complete' ? 'trade_ready'
                : 'stage2_complete';
 
   const gates = await OnboardingWorkflow.checkGates(ob, s, target);
 
   const ctas = {
-    draft:                  { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Continue Stage 1 →' },
+    draft:                  { href: `onboard.html?supplier_id=${esc(supplierId)}`, label: 'Continue Registration →' },
+    pending_compliance:     { href: `compliance-review.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Compliance Review →' },
     stage1_complete:        { href: `pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Begin Stage 2 →' },
     pending_stage2:         { href: `pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Continue Stage 2 →' },
     awaiting_supplier_info: { href: `pre-trade.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Continue Stage 2 →' },
     stage2_complete:        { href: `trade-ready.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}`, label: 'Begin Stage 3 — Trade Ready Sign-off →' },
   };
   const cta = ctas[ob.workflow_stage];
+
+  if (ob.workflow_stage === 'pending_compliance' && !isCompliance) {
+    return `
+      <p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-bottom:var(--space-3)">Awaiting compliance review.</p>
+      <ul style="margin:0;padding-left:var(--space-4);font-size:var(--text-sm)">
+        ${gates.blockers.map(b => `<li>${esc(b)}</li>`).join('')}
+      </ul>
+    `;
+  }
 
   if (gates.passed) {
     return `<p style="font-size:var(--text-sm);margin-bottom:var(--space-3)">All requirements for the next stage are in place.</p>
@@ -469,7 +486,10 @@ function productRowHtml(q) {
     <td style="font-family:var(--font-display)">${q.status === 'pending' ? '—' : '$' + fmt(q.fob_price_usd)}</td>
     <td>${esc(q.incoterm || '—')}</td>
     <td>${q.validity_date ? fmtDate(q.validity_date) : '—'}</td>
-    <td><span class="badge ${PRODUCT_STATUS_CLASS[q.status] || 'badge-neutral'}">${esc(PRODUCT_STATUS_LABEL[q.status] || q.status)}</span></td>
+    <td>
+      <span class="badge ${PRODUCT_STATUS_CLASS[q.status] || 'badge-neutral'}">${esc(PRODUCT_STATUS_LABEL[q.status] || q.status)}</span>
+      ${q.onboarding_review_status ? `<span class="badge ${OnboardingWorkflow.PRODUCT_REVIEW_BADGE[q.onboarding_review_status] || 'badge-neutral'}" style="margin-left:var(--space-1)">${esc(OnboardingWorkflow.PRODUCT_REVIEW_LABELS[q.onboarding_review_status] || q.onboarding_review_status)}</span>` : ''}
+    </td>
     <td style="text-align:right">
       <button class="btn btn-secondary btn-sm" onclick="openEditProductModal('${esc(q.id)}')">Edit</button>
       ${q.status === 'pending' ? `<button class="btn btn-ghost btn-sm" style="color:var(--color-danger)" onclick="removeProduct('${esc(q.id)}')">Remove</button>` : ''}
@@ -937,7 +957,14 @@ async function loadOnboarding() {
 
     if (ob.workflow_stage === 'draft') {
       advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center">
-        <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Continue Stage 1 →</a>
+        <a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Continue Registration →</a>
+        ${rejectBtn}</div>`;
+
+    } else if (ob.workflow_stage === 'pending_compliance') {
+      const isCompliance = PortalRoles.getRoles().includes('director_compliance');
+      advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
+        <span class="badge badge-warning">Pending Compliance Review</span>
+        ${isCompliance ? `<a href="compliance-review.html?supplier_id=${esc(supplierId)}&onboarding_id=${esc(ob.id)}" class="btn btn-primary btn-sm">Begin Compliance Review →</a>` : ''}
         ${rejectBtn}</div>`;
 
     } else if (ob.workflow_stage === 'stage1_complete') {
@@ -1125,6 +1152,10 @@ function openEditAddressModal() {
           </div>
         </div>
         <div class="form-group">
+          <label class="form-label">Country</label>
+          <select class="form-select" id="addr-country">${countryOptionsHtml(s.country)}</select>
+        </div>
+        <div class="form-group">
           <label class="form-label" style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
             <input type="checkbox" id="addr-dispatch-different" ${dispatchDifferent ? 'checked' : ''} onchange="document.getElementById('addr-dispatch-fields').style.display=this.checked?'flex':'none'" />
             Goods are dispatched from a different address (e.g. separate warehouse)
@@ -1151,7 +1182,7 @@ function openEditAddressModal() {
           </div>
           <div class="form-group">
             <label class="form-label">Dispatch Country</label>
-            <input type="text" class="form-input" id="addr-dispatch-country" value="${esc(s.dispatch_country || '')}" placeholder="Country goods ship from" />
+            <select class="form-select" id="addr-dispatch-country">${countryOptionsHtml(s.dispatch_country)}</select>
           </div>
         </div>
       </div>
@@ -1175,11 +1206,12 @@ async function submitEditAddress(e) {
     address_line_2: document.getElementById('addr-line2')?.value.trim() || null,
     city:           document.getElementById('addr-city')?.value.trim()  || null,
     postcode:       document.getElementById('addr-postcode')?.value.trim() || null,
+    country:        document.getElementById('addr-country')?.value || null,
     dispatch_address_line_1: dispatchDifferent ? (document.getElementById('addr-dispatch-line1')?.value.trim() || null) : null,
     dispatch_address_line_2: dispatchDifferent ? (document.getElementById('addr-dispatch-line2')?.value.trim() || null) : null,
     dispatch_city:           dispatchDifferent ? (document.getElementById('addr-dispatch-city')?.value.trim()  || null) : null,
     dispatch_postcode:       dispatchDifferent ? (document.getElementById('addr-dispatch-postcode')?.value.trim() || null) : null,
-    dispatch_country:        dispatchDifferent ? (document.getElementById('addr-dispatch-country')?.value.trim() || null) : null,
+    dispatch_country:        dispatchDifferent ? (document.getElementById('addr-dispatch-country')?.value || null) : null,
   };
 
   const { error } = await supabaseClient.from('contacts').update(payload).eq('id', supplierId);

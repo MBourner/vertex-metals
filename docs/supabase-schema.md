@@ -392,8 +392,12 @@
 | `created_at` | `timestamptz` |  |
 | `updated_at` | `timestamptz` |  |
 | `product_line_id` | `uuid` |  Nullable |
+| `onboarding_review_status` | `text` |  Nullable, app-enforced enum |
+| `onboarding_review_notes` | `text` |  Nullable |
 
 `pending` represents a product line linked to a supplier as "permitted to supply" with no live quote yet (added from the supplier detail page's Products tab, with placeholder `fob_price_usd: 0` and `incoterm: 'FOB'`). It is excluded from all `.eq('status','active')` lookups used by the calculator, RFQ matching, and supplier PO selection until edited with real pricing.
+
+`onboarding_review_status` is `NULL` for product links not created via onboarding (e.g. added later from the supplier detail page's Products tab), or one of `pending_review | approved | rejected` for products offered during Stage 1a registration and reviewed by compliance during Stage 1b. `onboarding_review_notes` holds the compliance director's notes for that review. Rejected rows are kept (not deleted) for audit, flagged "Rejected" on the Products tab.
 
 ## Table `trades`
 
@@ -530,7 +534,7 @@ Central workflow state machine for each onboarding attempt. Jackson raises it; M
 | `id` | `uuid` | Primary |
 | `contact_id` | `uuid` | FK → contacts |
 | `enquiry_id` | `uuid` |  Nullable FK → supplier_enquiries |
-| `workflow_stage` | `text` | App-enforced enum (no DB CHECK constraint), redesigned in migration 20260612d: `'draft'` \| `'stage1_complete'` \| `'pending_stage2'` \| `'awaiting_supplier_info'` \| `'stage2_complete'` \| `'trade_ready'` \| `'rejected'`. See `docs/supplier-onboarding-process.md` for the 3-phase model |
+| `workflow_stage` | `text` | App-enforced enum (no DB CHECK constraint), redesigned in migration 20260612d: `'draft'` \| `'pending_compliance'` \| `'stage1_complete'` \| `'pending_stage2'` \| `'awaiting_supplier_info'` \| `'stage2_complete'` \| `'trade_ready'` \| `'rejected'`. See `docs/supplier-onboarding-process.md` for the 3-phase model |
 | `risk_level` | `text` |  Nullable — `'low'` \| `'medium'` \| `'high'` |
 | `raised_by` | `uuid` |  Nullable FK → auth.users (Jackson) |
 | `vetting_assigned_to` | `uuid` |  Nullable FK → auth.users (Martyn) |

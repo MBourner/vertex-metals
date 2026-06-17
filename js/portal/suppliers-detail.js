@@ -34,6 +34,7 @@ const _tabLoaded = {};
 let supplierData = null;
 let allOnboardings = [];
 let onboardingData = null;
+let gate1ComplianceApproval = null;
 
 // ── Address helpers ──────────────────────────────────────────────────────
 
@@ -145,9 +146,9 @@ const APPROVAL_CLASS = {
 function renderHeader() {
   const s = supplierData;
   const ob = onboardingData;
-  const lifecycle = OnboardingWorkflow.lifecycleStatus(s, ob);
+  const lifecycle = OnboardingWorkflow.lifecycleStatus(s, ob, gate1ComplianceApproval);
   const perms = OnboardingWorkflow.computePermissions(s, ob);
-  const capSummary = OnboardingWorkflow.capabilitySummary(perms);
+  const CAP_LABELS = { appear_in_quotes: 'Quoting', receive_supplier_po: 'Ordering', outbound_payments: 'Payments' };
 
   document.getElementById('supplier-header').innerHTML = `
     <div class="supplier-header__top">
@@ -161,7 +162,9 @@ function renderHeader() {
       </div>
       <div style="text-align:center">
         <span class="badge ${lifecycle.badgeClass}" style="font-size:var(--text-sm)">${esc(lifecycle.label)}</span>
-        <div class="supplier-header__capability">${esc(capSummary)}</div>
+        <div style="display:flex;gap:var(--space-2);margin-top:var(--space-2);justify-content:center;flex-wrap:wrap">
+          ${perms.map(p => `<span class="badge ${p.state === 'on' ? 'badge-success' : 'badge-danger'}" title="${esc(p.reason)}">${esc(CAP_LABELS[p.key] || p.label)}</span>`).join('')}
+        </div>
       </div>
       <div class="supplier-header__actions">
         ${headerActionsHtml(ob)}
@@ -176,7 +179,8 @@ function headerActionsHtml(ob) {
   const common = `
     <button class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)" onclick="openEditAddressModal()">Edit Address</button>
     <button class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)" onclick="openEditBankModal()">Edit Bank Details</button>
-    <a href="audit.html?supplier_id=${esc(supplierId)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">Record Audit</a>`;
+    <a href="audit.html?supplier_id=${esc(supplierId)}" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)">Record Audit</a>
+    <button class="btn btn-ghost btn-sm" style="border:1px solid var(--color-danger);color:var(--color-danger)" onclick="openDeleteSupplierModal()">Delete</button>`;
 
   if (!ob) return common;
 
@@ -191,10 +195,19 @@ function headerActionsHtml(ob) {
   if (ob.workflow_stage === 'draft') {
     primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Continue Registration →</a>`;
   } else if (ob.workflow_stage === 'pending_compliance') {
-    const isCompliance = PortalRoles.getRoles().includes('director_compliance');
-    primary = isCompliance
-      ? `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Compliance Review →</a>`
-      : `<span class="badge badge-warning">Pending Compliance Review</span>`;
+    const roles = PortalRoles.getRoles();
+    const compDone     = gate1ComplianceApproval && gate1ComplianceApproval.decision !== 'reject';
+    const isCompliance = roles.includes('director_compliance');
+    const isCommercial = roles.includes('director_commercial');
+    if (compDone) {
+      primary = isCommercial
+        ? `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Commercial Review →</a>`
+        : `<span class="badge badge-info">Awaiting Commercial Review</span>`;
+    } else {
+      primary = isCompliance
+        ? `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Compliance Review →</a>`
+        : `<span class="badge badge-warning">Pending Compliance Review</span>`;
+    }
   } else if (ob.workflow_stage === 'stage1_complete') {
     primary = `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Begin Stage 2 →</a>`;
   } else if (ob.workflow_stage === 'pending_stage2') {
@@ -339,8 +352,12 @@ async function nextBestActionHtml() {
   const cta = ctas[ob.workflow_stage];
 
   if (ob.workflow_stage === 'pending_compliance' && !isCompliance) {
+    const compDone = gate1ComplianceApproval && gate1ComplianceApproval.decision !== 'reject';
+    const msg = compDone
+      ? 'Compliance review complete — awaiting commercial director review.'
+      : 'Awaiting compliance review.';
     return `
-      <p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-bottom:var(--space-3)">Awaiting compliance review.</p>
+      <p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-bottom:var(--space-3)">${msg}</p>
       <ul style="margin:0;padding-left:var(--space-4);font-size:var(--text-sm)">
         ${gates.blockers.map(b => `<li>${esc(b)}</li>`).join('')}
       </ul>
@@ -1003,11 +1020,21 @@ async function loadOnboarding() {
         ${rejectBtn}</div>`;
 
     } else if (ob.workflow_stage === 'pending_compliance') {
-      const isCompliance = PortalRoles.getRoles().includes('director_compliance');
-      advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
-        <span class="badge badge-warning">Pending Compliance Review</span>
-        ${isCompliance ? `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Begin Compliance Review →</a>` : ''}
-        ${rejectBtn}</div>`;
+      const roles2 = PortalRoles.getRoles();
+      const compDone2    = gate1ComplianceApproval && gate1ComplianceApproval.decision !== 'reject';
+      const isCompliance = roles2.includes('director_compliance');
+      const isCommercial = roles2.includes('director_commercial');
+      if (compDone2) {
+        advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
+          <span class="badge badge-info">Awaiting Commercial Review</span>
+          ${isCommercial ? `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Begin Commercial Review →</a>` : ''}
+          ${rejectBtn}</div>`;
+      } else {
+        advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
+          <span class="badge badge-warning">Pending Compliance Review</span>
+          ${isCompliance ? `<a href="onboard.html?supplier_id=${esc(supplierId)}" class="btn btn-primary btn-sm">Begin Compliance Review →</a>` : ''}
+          ${rejectBtn}</div>`;
+      }
 
     } else if (ob.workflow_stage === 'stage1_complete') {
       advanceHtml = `<div style="display:flex;gap:var(--space-3);margin-top:var(--space-4);align-items:center;flex-wrap:wrap">
@@ -1470,6 +1497,15 @@ async function submitEditCommercial(e) {
   allOnboardings = obs || [];
   onboardingData = allOnboardings[0] || null;
 
+  if (onboardingData?.id) {
+    const { data: g1 } = await supabaseClient.from('supplier_approvals')
+      .select('decision,decided_at')
+      .eq('onboarding_id', onboardingData.id)
+      .eq('approval_stage', 'gate1_compliance')
+      .maybeSingle();
+    gate1ComplianceApproval = g1 || null;
+  }
+
   renderHeader();
 
   // Show a flash banner if arriving from a fresh onboarding creation
@@ -1484,3 +1520,39 @@ async function submitEditCommercial(e) {
   _tabLoaded.overview = true;
   loadOverview();
 })();
+
+// ── Delete Supplier ──────────────────────────────────────────────────────────
+
+function openDeleteSupplierModal() {
+  const s = supplierData;
+  const name = s?.company_name || 'this supplier';
+  document.getElementById('delete-supplier-name-display').textContent = name;
+  document.getElementById('delete-supplier-confirm-input').value = '';
+  document.getElementById('delete-supplier-btn').disabled = true;
+  document.getElementById('delete-supplier-error').textContent = '';
+  document.getElementById('delete-supplier-modal').classList.add('open');
+}
+
+function onDeleteConfirmInput(val) {
+  const expected = (supplierData?.company_name || '').trim();
+  document.getElementById('delete-supplier-btn').disabled = val.trim() !== expected;
+}
+
+async function confirmDeleteSupplier() {
+  const btn = document.getElementById('delete-supplier-btn');
+  const errEl = document.getElementById('delete-supplier-error');
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+  errEl.textContent = '';
+
+  const { error } = await supabaseClient.rpc('delete_test_supplier', { p_contact_id: supplierId });
+
+  if (error) {
+    errEl.textContent = 'Delete failed: ' + error.message;
+    btn.disabled = false;
+    btn.textContent = 'Delete Supplier';
+    return;
+  }
+
+  location.href = 'index.html';
+}

@@ -42,21 +42,20 @@
     <a href="index.html" class="btn btn-ghost btn-sm">← Back to RFQs</a>
   </div>
   <div class="portal-content">
-    <div class="portal-page-header"><div><h1 id="rfq-title">Loading...</h1></div></div>
+    <div class="portal-page-header"><div><h1 id="rfq-title">Loading...</h1><div id="rfq-status-display" style="margin-top:var(--space-2)"></div></div></div>
 
     <!-- Tab bar -->
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchTab('enquiry')">Enquiry</button>
       <button class="tab-btn" onclick="switchTab('costs')">Cost Inputs</button>
-      <button class="tab-btn" onclick="switchTab('summary')">Quote Summary</button>
       <button class="tab-btn" onclick="switchTab('build')">Build Quote</button>
-      <button class="tab-btn" onclick="switchTab('customer')">Customer</button>
+      <button class="tab-btn" onclick="switchTab('customer')">View Quote</button>
+      <button class="tab-btn" onclick="switchTab('summary')">Quote Summary</button>
     </div>
 
     <!-- Tab 1: Enquiry -->
     <div class="tab-pane active" id="tab-enquiry">
-      <div class="panel"><div class="panel-body"><div id="rfq-detail"><div style="color:var(--color-text-muted)">Loading...</div></div></div></div>
-      <div class="panel" style="margin-top:var(--space-4)"><div class="panel-body"><div id="rfq-lines-section"><div style="color:var(--color-text-muted)">Loading...</div></div></div></div>
+      <div id="rfq-detail"></div>
     </div>
 
     <!-- Tab 2: Cost Inputs -->
@@ -64,10 +63,11 @@
 
       <!-- Supplier Quotes -->
       <div class="panel"><div class="panel-body">
+        <div id="costs-lock-banner"></div>
         <div class="cost-section">
           <div class="cost-section-header">
             <h4>Supplier Quotes</h4>
-            <div style="display:flex;gap:var(--space-2)">
+            <div id="sq-action-btns" style="display:flex;gap:var(--space-2)">
               <a id="supplier-quote-request-btn" href="#" target="_blank" class="btn btn-secondary btn-sm">Request Quote PDF →</a>
               <button class="btn btn-primary btn-sm" onclick="openAddSupplierQuoteModal()">+ Add Quote</button>
               <button class="btn btn-secondary btn-sm" onclick="openLinkSupplierQuoteModal()">Link Existing</button>
@@ -80,7 +80,7 @@
         <div class="cost-section">
           <div class="cost-section-header">
             <h4>Logistics Quotes</h4>
-            <div style="display:flex;gap:var(--space-2)">
+            <div id="lq-action-btns" style="display:flex;gap:var(--space-2)">
               <a id="logistics-quote-request-btn" href="#" target="_blank" class="btn btn-secondary btn-sm">Request Quote PDF →</a>
               <button class="btn btn-primary btn-sm" onclick="openAddLogisticsQuoteModal()">+ Add Quote</button>
               <button class="btn btn-secondary btn-sm" onclick="openLinkLogisticsQuoteModal()">Link Existing</button>
@@ -93,7 +93,7 @@
         <div class="cost-section" style="margin-bottom:0">
           <div class="cost-section-header">
             <h4>Other Costs <span style="font-size:var(--text-xs);font-weight:400;color:var(--color-text-muted)">(flat fees: import duty, customs, etc.)</span></h4>
-            <button class="btn btn-primary btn-sm" onclick="openAddOverheadModal()">+ Add Cost</button>
+            <div id="oh-action-btn"><button class="btn btn-primary btn-sm" onclick="openAddOverheadModal()">+ Add Cost</button></div>
           </div>
           <div id="overhead-costs-section"><div style="color:var(--color-text-muted);font-size:var(--text-sm);padding:var(--space-3) 0">Loading...</div></div>
         </div>
@@ -101,9 +101,6 @@
         <!-- Pricing Calculator -->
         <div id="pricing-calculator-section"></div>
 
-        <div style="border-top:1px solid var(--color-border);padding-top:var(--space-5);margin-top:var(--space-4);display:flex;justify-content:flex-end">
-          <button class="btn btn-primary" onclick="switchTab('build')">Build Customer Quote →</button>
-        </div>
 
       </div></div>
     </div>

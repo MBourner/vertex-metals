@@ -19,7 +19,7 @@
 (function () {
 
   // Portal build version — keep in sync with DEVELOPMENT.md "Current Version".
-  const PORTAL_VERSION = 'v0.5.0';
+  const PORTAL_VERSION = 'v0.6.1';
 
   // ── Path depth ────────────────────────────────────────────────────────────
   // Work out how many directory levels the current page sits below portal/
@@ -52,6 +52,7 @@
     'suppliers/onboarding-pipeline.html',
     'suppliers/expiry-monitor.html',
     'product-lines/index.html',
+    'product-lines/reviews.html',
     'sales/index.html',
     'rfq/index.html',
     'quotes/calculator.html',
@@ -144,6 +145,7 @@
 
       ${sec('Products')}
       ${a('product-lines/index.html',      'Product Details')}
+      ${a('product-lines/reviews.html',    'Product Reviews')}
 
       ${secLink('sales/index.html',        'Sales')}
       ${a('rfq/index.html',                'RFQ / Estimate')}
@@ -166,7 +168,6 @@
 
       ${sec('Logistics')}
       ${a('logistics-quotes/index.html',   'Logistics Quotes')}
-      ${a('cbam/index.html',               'CBAM Tracker')}
 
       ${sec('Finance')}
       ${a('financials/index.html',         'Financials')}
@@ -174,6 +175,7 @@
       ${sec('Compliance')}
       ${a('kyc/index.html',                'KYC Records')}
       ${a('sanctions/log.html',            'Sanctions Log')}
+      ${a('cbam/index.html',               'CBAM Tracker')}
     </nav>
 
     <div class="sidebar-footer">

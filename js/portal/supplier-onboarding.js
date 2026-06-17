@@ -812,7 +812,7 @@ const OnboardingWorkflow = (() => {
   // Header lifecycle badge — broader than workflow_stage alone, since
   // approval_status carries post-onboarding states (suspended/delisted)
   // that workflow_stage doesn't model.
-  function lifecycleStatus(contact, onboarding) {
+  function lifecycleStatus(contact, onboarding, gate1ComplianceApproval) {
     if (contact?.approval_status === 'suspended') return { label: 'Suspended', badgeClass: 'badge-danger' };
     if (contact?.approval_status === 'delisted')  return { label: 'Delisted',  badgeClass: 'badge-danger' };
 
@@ -824,9 +824,13 @@ const OnboardingWorkflow = (() => {
     if (stage === 'pending_stage2' || stage === 'awaiting_supplier_info')
                                       return { label: 'Pre-Trade Vetting', badgeClass: 'badge-warning' };
     if (stage === 'stage1_complete') return { label: 'Quote-Eligible',    badgeClass: 'badge-info' };
-    if (stage === 'pending_compliance')
-                                      return { label: 'Pending Compliance Review', badgeClass: 'badge-warning' };
-    return                                   { label: 'Prospect',         badgeClass: 'badge-neutral' };
+    if (stage === 'pending_compliance') {
+      const compApproved = gate1ComplianceApproval && gate1ComplianceApproval.decision !== 'reject';
+      return compApproved
+        ? { label: 'Awaiting Commercial Review', badgeClass: 'badge-info' }
+        : { label: 'Pending Compliance Review',  badgeClass: 'badge-warning' };
+    }
+    return { label: 'Prospect', badgeClass: 'badge-neutral' };
   }
 
   // Two progress percentages for the readiness cards — how far through the

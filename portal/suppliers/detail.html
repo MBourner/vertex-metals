@@ -119,6 +119,35 @@
   </div>
 </div>
 
+<!-- Delete Supplier Modal -->
+<div class="modal-overlay" id="delete-supplier-modal">
+  <div class="modal-box" style="max-width:480px">
+    <button class="modal-close" onclick="document.getElementById('delete-supplier-modal').classList.remove('open')">✕</button>
+    <h3 style="color:var(--color-danger)">Delete Supplier</h3>
+    <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4)">
+      This will permanently delete <strong id="delete-supplier-name-display"></strong> and all associated records including
+      onboarding data, compliance scores, approvals, sanctions screens, KYC records, supplier quotes, and documents.
+      This action cannot be undone.
+    </p>
+    <div style="background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius-sm);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-5);font-size:var(--text-sm)">
+      Only use this to remove test suppliers created during setup. Real suppliers must never be deleted.
+    </div>
+    <div class="form-group" style="margin-bottom:var(--space-5)">
+      <label class="form-label">Type the supplier name to confirm</label>
+      <input type="text" class="form-input" id="delete-supplier-confirm-input"
+        placeholder="Exact company name"
+        oninput="onDeleteConfirmInput(this.value)" />
+    </div>
+    <div id="delete-supplier-error" style="font-size:var(--text-sm);color:var(--color-danger);margin-bottom:var(--space-3)"></div>
+    <div style="display:flex;gap:var(--space-3);justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('delete-supplier-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-sm" id="delete-supplier-btn"
+        style="background:var(--color-danger);color:#fff;border:none"
+        disabled onclick="confirmDeleteSupplier()">Delete Supplier</button>
+    </div>
+  </div>
+</div>
+
 <script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal/auth-roles.js"></script><script src="../../js/portal/sidebar.js"></script>
 <script src="../../js/portal-guard.js"></script><script src="../../js/portal/state-machine.js"></script><script src="../../js/portal/supplier-onboarding.js"></script><script src="../../js/portal/countries.js"></script><script src="../../js/portal/suppliers-detail.js"></script>
 </body></html>

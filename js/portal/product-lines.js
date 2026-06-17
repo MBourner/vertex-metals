@@ -13,6 +13,17 @@ function fmt(n, decimals = 2) {
   return Number(n).toLocaleString('en-GB', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
+// FX rate used throughout the portal for USD ↔ GBP conversion.
+// Keep in sync with _calc.fx in rfq.js — update here when rate changes.
+const FX_USD_PER_GBP = 1.27;
+
+function updatePriceGbpPreview(formId, field) {
+  const usd = parseFloat(document.getElementById(`${formId}-${field}-price`)?.value);
+  const el  = document.getElementById(`${formId}-${field}-gbp-preview`);
+  if (!el) return;
+  el.textContent = usd > 0 ? `≈ £${fmt(usd / FX_USD_PER_GBP)}/MT (GBP)` : '';
+}
+
 let productFamilies = [];
 
 
@@ -93,8 +104,16 @@ async function loadProductLines() {
   Object.entries(grouped).forEach(([family, items]) => {
     rows.push(`<tr><td colspan="9" style="background:var(--color-navy);color:var(--color-steel);font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:var(--space-2) var(--space-4)">${esc(family)}</td></tr>`);
     items.forEach(pl => {
-      const stdPrice = pl.standard_sell_price_gbp != null ? `£${fmt(pl.standard_sell_price_gbp)}` : '—';
-      const mktPrice = pl.market_reference_price_gbp != null ? `£${fmt(pl.market_reference_price_gbp)}` : '—';
+      const stdUsd = pl.standard_sell_price_usd   ?? (pl.standard_sell_price_gbp   != null ? pl.standard_sell_price_gbp   * FX_USD_PER_GBP : null);
+      const stdGbp = pl.standard_sell_price_gbp   ?? (pl.standard_sell_price_usd   != null ? pl.standard_sell_price_usd   / FX_USD_PER_GBP : null);
+      const mktUsd = pl.market_reference_price_usd ?? (pl.market_reference_price_gbp != null ? pl.market_reference_price_gbp * FX_USD_PER_GBP : null);
+      const mktGbp = pl.market_reference_price_gbp ?? (pl.market_reference_price_usd != null ? pl.market_reference_price_usd / FX_USD_PER_GBP : null);
+      const stdPrice = stdUsd != null
+        ? `<div style="font-family:var(--font-display);font-weight:600">$${fmt(stdUsd)}</div><div style="font-size:var(--text-xs);color:var(--color-text-muted)">£${fmt(stdGbp)}</div>`
+        : '—';
+      const mktPrice = mktUsd != null
+        ? `<div style="font-family:var(--font-display);font-weight:600">$${fmt(mktUsd)}</div><div style="font-size:var(--color-text-muted);font-size:var(--text-xs)">£${fmt(mktGbp)}</div>`
+        : '—';
       rows.push(`<tr>
         <td style="padding-left:var(--space-6);color:var(--color-text-muted);font-size:var(--text-sm)">${esc(pl.sub_type || '—')}</td>
         <td style="font-weight:600">${esc(pl.name)}</td>
@@ -129,6 +148,12 @@ async function loadProductLines() {
 // ── Form builder ─────────────────────────────────────────────────────────────
 
 function buildPlForm(pl = {}, formId, submitFn, cancelModal) {
+  const stdUsdVal = pl.standard_sell_price_usd   != null ? pl.standard_sell_price_usd
+                  : pl.standard_sell_price_gbp   != null ? +(pl.standard_sell_price_gbp   * FX_USD_PER_GBP).toFixed(2)
+                  : null;
+  const mktUsdVal = pl.market_reference_price_usd != null ? pl.market_reference_price_usd
+                  : pl.market_reference_price_gbp  != null ? +(pl.market_reference_price_gbp  * FX_USD_PER_GBP).toFixed(2)
+                  : null;
   return `
     <form id="${formId}" onsubmit="${submitFn}">
       <div class="form-grid" style="margin-bottom:var(--space-4)">
@@ -178,14 +203,16 @@ function buildPlForm(pl = {}, formId, submitFn, cancelModal) {
         <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-3)">Pricing Reference</p>
         <div class="form-grid">
           <div class="form-group">
-            <label class="form-label">Standard Sell Price (£/MT)</label>
-            <input type="number" class="form-input" id="${formId}-std-price" value="${pl.standard_sell_price_gbp ?? ''}" step="0.01" min="0" placeholder="Set via calculator" />
-            <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Saved automatically from the pricing calculator</span>
+            <label class="form-label">Standard Sell Price ($/MT)</label>
+            <input type="number" class="form-input" id="${formId}-std-price" value="${stdUsdVal ?? ''}" step="0.01" min="0" placeholder="e.g. 1600.00"
+                   oninput="updatePriceGbpPreview('${formId}','std')" />
+            <span id="${formId}-std-gbp-preview" style="font-size:var(--text-xs);color:var(--color-text-muted)">${stdUsdVal ? `≈ £${fmt(stdUsdVal / FX_USD_PER_GBP)}/MT (GBP)` : 'Saved automatically from the pricing calculator'}</span>
           </div>
           <div class="form-group">
-            <label class="form-label">Market Reference Price (£/MT)</label>
-            <input type="number" class="form-input" id="${formId}-mkt-price" value="${pl.market_reference_price_gbp ?? ''}" step="0.01" min="0" placeholder="From market research" />
-            <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Update from your own market research — used by the Market Rate pricing model</span>
+            <label class="form-label">Market Reference Price ($/MT)</label>
+            <input type="number" class="form-input" id="${formId}-mkt-price" value="${mktUsdVal ?? ''}" step="0.01" min="0" placeholder="From market research"
+                   oninput="updatePriceGbpPreview('${formId}','mkt')" />
+            <span id="${formId}-mkt-gbp-preview" style="font-size:var(--text-xs);color:var(--color-text-muted)">${mktUsdVal ? `≈ £${fmt(mktUsdVal / FX_USD_PER_GBP)}/MT (GBP)` : 'Update from market research — used by the Market Rate pricing model'}</span>
           </div>
           <div class="form-group">
             <label class="form-label">Default Origin Country</label>
@@ -213,21 +240,25 @@ function getPlPayload(formId) {
   const vatPct   = parseFloat(document.getElementById(`${formId}-vat`)?.value)       || 0;
   const markup   = parseFloat(document.getElementById(`${formId}-markup`)?.value)    ?? 10;
   const ins      = parseFloat(document.getElementById(`${formId}-ins`)?.value)       ?? 0.125;
-  const stdRaw   = document.getElementById(`${formId}-std-price`)?.value.trim();
-  const mktRaw   = document.getElementById(`${formId}-mkt-price`)?.value.trim();
+  const stdUsdRaw = document.getElementById(`${formId}-std-price`)?.value.trim();
+  const mktUsdRaw = document.getElementById(`${formId}-mkt-price`)?.value.trim();
+  const stdUsd    = stdUsdRaw ? parseFloat(stdUsdRaw) : null;
+  const mktUsd    = mktUsdRaw ? parseFloat(mktUsdRaw) : null;
   return {
-    metal_family:                document.getElementById(`${formId}-family`)?.value.trim()  || null,
-    sub_type:                    document.getElementById(`${formId}-subtype`)?.value.trim() || null,
-    name:                        document.getElementById(`${formId}-name`)?.value.trim(),
-    cn_code:                     document.getElementById(`${formId}-cn`)?.value.trim()      || null,
-    default_markup_pct:          markup,
-    vat_rate:                    vatPct / 100,
-    insurance_pct:               ins,
-    standard_sell_price_gbp:     stdRaw  ? parseFloat(stdRaw)  : null,
-    market_reference_price_gbp:  mktRaw  ? parseFloat(mktRaw)  : null,
-    default_origin_country:      document.getElementById(`${formId}-origin`)?.value.trim() || null,
-    default_destination:         document.getElementById(`${formId}-dest`)?.value.trim()   || null,
-    notes:                       document.getElementById(`${formId}-notes`)?.value.trim()  || null,
+    metal_family:                 document.getElementById(`${formId}-family`)?.value.trim()  || null,
+    sub_type:                     document.getElementById(`${formId}-subtype`)?.value.trim() || null,
+    name:                         document.getElementById(`${formId}-name`)?.value.trim(),
+    cn_code:                      document.getElementById(`${formId}-cn`)?.value.trim()      || null,
+    default_markup_pct:           markup,
+    vat_rate:                     vatPct / 100,
+    insurance_pct:                ins,
+    standard_sell_price_usd:      stdUsd,
+    standard_sell_price_gbp:      stdUsd != null ? +(stdUsd / FX_USD_PER_GBP).toFixed(2) : null,
+    market_reference_price_usd:   mktUsd,
+    market_reference_price_gbp:   mktUsd != null ? +(mktUsd / FX_USD_PER_GBP).toFixed(2) : null,
+    default_origin_country:       document.getElementById(`${formId}-origin`)?.value.trim() || null,
+    default_destination:          document.getElementById(`${formId}-dest`)?.value.trim()   || null,
+    notes:                        document.getElementById(`${formId}-notes`)?.value.trim()  || null,
   };
 }
 

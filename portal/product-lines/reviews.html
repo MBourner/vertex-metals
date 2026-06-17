@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Reviews — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar"></aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)"><button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="topbar-title">Product Reviews</span></div>
+  </div>
+  <div class="portal-content">
+    <div class="portal-page-header">
+      <div>
+        <h1>Product Reviews</h1>
+        <p>Review and approve new product requests from suppliers.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body" style="text-align:center;padding:var(--space-16) var(--space-8)">
+        <div style="font-size:3rem;margin-bottom:var(--space-5)">🔧</div>
+        <h2 style="margin-bottom:var(--space-3)">Under Construction</h2>
+        <p style="color:var(--color-text-muted);font-size:var(--text-sm);max-width:420px;margin:0 auto var(--space-6)">
+          This page will allow directors to review new product line requests submitted by suppliers during onboarding,
+          approve additions to the product catalogue, and manage specifications and pricing parameters.
+        </p>
+        <a href="index.html" class="btn btn-secondary">View Product Details →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal/sidebar.js"></script>
+<script src="../../js/portal-guard.js"></script>
+</body></html>

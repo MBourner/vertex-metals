@@ -49,12 +49,36 @@ async function loadSuppliers() {
   // Latest onboarding workflow_stage per supplier, for the Quoting Status column
   const { data: onboardings } = await supabaseClient
     .from('supplier_onboarding')
-    .select('contact_id, workflow_stage, created_at')
+    .select('id, contact_id, workflow_stage, created_at')
     .in('contact_id', supplierIds)
     .order('created_at', { ascending: false });
 
   const stageMap = {};
-  (onboardings || []).forEach(o => { if (!(o.contact_id in stageMap)) stageMap[o.contact_id] = o.workflow_stage; });
+  const onboardingIdMap = {};
+  (onboardings || []).forEach(o => {
+    if (!(o.contact_id in stageMap)) {
+      stageMap[o.contact_id] = o.workflow_stage;
+      onboardingIdMap[o.contact_id] = o.id;
+    }
+  });
+
+  // Gate 1 compliance approvals for suppliers pending compliance review
+  const pendingOnbIds = Object.entries(stageMap)
+    .filter(([, stage]) => stage === 'pending_compliance')
+    .map(([contactId]) => onboardingIdMap[contactId])
+    .filter(Boolean);
+  const gate1Map = {};
+  if (pendingOnbIds.length > 0) {
+    const { data: g1rows } = await supabaseClient
+      .from('supplier_approvals')
+      .select('onboarding_id, decision')
+      .in('onboarding_id', pendingOnbIds)
+      .eq('approval_stage', 'gate1_compliance');
+    (g1rows || []).forEach(row => {
+      const contactId = Object.entries(onboardingIdMap).find(([, id]) => id === row.onboarding_id)?.[0];
+      if (contactId) gate1Map[contactId] = row;
+    });
+  }
 
   // Products linked / active quotes, from supplier_quotes
   const { data: quotes } = await supabaseClient
@@ -94,7 +118,7 @@ async function loadSuppliers() {
 
   tbody.innerHTML = rows.map(s => {
     const typeInfo  = TYPE_LABEL[s.type] || { label: s.type, cls: 'badge-neutral' };
-    const lifecycle = OnboardingWorkflow.lifecycleStatus(s, { workflow_stage: stageMap[s.id] });
+    const lifecycle = OnboardingWorkflow.lifecycleStatus(s, { workflow_stage: stageMap[s.id] }, gate1Map[s.id] || null);
     const products    = productsMap[s.id] ? productsMap[s.id].size : 0;
     const activeQuotes = activeQuotesMap[s.id] || 0;
     const orders       = ordersMap[s.id] || 0;

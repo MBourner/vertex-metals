@@ -149,7 +149,7 @@ async function s1a_loadExistingContact() {
 
   const { data: products } = await supabaseClient
     .from('supplier_quotes')
-    .select('id, product_line_id, product, specification, product_line:product_lines(metal_family, sub_type, name)')
+    .select('id, product_line_id, product, specification, quantity_mt, product_line:product_lines(metal_family, sub_type, name)')
     .eq('supplier_id', supplierId)
     .not('onboarding_review_status', 'is', null);
 
@@ -160,6 +160,7 @@ async function s1a_loadExistingContact() {
     metal_family:    p.product_line?.metal_family || '',
     sub_type:        p.product_line?.sub_type || '',
     specification:   p.specification,
+    quantity_mt:     p.quantity_mt || null,
   }));
   s1a_renderProductsOffered();
 
@@ -183,9 +184,10 @@ async function s1a_loadExistingContact() {
   setVal('ob-address2',       contact.address_line_2);
   setVal('ob-city',           contact.city);
   setVal('ob-postcode',       contact.postcode);
-  setVal('ob-export-licence', contact.export_licence_number);
-  setVal('ob-supplier-ref',   contact.supplier_reference);
-  setVal('ob-notes',          contact.notes);
+  setVal('ob-export-licence',    contact.export_licence_number);
+  setVal('ob-year-established', contact.year_established);
+  setVal('ob-supplier-ref',     contact.supplier_reference);
+  setVal('ob-notes',            contact.notes);
   setVal('ob-qms-ref',        contact.qms_certificate_ref);
   if (contact.qms_expiry)        setVal('ob-qms-expiry', contact.qms_expiry);
   if (contact.qms_certification) document.getElementById('ob-qms').value = contact.qms_certification;
@@ -239,6 +241,7 @@ function s1a_buildContactPayload() {
     vat_number:                  document.getElementById('ob-vat')?.value.trim()            || null,
     beneficial_owner:            document.getElementById('ob-beneficial')?.value.trim()     || null,
     export_licence_number:       document.getElementById('ob-export-licence')?.value.trim() || null,
+    year_established:            parseInt(document.getElementById('ob-year-established')?.value) || null,
     qms_certification:           qms || null,
     qms_certificate_ref:         qmsHasDetails ? (document.getElementById('ob-qms-ref')?.value.trim()   || null) : null,
     qms_expiry:                  qmsHasDetails ? (document.getElementById('ob-qms-expiry')?.value        || null) : null,
@@ -285,7 +288,7 @@ function s1a_renderProductsOffered() {
   const tbody = document.getElementById('products-offered-body');
   if (!tbody) return;
   if (s1a_productsOffered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);padding:var(--space-6)">No products added yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--color-text-muted);padding:var(--space-6)">No products added yet.</td></tr>';
     return;
   }
   tbody.innerHTML = s1a_productsOffered.map((p, idx) => `
@@ -293,6 +296,7 @@ function s1a_renderProductsOffered() {
       <td>${esc(p.metal_family || '—')}${p.sub_type ? ` / ${esc(p.sub_type)}` : ''}</td>
       <td style="font-weight:600">${esc(p.product)}</td>
       <td>${esc(p.specification || '—')}</td>
+      <td style="color:var(--color-text-muted)">${p.quantity_mt ? `${parseFloat(p.quantity_mt).toLocaleString()} MT/mo` : '—'}</td>
       <td style="text-align:right"><button type="button" class="btn btn-ghost btn-sm" onclick="s1a_removeProductOffered(${idx})">Remove</button></td>
     </tr>`).join('');
 }
@@ -346,9 +350,15 @@ function s1a_buildAddProductForm() {
           <input type="text" class="form-input" id="add-product-new-name" placeholder="e.g. Aluminium Alloy Core Wire EC Grade" />
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Specification</label>
-        <input type="text" class="form-input" id="add-product-spec" placeholder="Grade, size, standard, etc." />
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Specification</label>
+          <input type="text" class="form-input" id="add-product-spec" placeholder="Grade, size, standard, etc." />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Indicated Volume (MT/month)</label>
+          <input type="number" class="form-input" id="add-product-volume" placeholder="e.g. 200" min="0" step="0.01" />
+        </div>
       </div>
       <div id="add-product-alert" class="alert" style="display:none;margin-top:var(--space-3)"></div>
       <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5)">
@@ -410,7 +420,9 @@ async function s1a_submitAddProduct(e) {
   }
 
   if (s1a_productsOffered.some(p => p.product_line_id === productLineId)) return showError('This product has already been added.');
-  s1a_productsOffered.push({ db_id: null, product_line_id: productLineId, product, metal_family: metalFamily, sub_type: subType, specification: spec });
+  const volumeRaw = document.getElementById('add-product-volume')?.value;
+  const quantity_mt = volumeRaw ? parseFloat(volumeRaw) : null;
+  s1a_productsOffered.push({ db_id: null, product_line_id: productLineId, product, metal_family: metalFamily, sub_type: subType, specification: spec, quantity_mt });
   s1a_renderProductsOffered();
   document.getElementById('add-product-modal').classList.remove('open');
 }
@@ -429,6 +441,7 @@ async function s1a_syncProductsOffered(cid) {
       supplier_id: cid, product_line_id: p.product_line_id, product: p.product,
       specification: p.specification, incoterm: 'FOB', fob_price_usd: 0,
       status: 'pending', onboarding_review_status: 'pending_review',
+      quantity_mt: p.quantity_mt || null,
     }).select('id').single();
     if (error) throw new Error('Failed to save offered product: ' + error.message);
     p.db_id = data.id;
@@ -583,181 +596,206 @@ async function s1a_renderForm() {
     <div id="enquiry-banner" style="display:none;margin-bottom:var(--space-5);padding:var(--space-4) var(--space-5);background:rgba(122,184,212,0.08);border:1px solid rgba(122,184,212,0.25);border-radius:var(--radius);font-size:var(--text-sm)">
       <strong>Pre-filled from: </strong><span id="enquiry-banner-text"></span>
     </div>
-    <div id="prereq-info" style="margin-bottom:var(--space-5);padding:var(--space-4) var(--space-5);background:rgba(122,184,212,0.08);border:1px solid rgba(122,184,212,0.25);border-radius:var(--radius);font-size:var(--text-sm)">
+    <div id="prereq-info" style="margin-bottom:var(--space-8);padding:var(--space-4) var(--space-5);background:rgba(122,184,212,0.08);border:1px solid rgba(122,184,212,0.25);border-radius:var(--radius);font-size:var(--text-sm)">
       <strong style="display:block;margin-bottom:var(--space-2)">Before you begin — have these ready:</strong>
       <ul id="prereq-list" style="margin:0;padding-left:var(--space-5);display:flex;flex-direction:column;gap:var(--space-1)"></ul>
     </div>
 
-    <div style="margin-bottom:var(--space-6)">
-      <h3 style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-4)">Company Details</h3>
-      <div class="form-grid">
+    <!-- ── Company Details ───────────────────────────────── -->
+    <div class="form-section">
+      <div class="form-section__header">Company Details</div>
+      <div class="form-section__body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="ob-type">Supplier Type <span class="required">*</span></label>
+            <select class="form-select" id="ob-type">
+              <option value="">— Select type —</option>
+              <option value="manufacturing">Manufacturing</option>
+              <option value="materials_commodities">Materials / Commodities</option>
+              <option value="logistics">Logistics / 3PL</option>
+              <option value="packaging">Packaging</option>
+              <option value="service_provider">Service Provider</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-company">Company Name <span class="required">*</span></label>
+            <input type="text" class="form-input" id="ob-company" placeholder="Registered company name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-registration">Registration Number <span class="required">*</span></label>
+            <input type="text" class="form-input" id="ob-registration" placeholder="Company registration number" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-country">Country of Incorporation <span class="required">*</span></label>
+            <input type="text" class="form-input" id="ob-country" placeholder="e.g. India" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-year-established">Year Established</label>
+            <input type="number" class="form-input" id="ob-year-established" placeholder="e.g. 2005" min="1800" max="2099" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-vat">VAT / GST Number</label>
+            <input type="text" class="form-input" id="ob-vat" placeholder="If applicable" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-website">Website</label>
+            <input type="url" class="form-input" id="ob-website" placeholder="https://" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-company-phone">Company Phone</label>
+            <input type="text" class="form-input" id="ob-company-phone" placeholder="+1 555 000 0000" />
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label" for="ob-beneficial">Beneficial Owner(s)</label>
+            <input type="text" class="form-input" id="ob-beneficial" placeholder="Name(s) of individuals owning 25%+ of shares" />
+          </div>
+        </div>
+
+        <hr class="form-section__divider" />
+        <div class="form-section__sub">Registered Address</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="ob-address1">Address Line 1</label>
+            <input type="text" class="form-input" id="ob-address1" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-address2">Address Line 2</label>
+            <input type="text" class="form-input" id="ob-address2" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-city">City</label>
+            <input type="text" class="form-input" id="ob-city" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-postcode">Postcode / ZIP</label>
+            <input type="text" class="form-input" id="ob-postcode" />
+          </div>
+        </div>
+        <label style="display:flex;gap:var(--space-2);align-items:center;cursor:pointer;font-size:var(--text-sm);margin-top:var(--space-3)">
+          <input type="checkbox" id="ob-dispatch-different" style="accent-color:var(--color-accent)"
+            onchange="document.getElementById('ob-dispatch-address').style.display=this.checked?'flex':'none'" />
+          Dispatch / collection address differs from registered address
+        </label>
+        <div id="ob-dispatch-address" class="form-grid" style="display:none;margin-top:var(--space-3)">
+          <div class="form-group">
+            <label class="form-label" for="ob-dispatch-address1">Dispatch Address Line 1</label>
+            <input type="text" class="form-input" id="ob-dispatch-address1" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-dispatch-address2">Dispatch Address Line 2</label>
+            <input type="text" class="form-input" id="ob-dispatch-address2" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-dispatch-city">City</label>
+            <input type="text" class="form-input" id="ob-dispatch-city" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-dispatch-postcode">Postcode / ZIP</label>
+            <input type="text" class="form-input" id="ob-dispatch-postcode" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-dispatch-country">Country</label>
+            <input type="text" class="form-input" id="ob-dispatch-country" />
+          </div>
+        </div>
+
+        <div id="ob-export-licence-group">
+          <hr class="form-section__divider" />
+          <div class="form-section__sub">Export</div>
+          <div class="form-group">
+            <label class="form-label" for="ob-export-licence">Export Licence Number</label>
+            <input type="text" class="form-input" id="ob-export-licence" placeholder="If applicable" />
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Quality Management System ────────────────────── -->
+    <div class="form-section" id="ob-qms-group">
+      <div class="form-section__header">Quality Management System</div>
+      <div class="form-section__body">
         <div class="form-group">
-          <label class="form-label" for="ob-type">Supplier Type <span class="required">*</span></label>
-          <select class="form-select" id="ob-type">
-            <option value="">— Select type —</option>
-            <option value="manufacturing">Manufacturing</option>
-            <option value="materials_commodities">Materials / Commodities</option>
-            <option value="logistics">Logistics / 3PL</option>
-            <option value="packaging">Packaging</option>
-            <option value="service_provider">Service Provider</option>
+          <label class="form-label" for="ob-qms">Certification <span class="required">*</span></label>
+          <select class="form-select" id="ob-qms">
+            <option value="">— Select —</option>
+            <option value="iso_9001">ISO 9001</option>
+            <option value="iso_14001">ISO 14001</option>
+            <option value="iatf_16949">IATF 16949</option>
+            <option value="as9100">AS9100</option>
+            <option value="other">Other certified system</option>
+            <option value="none">None / not applicable</option>
           </select>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-company">Company Name <span class="required">*</span></label>
-          <input type="text" class="form-input" id="ob-company" placeholder="Registered company name" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-registration">Registration Number <span class="required">*</span></label>
-          <input type="text" class="form-input" id="ob-registration" placeholder="Company registration number" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-country">Country <span class="required">*</span></label>
-          <input type="text" class="form-input" id="ob-country" placeholder="Country of incorporation" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-vat">VAT / GST Number</label>
-          <input type="text" class="form-input" id="ob-vat" placeholder="If applicable" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-website">Website</label>
-          <input type="url" class="form-input" id="ob-website" placeholder="https://" />
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label" for="ob-beneficial">Beneficial Owner(s)</label>
-          <input type="text" class="form-input" id="ob-beneficial" placeholder="Name(s) of individuals owning 25%+ of shares" />
+        <div id="ob-qms-details" class="form-grid" style="display:none;margin-top:var(--space-5)">
+          <div class="form-group">
+            <label class="form-label" for="ob-qms-ref">Certificate Reference</label>
+            <input type="text" class="form-input" id="ob-qms-ref" placeholder="Certificate number" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-qms-expiry">Certificate Expiry</label>
+            <input type="date" class="form-input" id="ob-qms-expiry" />
+          </div>
         </div>
       </div>
     </div>
 
-    <div style="margin-bottom:var(--space-6)" id="ob-export-licence-group">
-      <div class="form-group">
-        <label class="form-label" for="ob-export-licence">Export Licence Number</label>
-        <input type="text" class="form-input" id="ob-export-licence" placeholder="If applicable" />
-      </div>
-    </div>
-
-    <div style="margin-bottom:var(--space-6)" id="ob-qms-group">
-      <div class="form-group">
-        <label class="form-label" for="ob-qms">Quality Management System <span class="required">*</span></label>
-        <select class="form-select" id="ob-qms">
-          <option value="">— Select —</option>
-          <option value="iso_9001">ISO 9001</option>
-          <option value="iso_14001">ISO 14001</option>
-          <option value="iatf_16949">IATF 16949</option>
-          <option value="as9100">AS9100</option>
-          <option value="other">Other certified system</option>
-          <option value="none">None / not applicable</option>
-        </select>
-      </div>
-      <div id="ob-qms-details" class="form-grid" style="display:none;margin-top:var(--space-3)">
-        <div class="form-group">
-          <label class="form-label" for="ob-qms-ref">Certificate Reference</label>
-          <input type="text" class="form-input" id="ob-qms-ref" placeholder="Certificate number" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-qms-expiry">Certificate Expiry</label>
-          <input type="date" class="form-input" id="ob-qms-expiry" />
+    <!-- ── Primary Contact ───────────────────────────────── -->
+    <div class="form-section">
+      <div class="form-section__header">Primary Contact</div>
+      <div class="form-section__body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="ob-contact-name">Contact Name <span class="required">*</span></label>
+            <input type="text" class="form-input" id="ob-contact-name" placeholder="Full name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-contact-email">Email <span class="required">*</span></label>
+            <input type="email" class="form-input" id="ob-contact-email" placeholder="work@example.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ob-contact-phone">Direct Phone</label>
+            <input type="text" class="form-input" id="ob-contact-phone" placeholder="+1 555 000 0000" />
+          </div>
         </div>
       </div>
     </div>
 
-    <div style="margin-bottom:var(--space-6)">
-      <h3 style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-4)">Primary Contact</h3>
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label" for="ob-contact-name">Contact Name <span class="required">*</span></label>
-          <input type="text" class="form-input" id="ob-contact-name" placeholder="Full name" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-contact-email">Email <span class="required">*</span></label>
-          <input type="email" class="form-input" id="ob-contact-email" placeholder="work@example.com" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-contact-phone">Direct Phone</label>
-          <input type="text" class="form-input" id="ob-contact-phone" placeholder="+1 555 000 0000" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-company-phone">Company Phone</label>
-          <input type="text" class="form-input" id="ob-company-phone" placeholder="+1 555 000 0000" />
-        </div>
+    <!-- ── Products Offered ──────────────────────────────── -->
+    <div class="form-section">
+      <div class="form-section__header" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Products Offered</span>
+        <button type="button" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border);font-size:var(--text-xs)" id="add-product-offered-btn">+ Add Product</button>
+      </div>
+      <div class="form-section__body" style="padding-top:var(--space-3)">
+        <table class="table">
+          <thead><tr><th>Family</th><th>Product</th><th>Specification</th><th>Indicated Volume</th><th></th></tr></thead>
+          <tbody id="products-offered-body"></tbody>
+        </table>
       </div>
     </div>
 
-    <div style="margin-bottom:var(--space-6)">
-      <h3 style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-4)">Registered Address</h3>
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label" for="ob-address1">Address Line 1</label>
-          <input type="text" class="form-input" id="ob-address1" />
+    <!-- ── Notes ─────────────────────────────────────────── -->
+    <div class="form-section">
+      <div class="form-section__header">Notes</div>
+      <div class="form-section__body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="ob-supplier-ref">Supplier Reference</label>
+            <input type="text" class="form-input" id="ob-supplier-ref" placeholder="Auto-generated" />
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-address2">Address Line 2</label>
-          <input type="text" class="form-input" id="ob-address2" />
+        <div class="form-group" style="margin-top:var(--space-4)">
+          <label class="form-label" for="ob-notes">Notes</label>
+          <textarea class="form-textarea" id="ob-notes" rows="3" placeholder="Any additional context about this supplier…"></textarea>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-city">City</label>
-          <input type="text" class="form-input" id="ob-city" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-postcode">Postcode / ZIP</label>
-          <input type="text" class="form-input" id="ob-postcode" />
-        </div>
-      </div>
-      <label style="display:flex;gap:var(--space-2);align-items:center;cursor:pointer;font-size:var(--text-sm);margin-top:var(--space-3)">
-        <input type="checkbox" id="ob-dispatch-different" style="accent-color:var(--color-accent)"
-          onchange="document.getElementById('ob-dispatch-address').style.display=this.checked?'flex':'none'" />
-        Dispatch / collection address differs from registered address
-      </label>
-      <div id="ob-dispatch-address" class="form-grid" style="display:none;margin-top:var(--space-3)">
-        <div class="form-group">
-          <label class="form-label" for="ob-dispatch-address1">Dispatch Address Line 1</label>
-          <input type="text" class="form-input" id="ob-dispatch-address1" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-dispatch-address2">Dispatch Address Line 2</label>
-          <input type="text" class="form-input" id="ob-dispatch-address2" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-dispatch-city">City</label>
-          <input type="text" class="form-input" id="ob-dispatch-city" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-dispatch-postcode">Postcode / ZIP</label>
-          <input type="text" class="form-input" id="ob-dispatch-postcode" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ob-dispatch-country">Country</label>
-          <input type="text" class="form-input" id="ob-dispatch-country" />
-        </div>
-      </div>
-    </div>
-
-    <div style="margin-bottom:var(--space-6)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
-        <h3 style="font-size:var(--text-base);font-weight:600;margin:0">Products Offered</h3>
-        <button type="button" class="btn btn-ghost btn-sm" style="border:1px solid var(--color-border)" id="add-product-offered-btn">+ Add Product</button>
-      </div>
-      <table class="table">
-        <thead><tr><th>Family</th><th>Product</th><th>Specification</th><th></th></tr></thead>
-        <tbody id="products-offered-body"></tbody>
-      </table>
-    </div>
-
-    <div class="form-grid" style="margin-bottom:var(--space-6)">
-      <div class="form-group">
-        <label class="form-label" for="ob-supplier-ref">Supplier Reference</label>
-        <input type="text" class="form-input" id="ob-supplier-ref" placeholder="Auto-generated" />
-      </div>
-      <div class="form-group" style="grid-column:1/-1">
-        <label class="form-label" for="ob-notes">Notes</label>
-        <textarea class="form-textarea" id="ob-notes" rows="3" placeholder="Any additional context about this supplier…"></textarea>
       </div>
     </div>
 
     <div id="ob-error" style="display:none;margin-bottom:var(--space-4);padding:var(--space-3) var(--space-4);background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius-sm);font-size:var(--text-sm);color:var(--color-danger)"></div>
-    <div style="display:flex;gap:var(--space-3);justify-content:flex-end;margin-bottom:var(--space-6)">
-      <button type="button" class="btn btn-ghost" id="save-exit-btn">Save Progress &amp; Exit</button>
-      <button type="button" class="btn btn-primary" id="complete-btn">Submit for Compliance Review</button>
+    <div style="display:flex;gap:var(--space-3);justify-content:flex-end;flex-wrap:wrap;margin-bottom:var(--space-6)">
+      <button type="button" class="btn btn-ghost btn-sm" id="save-exit-btn">Save &amp; Exit</button>
+      <button type="button" class="btn btn-primary btn-sm" id="complete-btn">Submit for Compliance Review</button>
     </div>`;
 
   document.getElementById('save-exit-btn').addEventListener('click', s1a_submitSaveAndExit);
@@ -958,17 +996,23 @@ function s1b_updateComplianceLiveScore() {
   const totalEl = document.getElementById('s1b-compliance-total');
   const bandEl  = document.getElementById('s1b-compliance-band-badge');
   const liveEl  = document.getElementById('s1b-compliance-live-badge');
+  const boxEl   = document.getElementById('s1b-compliance-score-box');
+  const COMPLIANCE_BOX_CLASSES = ['score-low-risk','score-medium-risk','score-high-risk','score-very-high-risk','score-prohibited'];
+  if (boxEl) { boxEl.classList.remove(...COMPLIANCE_BOX_CLASSES); }
   if (result.prohibited) {
     if (totalEl) totalEl.textContent = '—';
     const html = '<span class="badge badge-danger">Prohibited — Hard Reject</span>';
     if (bandEl) bandEl.innerHTML = html;
     if (liveEl) liveEl.innerHTML = html;
+    if (boxEl) boxEl.classList.add('score-prohibited');
   } else {
     if (totalEl) totalEl.textContent = result.total ?? 0;
     const cls  = result.band === 'Low Risk' ? 'badge-success' : result.band === 'Medium Risk' ? 'badge-warning' : 'badge-danger';
     const html = `<span class="badge ${cls}">${esc(result.band)}</span>`;
     if (bandEl) bandEl.innerHTML = html;
     if (liveEl) liveEl.innerHTML = html;
+    const boxCls = result.band === 'Low Risk' ? 'score-low-risk' : result.band === 'Medium Risk' ? 'score-medium-risk' : result.band === 'High Risk' ? 'score-high-risk' : 'score-very-high-risk';
+    if (boxEl) boxEl.classList.add(boxCls);
   }
   s1b_updateMatrixRecommendation();
 }
@@ -1002,11 +1046,16 @@ function s1b_updateCommercialLiveScore() {
   const totalEl = document.getElementById('s1b-commercial-total');
   const bandEl  = document.getElementById('s1b-commercial-band-badge');
   const liveEl  = document.getElementById('s1b-commercial-live-badge');
+  const boxEl   = document.getElementById('s1b-commercial-score-box');
+  const COMMERCIAL_BOX_CLASSES = ['score-strategic','score-strong','score-moderate','score-poor'];
+  if (boxEl) boxEl.classList.remove(...COMMERCIAL_BOX_CLASSES);
   if (totalEl) totalEl.textContent = result.total;
   const cls  = (result.band === 'Strategic Supplier' || result.band === 'Strong Fit') ? 'badge-success' : result.band === 'Moderate Fit' ? 'badge-warning' : 'badge-neutral';
   const html = `<span class="badge ${cls}">${esc(result.band)}</span>`;
   if (bandEl) bandEl.innerHTML = html;
   if (liveEl) liveEl.innerHTML = html;
+  const boxCls = result.band === 'Strategic Supplier' ? 'score-strategic' : result.band === 'Strong Fit' ? 'score-strong' : result.band === 'Moderate Fit' ? 'score-moderate' : 'score-poor';
+  if (boxEl) boxEl.classList.add(boxCls);
   s1b_updateMatrixRecommendation();
 }
 
@@ -1098,77 +1147,82 @@ async function s1b_submitSaveAndExit() {
   const btn = document.getElementById('s1b-save-exit-btn');
   btn.disabled = true; btn.textContent = 'Saving…';
 
+  const compDone    = !!s1b_gate1Approvals['gate1_compliance'];
+  const compApproval = s1b_gate1Approvals['gate1_compliance'];
+  const compApproved = compApproval && compApproval.decision !== 'reject';
+
   try {
     const user = await getCurrentUser();
 
-    if (!s1b_existingSanctionsScreen) {
-      const result = document.getElementById('s1b-s-result')?.value || null;
-      if (result) {
-        const lists = Array.from(document.querySelectorAll('.s1b-list-check:checked')).map(el => el.value);
-        const { error: sErr } = await supabaseClient.from('sanctions_screens').insert({
-          subject_type:           'contact',
-          subject_id:             supplierId,
-          subject_name_snapshot:  document.getElementById('s1b-s-name')?.value.trim(),
-          screened_at:            document.getElementById('s1b-s-date')?.value ? new Date(document.getElementById('s1b-s-date').value).toISOString() : new Date().toISOString(),
-          screened_by:            user?.id,
-          lists_screened:         lists,
-          tool_used:              document.getElementById('s1b-s-tool')?.value.trim() || null,
-          result,
-          match_resolution_notes: document.getElementById('s1b-s-notes')?.value.trim() || null,
-        });
-        if (sErr) throw new Error('Failed to save sanctions screen: ' + sErr.message);
-        await supabaseClient.from('contacts').update({ last_sanctions_screened_at: new Date().toISOString(), last_sanctions_result: result }).eq('id', supplierId);
+    if (!compDone) {
+      // ── Compliance phase: save sanctions + compliance score + partial approval ──
+      if (!s1b_existingSanctionsScreen) {
+        const result = document.getElementById('s1b-s-result')?.value || null;
+        if (result) {
+          const lists = Array.from(document.querySelectorAll('.s1b-list-check:checked')).map(el => el.value);
+          const { error: sErr } = await supabaseClient.from('sanctions_screens').insert({
+            subject_type:           'contact',
+            subject_id:             supplierId,
+            subject_name_snapshot:  document.getElementById('s1b-s-name')?.value.trim(),
+            screened_at:            document.getElementById('s1b-s-date')?.value ? new Date(document.getElementById('s1b-s-date').value).toISOString() : new Date().toISOString(),
+            screened_by:            user?.id,
+            lists_screened:         lists,
+            tool_used:              document.getElementById('s1b-s-tool')?.value.trim() || null,
+            result,
+            match_resolution_notes: document.getElementById('s1b-s-notes')?.value.trim() || null,
+          });
+          if (sErr) throw new Error('Failed to save sanctions screen: ' + sErr.message);
+          await supabaseClient.from('contacts').update({ last_sanctions_screened_at: new Date().toISOString(), last_sanctions_result: result }).eq('id', supplierId);
+        }
       }
-    }
-
-    if (!s1b_existingComplianceScore) {
-      const compKeys = Array.from(document.querySelectorAll('.s1b-compliance-factor-check:checked')).map(ch => ch.dataset.key);
-      if (compKeys.length > 0) {
-        const compResult = OnboardingWorkflow.computeComplianceScore(compKeys, contact.supplier_type);
-        await supabaseClient.from('supplier_compliance_scores').insert({
-          supplier_id: supplierId, onboarding_id: onboardingId, gate: 1,
-          total_score: compResult.prohibited ? 0 : compResult.total, rating_band: compResult.band, components: compResult.components, computed_by: user?.id || null,
-        });
+      if (!s1b_existingComplianceScore) {
+        const compKeys = Array.from(document.querySelectorAll('.s1b-compliance-factor-check:checked')).map(ch => ch.dataset.key);
+        if (compKeys.length > 0) {
+          const compResult = OnboardingWorkflow.computeComplianceScore(compKeys, contact.supplier_type);
+          await supabaseClient.from('supplier_compliance_scores').insert({
+            supplier_id: supplierId, onboarding_id: onboardingId, gate: 1,
+            total_score: compResult.prohibited ? 0 : compResult.total, rating_band: compResult.band, components: compResult.components, computed_by: user?.id || null,
+          });
+        }
       }
-    }
-
-    if (!s1b_existingCommercialScore) {
-      const commKeys = Array.from(document.querySelectorAll('.s1b-commercial-factor-radio:checked')).map(r => r.value);
-      if (commKeys.length > 0) {
-        const commResult = OnboardingWorkflow.computeCommercialScore(commKeys);
-        await supabaseClient.from('supplier_commercial_scores').insert({
-          supplier_id: supplierId, onboarding_id: onboardingId, gate: 1,
-          total_score: commResult.total, rating_band: commResult.band, components: commResult.components, computed_by: user?.id || null,
-        });
+      for (const r of s1b_productsReview) {
+        const status = document.getElementById(`s1b-review-status-${r.id}`)?.value || r.onboarding_review_status;
+        const notes  = document.getElementById(`s1b-review-notes-${r.id}`)?.value.trim() || null;
+        if (status !== r.onboarding_review_status || notes !== r.onboarding_review_notes) {
+          await supabaseClient.from('supplier_quotes').update({ onboarding_review_status: status, onboarding_review_notes: notes }).eq('id', r.id);
+        }
       }
+    } else if (compApproved) {
+      // ── Commercial phase: save commercial score + partial approval ──
+      if (!s1b_existingCommercialScore) {
+        const commKeys = Array.from(document.querySelectorAll('.s1b-commercial-factor-radio:checked')).map(r => r.value);
+          if (commKeys.length > 0) {
+            const commResult = OnboardingWorkflow.computeCommercialScore(commKeys);
+            await supabaseClient.from('supplier_commercial_scores').insert({
+              supplier_id: supplierId, onboarding_id: onboardingId, gate: 1,
+              total_score: commResult.total, rating_band: commResult.band, components: commResult.components, computed_by: user?.id || null,
+            });
+          }
+        }
+        if (!s1b_gate1Approvals['gate1_commercial']) {
+          const decision = document.getElementById('s1b-gate1-commercial-decision')?.value;
+          if (decision) {
+            const justification = (document.getElementById('s1b-gate1-commercial-justification')?.value || '').trim();
+            if (justification) {
+              const conditions = (document.getElementById('s1b-gate1-commercial-conditions')?.value || '').trim() || null;
+              await supabaseClient.from('supplier_approvals').insert({
+                supplier_id: supplierId, onboarding_id: onboardingId,
+                approval_stage: 'gate1_commercial', approver_id: user?.id,
+                approver_role: 'director_commercial', decision, justification,
+                conditions: decision === 'approve_with_conditions' ? conditions : null,
+                decided_at: new Date().toISOString(),
+              });
+            }
+          }
+        }
     }
 
-    for (const role of ['compliance', 'commercial']) {
-      if (s1b_gate1Approvals[`gate1_${role}`]) continue;
-      const decision = document.getElementById(`s1b-gate1-${role}-decision`)?.value;
-      if (!decision) continue;
-      const justification = (document.getElementById(`s1b-gate1-${role}-justification`)?.value || '').trim();
-      if (!justification) continue;
-      const conditions = (document.getElementById(`s1b-gate1-${role}-conditions`)?.value || '').trim() || null;
-      await supabaseClient.from('supplier_approvals').insert({
-        supplier_id: supplierId, onboarding_id: onboardingId,
-        approval_stage: `gate1_${role}`, approver_id: user?.id,
-        approver_role: role === 'compliance' ? 'director_compliance' : 'director_commercial',
-        decision, justification,
-        conditions: decision === 'approve_with_conditions' ? conditions : null,
-        decided_at: new Date().toISOString(),
-      });
-    }
-
-    for (const r of s1b_productsReview) {
-      const status = document.getElementById(`s1b-review-status-${r.id}`)?.value || r.onboarding_review_status;
-      const notes  = document.getElementById(`s1b-review-notes-${r.id}`)?.value.trim() || null;
-      if (status !== r.onboarding_review_status || notes !== r.onboarding_review_notes) {
-        await supabaseClient.from('supplier_quotes').update({ onboarding_review_status: status, onboarding_review_notes: notes }).eq('id', r.id);
-      }
-    }
-
-    await OnboardingWorkflow.logEvent(supplierId, onboardingId, 'stage_advanced', 'Stage 1b progress saved — pending remaining sign-off.', {});
+    await OnboardingWorkflow.logEvent(supplierId, onboardingId, 'stage_advanced', 'Stage 1b progress saved.', {});
     location.href = `detail.html?id=${supplierId}`;
   } catch (err) {
     errEl.textContent = err.message; errEl.style.display = 'block';
@@ -1176,7 +1230,8 @@ async function s1b_submitSaveAndExit() {
   }
 }
 
-async function s1b_submitComplianceReview() {
+// ── Compliance phase: save sanctions + score + signoff, then exit for commercial ──
+async function s1b_submitComplianceSignoff() {
   const errEl = document.getElementById('s1b-error');
   errEl.style.display = 'none';
   const missing = [];
@@ -1190,15 +1245,13 @@ async function s1b_submitComplianceReview() {
   const compKeys = Array.from(document.querySelectorAll('.s1b-compliance-factor-check:checked')).map(ch => ch.dataset.key);
   if (!s1b_existingComplianceScore && compKeys.length === 0) missing.push('Compliance Risk Score (select at least one factor)');
 
-  for (const role of ['compliance', 'commercial']) {
-    if (s1b_gate1Approvals[`gate1_${role}`]) continue;
-    const dec  = document.getElementById(`s1b-gate1-${role}-decision`)?.value;
-    const just = (document.getElementById(`s1b-gate1-${role}-justification`)?.value || '').trim();
-    if (dec && !just) missing.push(`${role.charAt(0).toUpperCase() + role.slice(1)} director sign-off justification`);
-    if (dec === 'approve_with_conditions') {
-      const cond = (document.getElementById(`s1b-gate1-${role}-conditions`)?.value || '').trim();
-      if (!cond) missing.push(`${role.charAt(0).toUpperCase() + role.slice(1)} director conditions`);
-    }
+  const compDecision = document.getElementById('s1b-gate1-compliance-decision')?.value;
+  const compJust     = (document.getElementById('s1b-gate1-compliance-justification')?.value || '').trim();
+  if (!compDecision) missing.push('Compliance Director decision');
+  if (compDecision && !compJust) missing.push('Compliance Director justification');
+  if (compDecision === 'approve_with_conditions') {
+    const cond = (document.getElementById('s1b-gate1-compliance-conditions')?.value || '').trim();
+    if (!cond) missing.push('Compliance Director conditions');
   }
 
   if (missing.length) {
@@ -1220,70 +1273,32 @@ async function s1b_submitComplianceReview() {
     if (!s1b_existingSanctionsScreen) {
       const lists = Array.from(document.querySelectorAll('.s1b-list-check:checked')).map(el => el.value);
       const { data: screen, error: sErr } = await supabaseClient.from('sanctions_screens').insert({
-        subject_type:           'contact',
-        subject_id:             supplierId,
+        subject_type: 'contact', subject_id: supplierId,
         subject_name_snapshot:  document.getElementById('s1b-s-name')?.value.trim(),
         screened_at:            document.getElementById('s1b-s-date')?.value ? new Date(document.getElementById('s1b-s-date').value).toISOString() : new Date().toISOString(),
-        screened_by:            user?.id,
-        lists_screened:         lists,
+        screened_by: user?.id, lists_screened: lists,
         tool_used:              document.getElementById('s1b-s-tool')?.value.trim() || null,
-        result:                 sanctionsResult,
+        result: sanctionsResult,
         match_resolution_notes: document.getElementById('s1b-s-notes')?.value.trim() || null,
       }).select('id').single();
       if (sErr) throw new Error('Failed to save sanctions screen: ' + sErr.message);
-      await supabaseClient.from('contacts').update({
-        last_sanctions_screened_at: new Date().toISOString(),
-        last_sanctions_result:      sanctionsResult,
-      }).eq('id', supplierId);
+      await supabaseClient.from('contacts').update({ last_sanctions_screened_at: new Date().toISOString(), last_sanctions_result: sanctionsResult }).eq('id', supplierId);
       await OnboardingWorkflow.logEvent(supplierId, onboardingId, 'sanctions_linked', `Sanctions screen recorded: result = ${sanctionsResult}.`, { screen_id: screen.id });
     }
 
-    if (compKeys.length > 0) {
+    if (!s1b_existingComplianceScore && compKeys.length > 0) {
       const compResult = OnboardingWorkflow.computeComplianceScore(compKeys, contact.supplier_type);
       if (compResult.prohibited) {
-        await supabaseClient.from('supplier_compliance_scores').insert({
-          supplier_id: supplierId, onboarding_id: onboardingId, gate: 1,
-          total_score: 0, rating_band: 'Prohibited', components: compResult.components, computed_by: user?.id || null,
-        });
-        await OnboardingWorkflow.rejectOnboarding(onboardingId, 'stage1_complete', 'Prohibited compliance risk factor selected (sanctions match confirmed).');
+        await supabaseClient.from('supplier_compliance_scores').insert({ supplier_id: supplierId, onboarding_id: onboardingId, gate: 1, total_score: 0, rating_band: 'Prohibited', components: compResult.components, computed_by: user?.id || null });
+        await OnboardingWorkflow.rejectOnboarding(onboardingId, 'stage1_complete', 'Prohibited compliance risk factor selected.');
         location.href = `detail.html?id=${supplierId}`;
         return;
       }
-      const { error: csErr } = await supabaseClient.from('supplier_compliance_scores').insert({
-        supplier_id: supplierId, onboarding_id: onboardingId, gate: 1,
-        total_score: compResult.total, rating_band: compResult.band, components: compResult.components, computed_by: user?.id || null,
-      });
+      const { error: csErr } = await supabaseClient.from('supplier_compliance_scores').insert({ supplier_id: supplierId, onboarding_id: onboardingId, gate: 1, total_score: compResult.total, rating_band: compResult.band, components: compResult.components, computed_by: user?.id || null });
       if (csErr) throw new Error('Failed to save compliance score: ' + csErr.message);
       const legacyLevel = compResult.band === 'Low Risk' ? 'low' : compResult.band === 'Medium Risk' ? 'medium' : 'high';
       await supabaseClient.from('supplier_onboarding').update({ risk_level: legacyLevel, updated_at: new Date().toISOString() }).eq('id', onboardingId);
       await OnboardingWorkflow.logEvent(supplierId, onboardingId, 'risk_assessment_saved', `Gate 1 compliance risk score: ${compResult.total} → ${compResult.band}.`, { total: compResult.total, band: compResult.band, gate: 1 });
-    }
-
-    const commKeys = Array.from(document.querySelectorAll('.s1b-commercial-factor-radio:checked')).map(r => r.value);
-    if (commKeys.length > 0) {
-      const commResult = OnboardingWorkflow.computeCommercialScore(commKeys);
-      const { error: cmsErr } = await supabaseClient.from('supplier_commercial_scores').insert({
-        supplier_id: supplierId, onboarding_id: onboardingId, gate: 1,
-        total_score: commResult.total, rating_band: commResult.band, components: commResult.components, computed_by: user?.id || null,
-      });
-      if (cmsErr) throw new Error('Failed to save commercial score: ' + cmsErr.message);
-    }
-
-    for (const role of ['compliance', 'commercial']) {
-      if (s1b_gate1Approvals[`gate1_${role}`]) continue;
-      const decision      = document.getElementById(`s1b-gate1-${role}-decision`)?.value;
-      if (!decision) continue;
-      const justification = (document.getElementById(`s1b-gate1-${role}-justification`)?.value || '').trim();
-      const conditions    = (document.getElementById(`s1b-gate1-${role}-conditions`)?.value    || '').trim() || null;
-      const { error: apErr } = await supabaseClient.from('supplier_approvals').insert({
-        supplier_id: supplierId, onboarding_id: onboardingId,
-        approval_stage: `gate1_${role}`, approver_id: user?.id,
-        approver_role: role === 'compliance' ? 'director_compliance' : 'director_commercial',
-        decision, justification,
-        conditions: decision === 'approve_with_conditions' ? conditions : null,
-        decided_at: new Date().toISOString(),
-      });
-      if (apErr) throw new Error(`Failed to save Gate 1 ${role} sign-off: ${apErr.message}`);
     }
 
     for (const r of s1b_productsReview) {
@@ -1295,10 +1310,75 @@ async function s1b_submitComplianceReview() {
     }
 
     if (sanctionsResult === 'confirmed_match') {
+      await supabaseClient.from('supplier_approvals').insert({ supplier_id: supplierId, onboarding_id: onboardingId, approval_stage: 'gate1_compliance', approver_id: user?.id, approver_role: 'director_compliance', decision: 'reject', justification: compJust || 'Confirmed sanctions match.', decided_at: new Date().toISOString() });
       await OnboardingWorkflow.rejectOnboarding(onboardingId, 'stage1_complete', 'Confirmed sanctions match identified during Stage 1 screening.');
       location.href = `detail.html?id=${supplierId}`;
       return;
     }
+
+    const { error: apErr } = await supabaseClient.from('supplier_approvals').insert({
+      supplier_id: supplierId, onboarding_id: onboardingId,
+      approval_stage: 'gate1_compliance', approver_id: user?.id,
+      approver_role: 'director_compliance', decision: compDecision,
+      justification: compJust,
+      conditions: compDecision === 'approve_with_conditions' ? (document.getElementById('s1b-gate1-compliance-conditions')?.value || '').trim() : null,
+      decided_at: new Date().toISOString(),
+    });
+    if (apErr) throw new Error('Failed to save compliance sign-off: ' + apErr.message);
+
+    if (compDecision === 'reject') {
+      await OnboardingWorkflow.logEvent(supplierId, onboardingId, 'stage_advanced', 'Gate 1 compliance review: rejected. Awaiting further action.', {});
+    } else {
+      await OnboardingWorkflow.logEvent(supplierId, onboardingId, 'stage_advanced', 'Gate 1 compliance review passed — awaiting commercial director review.', {});
+    }
+    location.href = `detail.html?id=${supplierId}`;
+  } catch (err) {
+    errEl.textContent = err.message; errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Submit Compliance Sign-off';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+// ── Commercial phase: save commercial score + signoff, then advance stage ──
+async function s1b_submitCommercialSignoff() {
+  const errEl = document.getElementById('s1b-error');
+  errEl.style.display = 'none';
+  const missing = [];
+
+  const commKeys = Array.from(document.querySelectorAll('.s1b-commercial-factor-radio:checked')).map(r => r.value);
+  if (!s1b_existingCommercialScore && commKeys.length === 0) missing.push('Commercial Suitability Score (select at least one factor per group)');
+
+  const commDecision = document.getElementById('s1b-gate1-commercial-decision')?.value;
+  const commJust     = (document.getElementById('s1b-gate1-commercial-justification')?.value || '').trim();
+  if (!commDecision) missing.push('Commercial Director decision');
+  if (commDecision && !commJust) missing.push('Commercial Director justification');
+
+  if (missing.length) {
+    errEl.textContent = `Please complete: ${missing.join(', ')}.`;
+    errEl.style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+
+  const btn = document.getElementById('s1b-complete-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  try {
+    const user = await getCurrentUser();
+
+    if (!s1b_existingCommercialScore && commKeys.length > 0) {
+      const commResult = OnboardingWorkflow.computeCommercialScore(commKeys);
+      const { error: cmsErr } = await supabaseClient.from('supplier_commercial_scores').insert({ supplier_id: supplierId, onboarding_id: onboardingId, gate: 1, total_score: commResult.total, rating_band: commResult.band, components: commResult.components, computed_by: user?.id || null });
+      if (cmsErr) throw new Error('Failed to save commercial score: ' + cmsErr.message);
+    }
+
+    const { error: apErr } = await supabaseClient.from('supplier_approvals').insert({
+      supplier_id: supplierId, onboarding_id: onboardingId,
+      approval_stage: 'gate1_commercial', approver_id: user?.id,
+      approver_role: 'director_commercial', decision: commDecision,
+      justification: commJust, decided_at: new Date().toISOString(),
+    });
+    if (apErr) throw new Error('Failed to save commercial sign-off: ' + apErr.message);
 
     const result = await OnboardingWorkflow.advanceStage(onboardingId, 'stage1_complete');
     if (!result.ok) {
@@ -1316,22 +1396,61 @@ async function s1b_submitComplianceReview() {
   }
 }
 
+function s1b_renderComplianceSummary() {
+  const el = document.getElementById('s1b-compliance-passed-summary');
+  if (!el) return;
+  const score    = s1b_existingComplianceScore;
+  const approval = s1b_gate1Approvals['gate1_compliance'];
+  const bandClass = score?.rating_band === 'Low Risk' ? 'badge-success' : score?.rating_band === 'Medium Risk' ? 'badge-warning' : 'badge-danger';
+  const decClass  = approval?.decision === 'approve_with_conditions' ? 'badge-warning' : 'badge-success';
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:var(--space-4);margin-bottom:${approval?.justification ? 'var(--space-5)' : '0'}">
+      <div>
+        <div style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-1)">Risk Score</div>
+        <div style="font-size:var(--text-2xl);font-weight:700;color:var(--color-text-primary)">${score ? score.total_score : '—'}</div>
+      </div>
+      <div>
+        <div style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-1)">Risk Band</div>
+        <span class="badge ${bandClass}">${esc(score?.rating_band || '—')}</span>
+      </div>
+      ${approval ? `
+      <div>
+        <div style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-1)">Compliance Director</div>
+        <span class="badge ${decClass}">${esc((approval.decision || '').replace(/_/g, ' '))}</span>
+        <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:3px">${fmtDate(approval.decided_at)}</div>
+      </div>` : ''}
+    </div>
+    ${approval?.justification ? `
+    <div style="padding:var(--space-3) var(--space-4);background:rgba(22,163,74,0.05);border:1px solid rgba(22,163,74,0.2);border-radius:var(--radius-sm);font-size:var(--text-sm)">
+      <div style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-2)">Compliance notes</div>
+      <p style="margin:0">${esc(approval.justification)}</p>
+      ${approval.conditions ? `<p style="margin:var(--space-2) 0 0"><strong>Conditions:</strong> ${esc(approval.conditions)}</p>` : ''}
+    </div>` : ''}`;
+}
+
 async function s1b_renderForm() {
+  // Load data first — rendering is conditional on approval state
+  const [compScoreRes, commScoreRes, gate1Res] = await Promise.all([
+    supabaseClient.from('supplier_compliance_scores').select('*').eq('onboarding_id', onboardingId).eq('gate', 1).order('computed_at', { ascending: false }).limit(1),
+    supabaseClient.from('supplier_commercial_scores').select('*').eq('onboarding_id', onboardingId).eq('gate', 1).order('computed_at', { ascending: false }).limit(1),
+    supabaseClient.from('supplier_approvals').select('*').eq('onboarding_id', onboardingId).in('approval_stage', ['gate1_compliance', 'gate1_commercial']),
+  ]);
+  s1b_existingComplianceScore = compScoreRes.data?.[0] || null;
+  s1b_existingCommercialScore = commScoreRes.data?.[0] || null;
+  (gate1Res.data || []).forEach(row => { s1b_gate1Approvals[row.approval_stage] = row; });
+
+  const compApproval = s1b_gate1Approvals['gate1_compliance'];
+  const compDone     = !!compApproval;
+  const compApproved = compDone && compApproval.decision !== 'reject';
+
   document.getElementById('acc-s1b-body').innerHTML = `
     <div class="panel" style="margin-bottom:var(--space-5)">
-      <div class="panel-header">
-        <h3>Supplier Summary</h3>
-        <span id="s1b-supplier-type-badge"></span>
-      </div>
-      <div class="panel-body">
-        <div class="summary-grid" id="s1b-supplier-summary"></div>
-      </div>
+      <div class="panel-header"><h3>Supplier Summary</h3><span id="s1b-supplier-type-badge"></span></div>
+      <div class="panel-body"><div class="summary-grid" id="s1b-supplier-summary"></div></div>
     </div>
 
     <div class="panel" style="margin-bottom:var(--space-5)">
-      <div class="panel-header">
-        <h3>Products for Review</h3>
-      </div>
+      <div class="panel-header"><h3>Products for Review</h3></div>
       <div class="panel-body">
         <table class="table">
           <thead><tr><th>Family</th><th>Product</th><th>Specification</th><th>Review Status</th><th>Notes</th></tr></thead>
@@ -1340,11 +1459,9 @@ async function s1b_renderForm() {
       </div>
     </div>
 
+    ${!compDone ? `
     <div class="panel" style="margin-bottom:var(--space-5)">
-      <div class="panel-header">
-        <h3>Sanctions Screening</h3>
-        <span id="s1b-sanctions-status-badge"></span>
-      </div>
+      <div class="panel-header"><h3>Sanctions Screening</h3><span id="s1b-sanctions-status-badge"></span></div>
       <div class="panel-body" style="display:flex;flex-direction:column;gap:var(--space-4)">
         <div style="display:flex;gap:var(--space-3);flex-wrap:wrap" id="s1b-sanctions-list-links"></div>
         <div id="s1b-sanctions-section"><div style="color:var(--color-text-muted)">Loading…</div></div>
@@ -1352,13 +1469,10 @@ async function s1b_renderForm() {
     </div>
 
     <div class="panel" style="margin-bottom:var(--space-5)">
-      <div class="panel-header">
-        <h3>Compliance Risk Score</h3>
-        <span id="s1b-compliance-live-badge"></span>
-      </div>
+      <div class="panel-header"><h3>Compliance Risk Score</h3><span id="s1b-compliance-live-badge"></span></div>
       <div class="panel-body" style="display:flex;flex-direction:column;gap:var(--space-4)">
         <div id="s1b-compliance-factors-container"></div>
-        <div class="overall-score-box">
+        <div class="overall-score-box" id="s1b-compliance-score-box">
           <div style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:var(--space-2)">Total Compliance Risk Score</div>
           <div style="font-size:var(--text-4xl);font-weight:700;color:#fff;margin-bottom:var(--space-2)" id="s1b-compliance-total">0</div>
           <div id="s1b-compliance-band-badge"></div>
@@ -1370,15 +1484,20 @@ async function s1b_renderForm() {
         </div>
       </div>
     </div>
+    ` : compApproved ? `
+    <div class="panel" style="margin-bottom:var(--space-5);border-left:4px solid var(--color-success)">
+      <div class="panel-header">
+        <h3>Compliance Review</h3>
+        <span class="badge badge-success">Gate 1 — Passed</span>
+      </div>
+      <div class="panel-body" id="s1b-compliance-passed-summary"></div>
+    </div>
 
     <div class="panel" style="margin-bottom:var(--space-5)">
-      <div class="panel-header">
-        <h3>Commercial Suitability Score</h3>
-        <span id="s1b-commercial-live-badge"></span>
-      </div>
+      <div class="panel-header"><h3>Commercial Suitability Score</h3><span id="s1b-commercial-live-badge"></span></div>
       <div class="panel-body" style="display:flex;flex-direction:column;gap:var(--space-4)">
         <div id="s1b-commercial-factors-container"></div>
-        <div class="overall-score-box">
+        <div class="overall-score-box" id="s1b-commercial-score-box">
           <div style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:var(--space-2)">Total Commercial Score</div>
           <div style="font-size:var(--text-4xl);font-weight:700;color:#fff;margin-bottom:var(--space-2)" id="s1b-commercial-total">0</div>
           <div id="s1b-commercial-band-badge"></div>
@@ -1391,39 +1510,71 @@ async function s1b_renderForm() {
         </div>
       </div>
     </div>
+    ` : `
+    <div class="panel" style="margin-bottom:var(--space-5);border-left:4px solid var(--color-danger)">
+      <div class="panel-header">
+        <h3>Compliance Review</h3>
+        <span class="badge badge-danger">Gate 1 — Not Approved</span>
+      </div>
+      <div class="panel-body" id="s1b-compliance-passed-summary"></div>
+    </div>
+    `}
 
     <div id="s1b-error" style="display:none;margin-bottom:var(--space-4);padding:var(--space-3) var(--space-4);background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius-sm);font-size:var(--text-sm);color:var(--color-danger)"></div>
-    <div style="display:flex;gap:var(--space-3);justify-content:flex-end;margin-bottom:var(--space-6)">
-      <a href="${supplierId ? `detail.html?id=${esc(supplierId)}` : 'index.html'}" class="btn btn-ghost">Cancel</a>
-      <button type="button" class="btn btn-ghost" id="s1b-save-exit-btn">Save Progress &amp; Exit</button>
-      <button type="button" class="btn btn-primary" id="s1b-complete-btn">Complete Stage 1 — Ready to Quote</button>
+    <div style="display:flex;gap:var(--space-3);justify-content:flex-end;flex-wrap:wrap;margin-bottom:var(--space-6)">
+      <a href="${supplierId ? `detail.html?id=${esc(supplierId)}` : 'index.html'}" class="btn btn-ghost btn-sm">Cancel</a>
+      ${!compDone || compApproved ? `<button type="button" class="btn btn-ghost btn-sm" id="s1b-save-exit-btn">Save &amp; Exit</button>` : ''}
+      ${!compDone
+        ? `<button type="button" class="btn btn-primary btn-sm" id="s1b-complete-btn">Submit Compliance Sign-off</button>`
+        : compApproved
+          ? `<button type="button" class="btn btn-primary btn-sm" id="s1b-complete-btn">Complete Stage 1 — Ready to Quote</button>`
+          : ''}
     </div>`;
 
-  document.getElementById('s1b-save-exit-btn').addEventListener('click', s1b_submitSaveAndExit);
-  document.getElementById('s1b-complete-btn').addEventListener('click', s1b_submitComplianceReview);
-
-  const [compScoreRes, commScoreRes, gate1Res] = await Promise.all([
-    supabaseClient.from('supplier_compliance_scores').select('*').eq('onboarding_id', onboardingId).eq('gate', 1).order('computed_at', { ascending: false }).limit(1),
-    supabaseClient.from('supplier_commercial_scores').select('*').eq('onboarding_id', onboardingId).eq('gate', 1).order('computed_at', { ascending: false }).limit(1),
-    supabaseClient.from('supplier_approvals').select('*').eq('onboarding_id', onboardingId).in('approval_stage', ['gate1_compliance', 'gate1_commercial']),
-  ]);
-  s1b_existingComplianceScore = compScoreRes.data?.[0] || null;
-  s1b_existingCommercialScore = commScoreRes.data?.[0] || null;
-  (gate1Res.data || []).forEach(row => { s1b_gate1Approvals[row.approval_stage] = row; });
+  if (document.getElementById('s1b-save-exit-btn')) document.getElementById('s1b-save-exit-btn').addEventListener('click', s1b_submitSaveAndExit);
+  if (document.getElementById('s1b-complete-btn')) {
+    document.getElementById('s1b-complete-btn').addEventListener('click', compApproved ? s1b_submitCommercialSignoff : s1b_submitComplianceSignoff);
+  }
 
   s1b_renderSupplierSummary();
   await s1b_loadProductsForReview();
-  s1b_renderSanctionsListLinks();
-  await s1b_loadSanctionsSection();
-  s1b_renderComplianceFactors();
-  s1b_renderCommercialFactors();
-  s1b_renderGate1SignoffPanel();
-  s1b_updateMatrixRecommendation();
 
-  const compBand = s1b_existingComplianceScore?.rating_band || '—';
-  const commBand = s1b_existingCommercialScore?.rating_band || '—';
+  if (!compDone) {
+    s1b_renderSanctionsListLinks();
+    await s1b_loadSanctionsSection();
+    s1b_renderComplianceFactors();
+    document.getElementById('s1b-gate1-compliance-section').innerHTML = s1b_buildApprovalForm('compliance', 'Compliance Director (Martyn)', [
+      { value: 'approve',                 label: 'Approve' },
+      { value: 'approve_with_conditions', label: 'Approve with Conditions' },
+      { value: 'reject',                  label: 'Reject' },
+    ]);
+  } else {
+    s1b_renderComplianceSummary();
+    if (compApproved) {
+      s1b_renderCommercialFactors();
+      const commApproval = s1b_gate1Approvals['gate1_commercial'];
+      document.getElementById('s1b-gate1-commercial-section').innerHTML = commApproval
+        ? s1b_buildApprovalReadOnly('Commercial Director (Jackson)', commApproval)
+        : s1b_buildApprovalForm('commercial', 'Commercial Director (Jackson)', [
+            { value: 'approve', label: 'Approve' },
+            { value: 'reject',  label: 'Reject' },
+          ]);
+      s1b_updateMatrixRecommendation();
+    }
+  }
+
   const subEl = document.getElementById('acc-s1b-sub');
-  if (subEl) subEl.textContent = s1b_existingComplianceScore ? `${compBand} compliance · ${commBand} commercial` : 'Pending compliance review';
+  if (subEl) {
+    if (!compDone) {
+      subEl.textContent = 'Pending compliance review';
+    } else if (!compApproved) {
+      subEl.textContent = 'Compliance review — not approved';
+    } else if (!s1b_gate1Approvals['gate1_commercial']) {
+      subEl.textContent = `${s1b_existingComplianceScore?.rating_band || '—'} compliance · Awaiting commercial review`;
+    } else {
+      subEl.textContent = `${s1b_existingComplianceScore?.rating_band || '—'} compliance · ${s1b_existingCommercialScore?.rating_band || '—'} commercial`;
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1641,8 +1792,20 @@ function s2_updateComplianceLiveScore() {
   const result = OnboardingWorkflow.computeComplianceScore(keys, contact.supplier_type);
   const totalEl = document.getElementById('s2-compliance-total');
   const bandEl  = document.getElementById('s2-compliance-band-badge');
-  if (totalEl) totalEl.textContent = result.prohibited ? '—' : (result.total ?? 0);
-  if (bandEl) { const cls = result.band === 'Low Risk' ? 'badge-success' : result.band === 'Medium Risk' ? 'badge-warning' : 'badge-danger'; bandEl.innerHTML = `<span class="badge ${cls}">${esc(result.band)}</span>`; }
+  const boxEl   = document.getElementById('s2-compliance-score-box');
+  const COMPLIANCE_BOX_CLASSES = ['score-low-risk','score-medium-risk','score-high-risk','score-very-high-risk','score-prohibited'];
+  if (boxEl) boxEl.classList.remove(...COMPLIANCE_BOX_CLASSES);
+  if (result.prohibited) {
+    if (totalEl) totalEl.textContent = '—';
+    if (bandEl) bandEl.innerHTML = '<span class="badge badge-danger">Prohibited — Hard Reject</span>';
+    if (boxEl) boxEl.classList.add('score-prohibited');
+  } else {
+    if (totalEl) totalEl.textContent = result.total ?? 0;
+    const cls = result.band === 'Low Risk' ? 'badge-success' : result.band === 'Medium Risk' ? 'badge-warning' : 'badge-danger';
+    if (bandEl) bandEl.innerHTML = `<span class="badge ${cls}">${esc(result.band)}</span>`;
+    const boxCls = result.band === 'Low Risk' ? 'score-low-risk' : result.band === 'Medium Risk' ? 'score-medium-risk' : result.band === 'High Risk' ? 'score-high-risk' : 'score-very-high-risk';
+    if (boxEl) boxEl.classList.add(boxCls);
+  }
 }
 
 function s2_renderCommercialUpdateForm() {
@@ -1664,8 +1827,14 @@ function s2_updateCommercialLiveScore() {
   const result = OnboardingWorkflow.computeCommercialScore(keys);
   const totalEl = document.getElementById('s2-commercial-total');
   const bandEl  = document.getElementById('s2-commercial-band-badge');
+  const boxEl   = document.getElementById('s2-commercial-score-box');
+  const COMMERCIAL_BOX_CLASSES = ['score-strategic','score-strong','score-moderate','score-poor'];
+  if (boxEl) boxEl.classList.remove(...COMMERCIAL_BOX_CLASSES);
   if (totalEl) totalEl.textContent = result.total ?? 0;
-  if (bandEl) { const cls = (result.band === 'Strategic Supplier' || result.band === 'Strong Fit') ? 'badge-success' : result.band === 'Moderate Fit' ? 'badge-warning' : 'badge-neutral'; bandEl.innerHTML = `<span class="badge ${cls}">${esc(result.band)}</span>`; }
+  const cls = (result.band === 'Strategic Supplier' || result.band === 'Strong Fit') ? 'badge-success' : result.band === 'Moderate Fit' ? 'badge-warning' : 'badge-neutral';
+  if (bandEl) bandEl.innerHTML = `<span class="badge ${cls}">${esc(result.band)}</span>`;
+  const boxCls = result.band === 'Strategic Supplier' ? 'score-strategic' : result.band === 'Strong Fit' ? 'score-strong' : result.band === 'Moderate Fit' ? 'score-moderate' : 'score-poor';
+  if (boxEl) boxEl.classList.add(boxCls);
 }
 
 function s2_renderGate2SignoffPanel() {
@@ -1989,7 +2158,7 @@ async function s2_renderForm() {
           <hr style="border:none;border-top:1px solid var(--color-border);margin:var(--space-2) 0 var(--space-4)" />
           <div style="font-weight:600;font-size:var(--text-sm);margin-bottom:var(--space-3)">Update Compliance Risk Score (Gate 2)</div>
           <div id="s2-compliance-factors-container"></div>
-          <div class="overall-score-box" style="margin-bottom:var(--space-5)">
+          <div class="overall-score-box" id="s2-compliance-score-box" style="margin-bottom:var(--space-5)">
             <div style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:var(--space-2)">Total Compliance Risk Score</div>
             <div style="font-size:var(--text-4xl);font-weight:700;color:#fff;margin-bottom:var(--space-2)" id="s2-compliance-total">0</div>
             <div id="s2-compliance-band-badge"></div>
@@ -1997,7 +2166,7 @@ async function s2_renderForm() {
           </div>
           <div style="font-weight:600;font-size:var(--text-sm);margin-bottom:var(--space-3)">Update Commercial Suitability Score (Gate 2)</div>
           <div id="s2-commercial-factors-container"></div>
-          <div class="overall-score-box">
+          <div class="overall-score-box" id="s2-commercial-score-box">
             <div style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:var(--space-2)">Total Commercial Score</div>
             <div style="font-size:var(--text-4xl);font-weight:700;color:#fff;margin-bottom:var(--space-2)" id="s2-commercial-total">0</div>
             <div id="s2-commercial-band-badge"></div>
@@ -2051,10 +2220,10 @@ async function s2_renderForm() {
     </div>
 
     <div id="s2-error" style="display:none;margin-bottom:var(--space-4);padding:var(--space-3) var(--space-4);background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius-sm);font-size:var(--text-sm);color:var(--color-danger)"></div>
-    <div style="display:flex;gap:var(--space-3);justify-content:flex-end;margin-bottom:var(--space-6)">
-      <a href="detail.html?id=${esc(supplierId)}" class="btn btn-ghost">Cancel</a>
-      <button type="button" class="btn btn-ghost" id="s2-save-exit-btn">Save Progress &amp; Exit</button>
-      <button type="button" class="btn btn-primary" id="s2-complete-btn">Complete Stage 2 →</button>
+    <div style="display:flex;gap:var(--space-3);justify-content:flex-end;flex-wrap:wrap;margin-bottom:var(--space-6)">
+      <a href="detail.html?id=${esc(supplierId)}" class="btn btn-ghost btn-sm">Cancel</a>
+      <button type="button" class="btn btn-ghost btn-sm" id="s2-save-exit-btn">Save &amp; Exit</button>
+      <button type="button" class="btn btn-primary btn-sm" id="s2-complete-btn">Complete Stage 2 →</button>
     </div>`;
 
   document.getElementById('s2-resume-btn')?.addEventListener('click', async () => {
@@ -2249,9 +2418,9 @@ async function s3_renderForm() {
     </div>
 
     <div id="s3-error" style="display:none;margin-bottom:var(--space-4);padding:var(--space-3) var(--space-4);background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius-sm);font-size:var(--text-sm);color:var(--color-danger)"></div>
-    <div style="display:flex;gap:var(--space-3);justify-content:flex-end;margin-bottom:var(--space-6)">
-      <a href="detail.html?id=${esc(supplierId)}" class="btn btn-ghost">Cancel</a>
-      <button type="button" class="btn btn-primary" id="s3-trade-ready-btn" disabled>Mark Trade Ready →</button>
+    <div style="display:flex;gap:var(--space-3);justify-content:flex-end;flex-wrap:wrap;margin-bottom:var(--space-6)">
+      <a href="detail.html?id=${esc(supplierId)}" class="btn btn-ghost btn-sm">Cancel</a>
+      <button type="button" class="btn btn-primary btn-sm" id="s3-trade-ready-btn" disabled>Mark Trade Ready →</button>
     </div>`;
 
   document.getElementById('s3-commercial-save-btn').addEventListener('click', s3_submitCommercialTerms);

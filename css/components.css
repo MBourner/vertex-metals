@@ -213,6 +213,9 @@
 .form-select:focus,
 .form-textarea:focus {
   border-color: var(--color-accent);
+  background-color: rgba(122,184,212,0.02);
+  box-shadow: 0 0 0 3px rgba(122,184,212,0.15);
+  outline: none;
 }
 
 .form-input.error,

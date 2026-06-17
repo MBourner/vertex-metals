@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Vertex Metals Portal — RFQ Module (list + detail, 4-tab workflow)
  */
 
@@ -13,8 +13,13 @@ function fmt(n, dp = 2) {
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-GB') : '—'; }
 
 function statusBadge(s) {
-  const map = { new:'badge-accent', reviewing:'badge-info', quoted:'badge-warning', responded:'badge-warning', accepted:'badge-success', closed:'badge-neutral' };
-  return `<span class="badge ${map[s]||'badge-neutral'}">${esc(s)}</span>`;
+  const colours = { new:'badge-accent', reviewing:'badge-info', quoted:'badge-warning', responded:'badge-neutral', accepted:'badge-success', closed:'badge-neutral' };
+  const labels  = { new:'New', reviewing:'In Progress', quoted:'Quoted', responded:'Quote Declined', accepted:'Converted', closed:'Closed' };
+  return `<span class="badge ${colours[s]||'badge-neutral'}">${labels[s] || esc(s)}</span>`;
+}
+function refreshRfqStatusBadge() {
+  const el = document.getElementById('rfq-status-display');
+  if (el && _rfqData) el.innerHTML = statusBadge(_rfqData.status);
 }
 function cqStatusBadge(s) {
   const map = { draft:'badge-neutral', issued:'badge-info', sent:'badge-info', accepted:'badge-success', rejected:'badge-danger', expired:'badge-neutral' };
@@ -212,7 +217,7 @@ async function submitNewRfq(e) {
     product:     document.getElementById('nrfq-product').value.trim() || null,
     quantity_mt: parseFloat(document.getElementById('nrfq-qty').value) || null,
     message:     document.getElementById('nrfq-message').value.trim() || null,
-    status:      'new',
+    status:      'reviewing',
   }]).select('id').single();
 
   if (error) {
@@ -263,27 +268,33 @@ let _activeCqId      = null; // customer_quote id being edited/built
 // rfq_lines state
 let _rfqLines = [];
 
+// Enquiry product-confirm state
+let _confirmedPl          = null;  // product line chosen/confirmed for this enquiry
+let _enquiryAltPickerOpen = false; // whether the "choose different" dropdown is visible
+
 // Pricing calculator state
 let _costsSqList        = [];
 let _costsLqList        = [];
 let _scenarioSupplierId = null;  // selected supplier UUID for multi-line pricing
 let _pricedLines        = [];    // calculated results per rfq_line
-let _calc = { pl: null, sqData: null, lqData: null, overheadTotal: 0, qty: 0, fx: 1.27, minMargin: 5, model: 'standard' };
-let _calcApplied = null; // pre-fill data passed to renderBuildTab (object OR array)
+let _calc = { pl: null, sqData: null, lqData: null, overheadTotal: 0, qty: 0, fx: 1.27, ins: 0.5, minMargin: 5, model: 'standard' };
+let _calcApplied    = null; // pre-fill data passed to renderBuildTab (object OR array)
+let _quoteCurrency  = 'GBP'; // customer-facing quote currency; set on Build Quote tab
+let _costsLocked    = false; // true once a quote has been issued (quoted/accepted/etc.)
 
 // ── Tab management ────────────────────────────────────────────────────────────
 
 function switchTab(name) {
   _activeTab = name;
   document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-    const tabs = ['enquiry','costs','summary','build','customer'];
+    const tabs = ['enquiry','costs','build','customer','summary'];
     btn.classList.toggle('active', tabs[i] === name);
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById(`tab-${name}`)?.classList.add('active');
 
   if (name === 'costs')    renderCostsTab();
-  if (name === 'summary')  renderSummaryTab();
+  if (name === 'summary')  renderSummaryTab(); // async — intentionally not awaited
   if (name === 'build')    renderBuildTab();
   if (name === 'customer') renderCustomerTab();
 }
@@ -306,6 +317,7 @@ async function loadRfqDetail() {
   _rfqLines        = lines || [];
 
   document.getElementById('rfq-title').textContent = `${data.company} — ${fmtDate(data.created_at)}`;
+  refreshRfqStatusBadge();
 
   // Update quote request PDF links
   const sqBtn = document.getElementById('supplier-quote-request-btn');
@@ -324,74 +336,85 @@ function scorePlMatch(plName, productText) {
 }
 
 async function renderEnquiryTab() {
-  const data = _rfqData;
-  const productText = (data.product || '').toLowerCase();
-  const matchedPl   = productText
-    ? _allProductLines.reduce((best, pl) => {
-        const score = scorePlMatch(pl.name, productText);
-        return score > (best?._score ?? 0) ? { ...pl, _score: score } : best;
-      }, null)
-    : null;
-  const validMatch = matchedPl && matchedPl._score > 0 ? matchedPl : null;
+  _confirmedPl          = null;
+  _enquiryAltPickerOpen = false;
+  const data     = _rfqData;
+  const isLinked = !!data.contact_id;
 
   const el = document.getElementById('rfq-detail');
   el.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-bottom:var(--space-8)">
-      ${field('Name', data.name)}${field('Company', data.company)}
-      ${field('Role', data.role)}${field('Email', `<a href="mailto:${esc(data.email)}" style="color:var(--color-accent)">${esc(data.email)}</a>`)}
-      ${field('Phone', data.phone)}${field('Type', data.type)}
-      ${field('Product interest', data.product)}${field('Estimated quantity', data.quantity_mt != null ? fmt(data.quantity_mt, 0) + ' ' + (data.quantity_unit || 'MT') : null)}
-      ${field('Country', data.country)}
+
+    <!-- ── Section 1: Customer Details ─────────────────────────────────────── -->
+    <div class="panel" style="margin-bottom:var(--space-4)">
+      <div class="panel-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-5)">
+          <h4 style="margin:0">Customer Details</h4>
+          ${isLinked ? `
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:rgba(22,163,74,0.1);border:1px solid rgba(22,163,74,0.25);border-radius:var(--radius);font-size:var(--text-xs);font-weight:600;color:#16a34a">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            Existing Customer
+          </span>` : ''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);margin-bottom:var(--space-5)">
+          ${field('Name', data.name)}${field('Company', data.company)}
+          ${field('Email', `<a href="mailto:${esc(data.email)}" style="color:var(--color-accent)">${esc(data.email)}</a>`)}${field('Phone', data.phone)}
+          ${field('Country', data.country)}${field('Type', data.type)}
+        </div>
+        <div style="display:flex;gap:var(--space-3)">
+          ${isLinked
+            ? `<a href="../customers/detail.html?id=${esc(data.contact_id)}" class="btn btn-secondary btn-sm">View Customer Record →</a>`
+            : `<a href="../customers/index.html?prefill=1&name=${encodeURIComponent(data.name)}&company=${encodeURIComponent(data.company)}&email=${encodeURIComponent(data.email)}&phone=${encodeURIComponent(data.phone||'')}&type=${encodeURIComponent(data.type)}" class="btn btn-secondary btn-sm">+ Create Customer</a>`
+          }
+        </div>
+      </div>
     </div>
-    ${data.specifications ? `
-    <div style="margin-bottom:var(--space-6)">
-      <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-2)">Specification / Requirements</p>
-      <p style="font-size:var(--text-sm);background:var(--color-surface);border-radius:var(--radius);padding:var(--space-3) var(--space-4);white-space:pre-wrap">${esc(data.specifications)}</p>
-    </div>` : ''}
 
-    <div style="margin-bottom:var(--space-8)"><strong>Message:</strong><p style="margin-top:var(--space-2);white-space:pre-wrap">${esc(data.message)}</p></div>
+    <!-- ── Section 2: Product Requested ────────────────────────────────────── -->
+    <div class="panel" style="margin-bottom:var(--space-4)">
+      <div class="panel-body">
+        <h4 style="margin:0 0 var(--space-5) 0">Product Requested</h4>
 
-    <div style="display:flex;gap:var(--space-4);align-items:flex-end;flex-wrap:wrap;margin-bottom:var(--space-8)">
-      <div class="form-group" style="min-width:200px">
-        <label class="form-label">Update Status</label>
-        <select class="form-select" id="status-select" onchange="updateStatus('${esc(_rfqId)}', this.value)">
-          ${['new','reviewing','quoted','responded','closed'].map(s => `<option value="${s}" ${s===data.status?'selected':''}>${s}</option>`).join('')}
-        </select>
+        <!-- What the customer asked for (read-only) -->
+        <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-4)">
+          <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-3)">Customer Request</p>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4)">
+            <p style="margin:0;font-size:var(--text-sm);color:var(--color-text-primary);flex:1">${esc(data.product)||'u{2014}'}</p>
+            ${data.quantity_mt != null ? `<span class="badge badge-neutral" style="flex-shrink:0">${fmt(data.quantity_mt, 0)} ${esc(data.quantity_unit||'MT')}</span>` : ''}
+          </div>
+          ${data.specifications ? `<div style="margin-top:var(--space-3);padding-top:var(--space-3);border-top:1px solid var(--color-border)"><p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-2)">Specification / Requirements</p><p style="font-size:var(--text-sm);margin:0;white-space:pre-wrap;color:var(--color-text-primary)">${esc(data.specifications)}</p></div>` : ''}
+        </div>
+
+        <!-- Suggest/confirm/add flow (populated by renderProductMatchSection) -->
+        <div id="rfq-product-match"></div>
+
+        <!-- Quote lines (populated after product is confirmed and added) -->
+        <div id="rfq-lines-section"></div>
       </div>
-      <a href="../customers/index.html?prefill=1&name=${encodeURIComponent(data.name)}&company=${encodeURIComponent(data.company)}&email=${encodeURIComponent(data.email)}&phone=${encodeURIComponent(data.phone||'')}&type=${encodeURIComponent(data.type)}"
-         class="btn btn-secondary btn-sm">+ Create Customer</a>
     </div>
 
-    ${validMatch ? `
-    <div style="background:#0a1728;border-radius:var(--radius);padding:var(--space-4);margin-bottom:var(--space-6);display:flex;gap:var(--space-6);flex-wrap:wrap;align-items:center">
-      <div>
-        <div style="font-size:var(--text-xs);color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--space-1)">Matched product</div>
-        <div style="color:#ffffff;font-weight:600">${esc(validMatch.name)}</div>
+    <!-- ── Section 3: Notes ─────────────────────────────────────────────────── -->
+    <div class="panel" style="margin-bottom:var(--space-6)">
+      <div class="panel-body">
+        <h4 style="margin:0 0 var(--space-5) 0">Notes</h4>
+        ${data.message ? `
+        <div style="margin-bottom:var(--space-5)">
+          <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-2)">Customer Message</p>
+          <p style="font-size:var(--text-sm);background:var(--color-surface);border-radius:var(--radius);padding:var(--space-3) var(--space-4);white-space:pre-wrap">${esc(data.message)}</p>
+        </div>` : ''}
+        <div>
+          <label class="form-label">Internal Notes</label>
+          <textarea class="form-textarea" id="notes-field" onblur="saveNotes('${esc(_rfqId)}')" placeholder="Add internal notes…">${esc(data.notes||'')}</textarea>
+          <p style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)">Notes auto-save on blur.</p>
+        </div>
       </div>
-      <div>
-        <div style="font-size:var(--text-xs);color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--space-1)">Standard price</div>
-        <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:#7ab8d4">${validMatch.standard_sell_price_gbp ? `£${fmt(validMatch.standard_sell_price_gbp)}/MT` : 'Not set'}</div>
-      </div>
-      ${validMatch.market_reference_price_gbp ? `
-      <div>
-        <div style="font-size:var(--text-xs);color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--space-1)">Market ref</div>
-        <div style="font-family:var(--font-display);font-size:var(--text-lg);font-weight:600;color:#ffffff">£${fmt(validMatch.market_reference_price_gbp)}/MT</div>
-      </div>` : ''}
-      <div>
-        <div style="font-size:var(--text-xs);color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--space-1)">Default markup</div>
-        <div style="font-family:var(--font-display);font-size:var(--text-lg);font-weight:600;color:#ffffff">${validMatch.default_markup_pct != null ? fmt(validMatch.default_markup_pct, 1) + '%' : '—'}</div>
-      </div>
-      <a href="../quotes/calculator.html" style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border:1px solid rgba(255,255,255,.5);border-radius:var(--radius-sm);color:#ffffff;font-size:var(--text-sm);font-weight:500;text-decoration:none;background:rgba(255,255,255,.1)">Open Calculator →</a>
-    </div>` : ''}
+    </div>
 
-    <div>
-      <label class="form-label">Internal Notes</label>
-      <textarea class="form-textarea" id="notes-field" onblur="saveNotes('${esc(_rfqId)}')" placeholder="Add notes...">${esc(data.notes||'')}</textarea>
-      <p style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)">Notes auto-save on blur.</p>
+    <!-- ── CTA ──────────────────────────────────────────────────────────────── -->
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="switchTab('costs')">Continue to Cost Inputs →</button>
     </div>
   `;
 
-  // Load rfq_lines section
   await loadRfqLines();
 }
 
@@ -407,13 +430,8 @@ async function loadRfqLines() {
     .order('line_number');
 
   if (!error) _rfqLines = data || [];
-
-  // Auto-create Line 1 from RFQ data if no lines exist
-  if (_rfqLines.length === 0 && (_rfqData?.product || _rfqData?.product_line_id)) {
-    await autoCreateInitialLine();
-  } else {
-    renderRfqLinesSection(_rfqLines);
-  }
+  renderRfqLinesSection(_rfqLines);
+  renderProductMatchSection();
 }
 
 async function autoCreateInitialLine() {
@@ -429,8 +447,171 @@ async function autoCreateInitialLine() {
     source:             'initial_enquiry',
   }]).select('*, product_lines(name)').single();
 
-  if (!error && data) _rfqLines = [data];
+  if (!error && data) {
+    _rfqLines = [data];
+    if (_rfqData?.status === 'new') {
+      await supabaseClient.from('rfq_submissions').update({ status: 'reviewing' }).eq('id', _rfqId);
+      _rfqData.status = 'reviewing';
+      refreshRfqStatusBadge();
+    }
+  }
   renderRfqLinesSection(_rfqLines);
+}
+
+// ── Enquiry: product suggest → confirm → add flow ─────────────────────────────
+
+function renderProductMatchSection() {
+  const el = document.getElementById('rfq-product-match');
+  if (!el) return;
+
+  // Once lines exist the flow is complete — hide the UI
+  if (_rfqLines.length > 0) { el.innerHTML = ''; return; }
+
+  // Compute suggestion from rfq_data + product lines catalogue
+  const productText = (_rfqData?.product || '').toLowerCase();
+  const matchedPl   = productText
+    ? _allProductLines.reduce((best, pl) => {
+        const score = scorePlMatch(pl.name, productText);
+        return score > (best?._score ?? 0) ? { ...pl, _score: score } : best;
+      }, null)
+    : null;
+  const suggestedPl = matchedPl && matchedPl._score > 0 ? matchedPl : null;
+
+  // ── State: product confirmed ──────────────────────────────────────────────
+  if (_confirmedPl) {
+    const pl = _confirmedPl;
+    el.innerHTML = `
+      <div style="border:2px solid rgba(22,163,74,0.35);border-radius:var(--radius);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-4);background:rgba(22,163,74,0.04)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            <span style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#16a34a">Product Confirmed</span>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="enquiryShowAltPicker()">Change</button>
+        </div>
+        <div style="font-weight:600;font-size:var(--text-base);margin-bottom:var(--space-3)">${esc(pl.name)}</div>
+        <div style="display:flex;gap:var(--space-5);flex-wrap:wrap;margin-bottom:var(--space-4);font-size:var(--text-sm);color:var(--color-text-muted)">
+          ${pl.standard_sell_price_gbp ? `<span>Standard: <strong style="color:var(--color-text-primary)">£${fmt(pl.standard_sell_price_gbp)}/MT</strong></span>` : ''}
+          ${pl.market_reference_price_gbp ? `<span>Market ref: <strong style="color:var(--color-text-primary)">£${fmt(pl.market_reference_price_gbp)}/MT</strong></span>` : ''}
+          ${pl.default_markup_pct != null ? `<span>Default markup: <strong style="color:var(--color-text-primary)">${fmt(pl.default_markup_pct, 1)}%</strong></span>` : ''}
+        </div>
+        <button class="btn btn-primary" id="enquiry-add-line-btn" onclick="enquiryAddConfirmedLine()">Add to Quote Lines →</button>
+      </div>`;
+    return;
+  }
+
+  // ── State: alt picker open ────────────────────────────────────────────────
+  if (_enquiryAltPickerOpen) {
+    const opts = _allProductLines.map(pl =>
+      `<option value="${esc(pl.id)}">${esc(pl.name)}</option>`
+    ).join('');
+    el.innerHTML = `
+      <div style="border:1px solid var(--color-border);border-radius:var(--radius);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-4)">
+        <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-3)">Select Product Line</p>
+        <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+          <select class="form-select" id="alt-pl-select" style="flex:1;min-width:200px">
+            <option value="">— Choose a product line —</option>
+            ${opts}
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="enquiryConfirmAltProduct()">Confirm Selection</button>
+          ${suggestedPl ? `<button type="button" class="btn btn-ghost btn-sm" onclick="enquiryCloseAltPicker()">← Back to suggestion</button>` : ''}
+        </div>
+      </div>`;
+    return;
+  }
+
+  // ── State: auto-suggestion available ─────────────────────────────────────
+  if (suggestedPl) {
+    const pl = suggestedPl;
+    el.innerHTML = `
+      <div style="background:#0a1728;border-radius:var(--radius);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-4)">
+        <p style="font-size:var(--text-xs);color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-3)">Suggested Product Line</p>
+        <div style="font-weight:600;font-size:var(--text-base);color:#ffffff;margin-bottom:var(--space-3)">${esc(pl.name)}</div>
+        <div style="display:flex;gap:var(--space-5);flex-wrap:wrap;margin-bottom:var(--space-4);font-size:var(--text-sm)">
+          ${pl.standard_sell_price_gbp ? `<span style="color:rgba(255,255,255,.7)">Standard: <strong style="color:#7ab8d4">£${fmt(pl.standard_sell_price_gbp)}/MT</strong></span>` : ''}
+          ${pl.market_reference_price_gbp ? `<span style="color:rgba(255,255,255,.7)">Market ref: <strong style="color:#ffffff">£${fmt(pl.market_reference_price_gbp)}/MT</strong></span>` : ''}
+          ${pl.default_markup_pct != null ? `<span style="color:rgba(255,255,255,.7)">Markup: <strong style="color:#ffffff">${fmt(pl.default_markup_pct, 1)}%</strong></span>` : ''}
+        </div>
+        <div style="display:flex;gap:var(--space-3);flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="enquiryConfirmProduct('${esc(pl.id)}')">Confirm this product</button>
+          <button type="button" style="display:inline-flex;align-items:center;padding:6px 14px;border:1px solid rgba(255,255,255,.4);border-radius:var(--radius-sm);background:transparent;color:#ffffff;font-size:var(--text-sm);cursor:pointer;font-family:var(--font-body)" onclick="enquiryShowAltPicker()">Choose different →</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  // ── State: no match — prompt to select ───────────────────────────────────
+  const opts = _allProductLines.map(pl =>
+    `<option value="${esc(pl.id)}">${esc(pl.name)}</option>`
+  ).join('');
+  el.innerHTML = `
+    <div style="border:1px solid var(--color-border);border-radius:var(--radius);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-4)">
+      <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3)">No product line could be matched automatically. Please select from the catalogue.</p>
+      <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+        <select class="form-select" id="alt-pl-select" style="flex:1;min-width:200px">
+          <option value="">— Choose a product line —</option>
+          ${opts}
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="enquiryConfirmAltProduct()">Confirm Selection</button>
+      </div>
+    </div>`;
+}
+
+function enquiryConfirmProduct(plId) {
+  _confirmedPl          = _allProductLines.find(pl => pl.id === plId) || null;
+  _enquiryAltPickerOpen = false;
+  renderProductMatchSection();
+}
+
+function enquiryShowAltPicker() {
+  _enquiryAltPickerOpen = true;
+  renderProductMatchSection();
+}
+
+function enquiryCloseAltPicker() {
+  _enquiryAltPickerOpen = false;
+  renderProductMatchSection();
+}
+
+function enquiryConfirmAltProduct() {
+  const sel = document.getElementById('alt-pl-select');
+  if (!sel?.value) return;
+  enquiryConfirmProduct(sel.value);
+}
+
+async function enquiryAddConfirmedLine() {
+  if (!_confirmedPl) return;
+  const btn = document.getElementById('enquiry-add-line-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+
+  const { data, error } = await supabaseClient.from('rfq_lines').insert([{
+    rfq_id:              _rfqId,
+    line_number:         _rfqLines.length + 1,
+    product_line_id:     _confirmedPl.id,
+    description:         _rfqData.product || _confirmedPl.name,
+    grade_specification: _rfqData.specifications || null,
+    quantity:            _rfqData.quantity_mt || null,
+    quantity_unit:       _rfqData.quantity_unit || 'MT',
+    is_alternative:      false,
+    source:              'initial_enquiry',
+  }]).select('*, product_lines(name)').single();
+
+  if (error) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Add to Quote Lines →'; }
+    showAlert('Could not add line: ' + error.message, 'error');
+    return;
+  }
+
+  _rfqLines.push(data);
+  if (_rfqData?.status === 'new') {
+    await supabaseClient.from('rfq_submissions').update({ status: 'reviewing' }).eq('id', _rfqId);
+    _rfqData.status = 'reviewing';
+    refreshRfqStatusBadge();
+  }
+  _confirmedPl          = null;
+  _enquiryAltPickerOpen = false;
+  renderRfqLinesSection(_rfqLines);
+  renderProductMatchSection();
 }
 
 function renderRfqLinesSection(lines) {
@@ -557,6 +738,11 @@ async function submitAddRfqLine(lineNum) {
     alertEl.textContent = error.message; btn.disabled=false; btn.textContent='Add Line'; return;
   }
   _rfqLines.push(data);
+  if (_rfqData?.status === 'new') {
+    await supabaseClient.from('rfq_submissions').update({ status: 'reviewing' }).eq('id', _rfqId);
+    _rfqData.status = 'reviewing';
+    refreshRfqStatusBadge();
+  }
   closeDynModal('add-rfqline-modal');
   renderRfqLinesSection(_rfqLines);
 }
@@ -630,7 +816,7 @@ async function renderCostsTab() {
       .select('id,rfq_line_id,supplier_id,product,specification,pricing_basis,fob_price_usd,price_per_piece,quantity_pieces,quantity_mt,incoterm,validity_date,status,document_path,contacts(company_name)')
       .eq('rfq_id', _rfqId).order('created_at', { ascending: false }),
     supabaseClient.from('logistics_quotes')
-      .select('id,origin_country,destination_country,mode,pricing_type,price_per_mt_usd,price_flat_gbp,validity_date,status,document_path,contacts(company_name)')
+      .select('id,origin_country,destination_country,mode,pricing_type,price_per_mt_usd,price_flat_usd,price_flat_gbp,validity_date,status,document_path,contacts(company_name)')
       .eq('rfq_id', _rfqId).order('created_at', { ascending: false }),
     supabaseClient.from('rfq_overhead_costs')
       .select('*').eq('rfq_id', _rfqId).order('created_at'),
@@ -649,10 +835,27 @@ async function renderCostsTab() {
   _costsSqList = sqRes.data || [];
   _costsLqList = lqRes.data || [];
 
+  _costsLocked = ['quoted','responded','accepted','closed'].includes(_rfqData?.status);
+
   renderSupplierQuotesSection(_costsSqList);
   renderLogisticsQuotesSection(_costsLqList);
   renderOverheadCostsSection(ohRes.data || []);
   renderPricingCalculator(_costsSqList, _costsLqList, ohRes.data || []);
+
+  // Show/hide action buttons and lock banner based on quote status
+  const banner = document.getElementById('costs-lock-banner');
+  if (banner) {
+    banner.innerHTML = _costsLocked
+      ? `<div style="display:flex;align-items:center;gap:var(--space-3);background:rgba(122,184,212,0.1);border:1px solid var(--color-steel);border-radius:var(--radius);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-5);font-size:var(--text-sm)">
+           <span style="font-size:1.1rem">🔒</span>
+           <span>A customer quote has been issued for this RFQ. Cost inputs are locked. To revise, re-issue a new quote from the <strong>Build Quote</strong> tab.</span>
+         </div>`
+      : '';
+  }
+  ['sq-action-btns','lq-action-btns','oh-action-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = _costsLocked ? 'none' : '';
+  });
 }
 
 function renderSupplierQuotesSection(quotes) {
@@ -687,6 +890,7 @@ function renderSupplierQuotesSection(quotes) {
         <td>${fmtDate(q.validity_date)}</td>
         <td><span class="badge badge-${q.status==='active'?'success':'neutral'}">${esc(q.status)}</span></td>
         <td>${q.document_path ? `<button onclick="downloadDoc('supplier_quotes','${esc(q.document_path)}')" class="btn btn-ghost btn-sm">Download</button>` : '<span style="color:var(--color-text-muted);font-size:var(--text-xs)">—</span>'}</td>
+        <td>${_costsLocked ? '' : `<button onclick="deleteSupplierQuote('${esc(q.id)}')" class="btn btn-ghost btn-sm" style="color:var(--color-danger)">Remove</button>`}</td>
       </tr>`;
     }).join('');
 
@@ -698,7 +902,7 @@ function renderSupplierQuotesSection(quotes) {
         </div>
       </div>
       <div class="table-wrapper" style="margin:0"><table>
-        <thead><tr><th>Line</th><th>Product</th><th>Spec/Grade</th><th>Price</th><th>Validity</th><th>Status</th><th>Doc</th></tr></thead>
+        <thead><tr><th>Line</th><th>Product</th><th>Spec/Grade</th><th>Price</th><th>Validity</th><th>Status</th><th>Doc</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
     </div>`;
@@ -712,7 +916,7 @@ function renderLogisticsQuotesSection(quotes) {
     return;
   }
   el.innerHTML = `<div class="table-wrapper" style="margin:0"><table>
-    <thead><tr><th>Provider</th><th>Route</th><th>Mode</th><th>Pricing</th><th>Price</th><th>Validity</th><th>Status</th><th>Doc</th></tr></thead>
+    <thead><tr><th>Provider</th><th>Route</th><th>Mode</th><th>Pricing</th><th>Price</th><th>Validity</th><th>Status</th><th>Doc</th><th></th></tr></thead>
     <tbody>${quotes.map(q => {
       const isFlat = q.pricing_type === 'flat';
       const price  = isFlat
@@ -727,6 +931,7 @@ function renderLogisticsQuotesSection(quotes) {
         <td>${fmtDate(q.validity_date)}</td>
         <td><span class="badge badge-${q.status==='active'?'success':'neutral'}">${esc(q.status)}</span></td>
         <td>${q.document_path ? `<button onclick="downloadDoc('logistics_quotes','${esc(q.document_path)}')" class="btn btn-ghost btn-sm">Download</button>` : '<span style="color:var(--color-text-muted);font-size:var(--text-xs)">None</span>'}</td>
+        <td>${_costsLocked ? '' : `<button onclick="deleteLogisticsQuote('${esc(q.id)}')" class="btn btn-ghost btn-sm" style="color:var(--color-danger)">Remove</button>`}</td>
       </tr>`;
     }).join('')}</tbody>
   </table></div>`;
@@ -955,7 +1160,7 @@ async function openAddLogisticsQuoteModal() {
               <input type="radio" name="lq-pricing" value="per_mt" checked onchange="toggleLqPricing(this.value)" /> Per MT (USD)
             </label>
             <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
-              <input type="radio" name="lq-pricing" value="flat" onchange="toggleLqPricing(this.value)" /> Flat fee (GBP)
+              <input type="radio" name="lq-pricing" value="flat" onchange="toggleLqPricing(this.value)" /> Flat fee (USD)
             </label>
           </div>
         </div>
@@ -991,6 +1196,8 @@ async function openAddLogisticsQuoteModal() {
 function toggleLqPricing(val) {
   document.getElementById('lq-price-permt-group').style.display = val === 'per_mt' ? '' : 'none';
   document.getElementById('lq-price-flat-group').style.display  = val === 'flat'   ? '' : 'none';
+  const alert = document.getElementById('add-lq-alert');
+  if (alert) alert.style.display = 'none';
 }
 
 async function submitAddLogisticsQuote(e) {
@@ -1100,6 +1307,18 @@ async function submitAddOverhead(e) {
   renderCostsTab();
 }
 
+async function deleteSupplierQuote(id) {
+  if (!confirm('Remove this supplier quote from the RFQ?')) return;
+  await supabaseClient.from('supplier_quotes').delete().eq('id', id);
+  renderCostsTab();
+}
+
+async function deleteLogisticsQuote(id) {
+  if (!confirm('Remove this logistics quote from the RFQ?')) return;
+  await supabaseClient.from('logistics_quotes').delete().eq('id', id);
+  renderCostsTab();
+}
+
 async function deleteOverhead(id) {
   if (!confirm('Remove this cost?')) return;
   await supabaseClient.from('rfq_overhead_costs').delete().eq('id', id);
@@ -1126,6 +1345,10 @@ function renderPricingCalculator(sqList, lqList, ohList) {
   // Auto-select first scenario if none selected
   if (!_scenarioSupplierId && suppliers.length > 0) {
     _scenarioSupplierId = suppliers[0][0];
+  }
+  // Auto-select first logistics quote if none selected (state resets on page load)
+  if (!_calc.lqData && lqList.length > 0) {
+    _calc.lqData = lqList[0];
   }
 
   const scenarioOpts = suppliers.map(([id, name]) =>
@@ -1176,13 +1399,13 @@ function renderPricingCalculator(sqList, lqList, ohList) {
         </div>
         <div class="form-group">
           <label class="form-label">Insurance (% of FOB)</label>
-          <input type="number" class="form-input" id="calc-ins" value="0.5" step="0.05" min="0" oninput="recalcAllLines()" />
+          <input type="number" class="form-input" id="calc-ins" value="${_calc.ins}" step="0.05" min="0" oninput="_calc.ins=parseFloat(this.value)||0;recalcAllLines()" />
         </div>
       </div>
 
       <!-- Pricing model (applies to all lines) -->
-      <div style="background:var(--color-surface);border-radius:var(--radius);padding:var(--space-4);margin-bottom:var(--space-5)">
-        <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-3)">Pricing Model (all lines)</p>
+      <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);padding:var(--space-5);margin-top:var(--space-2);margin-bottom:var(--space-5)">
+        <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-4)">Pricing Model (all lines)</p>
         <div style="display:flex;flex-wrap:wrap;gap:var(--space-5);margin-bottom:var(--space-3)">
           ${[['standard','Standard','Default product line margin'],['best','Best Price','Half standard, min 3%'],['market','Market Rate','Market reference price'],['manual','Manual','Enter margin % directly']].map(([val, label, desc]) =>
             `<label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
@@ -1208,7 +1431,7 @@ function renderPricingCalculator(sqList, lqList, ohList) {
               <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">FOB/unit (USD)</th>
               <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Freight (USD)</th>
               <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Landed (USD)</th>
-              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Sell Price (GBP)</th>
+              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Sell Price (USD)</th>
             </tr>
           </thead>
           <tbody id="calc-lines-body">
@@ -1227,6 +1450,19 @@ function renderPricingCalculator(sqList, lqList, ohList) {
       </div>
       `}
     </div>`;
+
+  // Browsers don't reliably honour `selected`/`checked` on elements injected via
+  // innerHTML when the container has been in the DOM before — set explicitly.
+  const lqSel = document.getElementById('calc-lq-sel');
+  if (lqSel && _calc.lqData?.id) lqSel.value = _calc.lqData.id;
+  const scenSel = document.getElementById('calc-scenario');
+  if (scenSel && _scenarioSupplierId) scenSel.value = _scenarioSupplierId;
+  const fxEl = document.getElementById('calc-fx');
+  if (fxEl) fxEl.value = _calc.fx;
+  const modelEl = document.querySelector(`input[name="calc-model"][value="${_calc.model}"]`);
+  if (modelEl) modelEl.checked = true;
+  const insEl = document.getElementById('calc-ins');
+  if (insEl) insEl.value = _calc.ins;
 
   recalcAllLines();
 }
@@ -1347,7 +1583,7 @@ function recalcAllLines() {
       </tr>`;
     }
 
-    const lineTotal = result.sellPriceGbp * (parseFloat(line.quantity) || 0);
+    const lineTotal = result.sellPriceUsd * (parseFloat(line.quantity) || 0);
     grandTotal += lineTotal;
     _pricedLines.push({ line, result, sqForLine, lineTotal });
 
@@ -1358,16 +1594,16 @@ function recalcAllLines() {
       <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums">$${fmt(result.fobUsd)}</td>
       <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums">$${fmt(result.freightUsdPerMt)}</td>
       <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums">$${fmt(result.landedUsd)}</td>
-      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-weight:700;color:var(--color-text-primary)">£${fmt(result.sellPriceGbp)}</td>
+      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-weight:700;color:var(--color-text-primary)">$${fmt(result.sellPriceUsd)}</td>
     </tr>`;
   }).join('');
 
   // Update total and apply button
   const totalEl = document.getElementById('calc-total-value');
-  if (totalEl) totalEl.textContent = grandTotal ? `£${(grandTotal).toLocaleString('en-GB', {minimumFractionDigits:2})}` : '—';
+  if (totalEl) totalEl.textContent = grandTotal ? `$${(grandTotal).toLocaleString('en-US', {minimumFractionDigits:2})}` : '—';
 
   const applyBtn = document.getElementById('calc-apply-btn');
-  if (applyBtn) applyBtn.disabled = !(allPrimaryPriced && _pricedLines.length > 0);
+  if (applyBtn) applyBtn.disabled = _costsLocked || !(allPrimaryPriced && _pricedLines.length > 0);
 
   // Sync margin field if model is not manual
   if (model !== 'manual' && _pricedLines.length > 0) {
@@ -1395,6 +1631,9 @@ async function applyAllLinesToQuote() {
     qty:           line.quantity || null,
     unit:          line.quantity_unit || 'MT',
     unitPrice:     result.sellPriceGbp,
+    unitPriceGbp:  result.sellPriceGbp,
+    unitPriceUsd:  result.sellPriceUsd,
+    fx:            _calc.fx,
     sqId:          sqForLine?.id || null,
     lqId,
     model:         _calc.model,
@@ -1409,9 +1648,54 @@ async function applyAllLinesToQuote() {
 
 // ── Tab 3: Quote Summary ──────────────────────────────────────────────────────
 
-function renderSummaryTab() {
+async function rehydratePricedLines() {
+  if (_pricedLines.length > 0) return;
+  if (!_rfqId) return;
+
+  if (_rfqLines.length === 0) {
+    const { data } = await supabaseClient.from('rfq_lines')
+      .select('*, product_lines(*)').eq('rfq_id', _rfqId).order('line_number');
+    _rfqLines = data || [];
+  }
+
+  const [sqRes, lqRes, ohRes] = await Promise.all([
+    supabaseClient.from('supplier_quotes')
+      .select('id,rfq_line_id,supplier_id,product,specification,pricing_basis,fob_price_usd,price_per_piece,quantity_pieces,quantity_mt,incoterm,validity_date,status,document_path,contacts(company_name)')
+      .eq('rfq_id', _rfqId).order('created_at', { ascending: false }),
+    supabaseClient.from('logistics_quotes')
+      .select('id,origin_country,destination_country,mode,pricing_type,price_per_mt_usd,price_flat_usd,price_flat_gbp,validity_date,status,document_path,contacts(company_name)')
+      .eq('rfq_id', _rfqId).order('created_at', { ascending: false }),
+    supabaseClient.from('rfq_overhead_costs').select('*').eq('rfq_id', _rfqId),
+  ]);
+
+  _costsSqList = sqRes.data || [];
+  _costsLqList = lqRes.data || [];
+  _calc.overheadTotal = (ohRes.data || []).reduce((s, o) => s + parseFloat(o.amount_gbp || 0), 0);
+
+  // Mirror the auto-select logic from renderPricingCalculator
+  const supplierMap = {};
+  _costsSqList.forEach(q => {
+    if (q.supplier_id && q.contacts?.company_name) supplierMap[q.supplier_id] = q.contacts.company_name;
+  });
+  const suppliers = Object.entries(supplierMap);
+  if (!_scenarioSupplierId && suppliers.length > 0) _scenarioSupplierId = suppliers[0][0];
+  if (!_calc.lqData && _costsLqList.length > 0) _calc.lqData = _costsLqList[0];
+  if (!_allProductLines.length) {
+    const { data: pl } = await supabaseClient.from('product_lines').select('*');
+    _allProductLines = pl || [];
+  }
+
+  recalcAllLines(); // populates _pricedLines
+}
+
+async function renderSummaryTab() {
   const el = document.getElementById('tab-summary');
   if (!el) return;
+
+  if (!_pricedLines || _pricedLines.length === 0) {
+    el.innerHTML = `<div class="panel"><div class="panel-body" style="text-align:center;padding:var(--space-8)"><span style="color:var(--color-text-muted)">Loading summary…</span></div></div>`;
+    await rehydratePricedLines();
+  }
 
   if (!_pricedLines || _pricedLines.length === 0) {
     el.innerHTML = `
@@ -1431,12 +1715,12 @@ function renderSummaryTab() {
   const supplierName = _costsSqList.find(q => q.supplier_id === _scenarioSupplierId)?.contacts?.company_name || 'Unknown supplier';
   const buyer        = _rfqData;
 
-  // Totals
-  const totalRevenueGbp = _pricedLines.reduce((s, p) => s + p.lineTotal, 0);
+  // Totals — all in USD (internal view); customer quote tab uses GBP
+  const totalRevenueUsd = _pricedLines.reduce((s, p) => s + p.lineTotal, 0);
   const totalLandedUsd  = _pricedLines.reduce((s, p) => s + p.result.landedUsd * (parseFloat(p.line.quantity) || 0), 0);
   const totalLandedGbp  = totalLandedUsd / fx;
-  const totalProfitGbp  = totalRevenueGbp - totalLandedGbp;
-  const avgMarginPct    = totalRevenueGbp > 0 ? (totalProfitGbp / totalRevenueGbp) * 100 : 0;
+  const totalProfitUsd  = totalRevenueUsd - totalLandedUsd;
+  const avgMarginPct    = totalRevenueUsd > 0 ? (totalProfitUsd / totalRevenueUsd) * 100 : 0;
 
   const marginBadgeClass = m => m >= 10 ? 'badge-success' : m >= 5 ? 'badge-warning' : 'badge-danger';
   const profitColour     = p => p >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
@@ -1474,17 +1758,15 @@ function renderSummaryTab() {
               <th>Product</th>
               <th style="text-align:right">Qty</th>
               <th style="text-align:right">Cost/unit (USD)</th>
-              <th style="text-align:right">Cost/unit (GBP)</th>
-              <th style="text-align:right">Sell/unit (GBP)</th>
-              <th style="text-align:right">Revenue (GBP)</th>
+              <th style="text-align:right">Sell/unit (USD)</th>
+              <th style="text-align:right">Revenue (USD)</th>
               <th style="text-align:right">Margin</th>
-              <th style="text-align:right">Profit (GBP)</th>
+              <th style="text-align:right">Profit (USD)</th>
             </tr></thead>
             <tbody>
               ${_pricedLines.map(({ line, result, lineTotal }) => {
                 const qty        = parseFloat(line.quantity) || 0;
-                const costGbp    = (result.landedUsd * qty) / fx;
-                const profitGbp  = lineTotal - costGbp;
+                const profitUsd  = lineTotal - (result.landedUsd * qty);
                 return `<tr>
                   <td style="font-weight:600;color:var(--color-text-muted)">${line.line_number}${line.is_alternative ? ' <span class="badge badge-info" style="font-size:10px">Alt</span>' : ''}</td>
                   <td>
@@ -1493,11 +1775,10 @@ function renderSummaryTab() {
                   </td>
                   <td style="text-align:right">${qty ? fmt(qty, 0) + ' ' + esc(line.quantity_unit || 'MT') : '—'}</td>
                   <td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--color-text-muted)">$${fmt(result.landedUsd)}</td>
-                  <td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--color-text-muted)">£${fmt(result.landedUsd / fx)}</td>
-                  <td style="text-align:right;font-variant-numeric:tabular-nums">£${fmt(result.sellPriceGbp)}</td>
-                  <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">£${fmt(lineTotal)}</td>
+                  <td style="text-align:right;font-variant-numeric:tabular-nums">$${fmt(result.sellPriceUsd)}</td>
+                  <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">$${fmt(lineTotal)}</td>
                   <td style="text-align:right"><span class="badge ${marginBadgeClass(result.marginPct)}">${fmt(result.marginPct, 1)}%</span></td>
-                  <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:${profitColour(profitGbp)}">£${fmt(profitGbp)}</td>
+                  <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:${profitColour(profitUsd)}">$${fmt(profitUsd)}</td>
                 </tr>`;
               }).join('')}
             </tbody>
@@ -1512,17 +1793,17 @@ function renderSummaryTab() {
         <div>
           <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-1)">Total Cost</div>
           <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:#ffffff">$${fmt(totalLandedUsd)}</div>
-          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.4);margin-top:2px">≈ £${fmt(totalLandedGbp)} at £1=$${fmt(fx,3)}</div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.4);margin-top:2px">≈ £${fmt(totalLandedGbp)} GBP at £1=$${fmt(fx,3)}</div>
         </div>
         <div>
           <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-1)">Total Revenue</div>
-          <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:#7ab8d4">£${fmt(totalRevenueGbp)}</div>
-          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.4);margin-top:2px">Customer quote (GBP)</div>
+          <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:#7ab8d4">$${fmt(totalRevenueUsd)}</div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.4);margin-top:2px">Internal trade view (USD)</div>
         </div>
         <div>
           <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-1)">Gross Profit</div>
-          <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:${totalProfitGbp >= 0 ? '#4ade80' : '#f87171'}">£${fmt(totalProfitGbp)}</div>
-          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.4);margin-top:2px">Revenue minus cost (GBP)</div>
+          <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:${totalProfitUsd >= 0 ? '#4ade80' : '#f87171'}">$${fmt(totalProfitUsd)}</div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.4);margin-top:2px">Revenue minus cost (USD)</div>
         </div>
         <div>
           <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-1)">Average Margin</div>
@@ -1556,6 +1837,17 @@ async function downloadDoc(bucket, path) {
 
 // ── Tab 3: Build Quote ────────────────────────────────────────────────────────
 
+function updateExpiryDisplay() {
+  const dateStr = document.getElementById('bq-date')?.value;
+  const days    = parseInt(document.getElementById('bq-valid-days')?.value) || 7;
+  const el      = document.getElementById('bq-expiry-display');
+  if (!el) return;
+  if (!dateStr) { el.textContent = '—'; return; }
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  el.textContent = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 async function renderBuildTab() {
   // Load overheads for totals summary, and existing draft quote if any
   const [{ data: overheads }, { data: existingCq }] = await Promise.all([
@@ -1581,13 +1873,17 @@ async function renderBuildTab() {
     contactAddr = contacts?.[0] || null;
   }
 
-  // Initialise working line items — prefer calculator output, then existing draft, then blank
-  if (existingLines.length) {
-    _quoteLines = existingLines.map(l => ({ ...l }));
-  } else if (Array.isArray(_calcApplied) && _calcApplied.length) {
+  // Sync quote currency from saved draft, then fall back to module state
+  if (cq?.currency) _quoteCurrency = cq.currency;
+
+  // Initialise working line items — prefer fresh calculator output (allows currency change),
+  // then existing draft, then blank
+  if (Array.isArray(_calcApplied) && _calcApplied.length) {
     // Multi-line from scenario pricing calculator
+    const price = (ca) => _quoteCurrency === 'USD' ? (ca.unitPriceUsd || ca.unitPrice) : (ca.unitPriceGbp || ca.unitPrice);
     _quoteLines = _calcApplied.map((ca, i) => {
-      const amt = (ca.unitPrice || 0) * (ca.qty || 0);
+      const p   = price(ca);
+      const amt = p * (ca.qty || 0);
       return {
         line_number:        i + 1,
         rfq_line_id:        ca.rfqLineId || null,
@@ -1596,32 +1892,16 @@ async function renderBuildTab() {
         grade_specification: ca.gradeSpec || '',
         quantity:           ca.qty || null,
         unit:               ca.unit || 'MT',
-        unit_price_gbp:     ca.unitPrice,
+        unit_price_gbp:     p,
         amount_gbp:         amt,
         vat_rate:           ca.vatRate,
         vat_amount_gbp:     amt * (ca.vatRate / 100),
         is_alternative:     ca.isAlternative || false,
       };
     });
-    _calcApplied = null;
-  } else if (_calcApplied && !Array.isArray(_calcApplied)) {
-    // Legacy single-line from old calculator
-    const ca = _calcApplied;
-    const amt = (ca.unitPrice || 0) * (ca.qty || 0);
-    _quoteLines = [{
-      line_number:        1,
-      item_code:          ca.cnCode || '',
-      description:        ca.plName,
-      grade_specification: ca.specs || '',
-      quantity:           ca.qty || null,
-      unit:               'MT',
-      unit_price_gbp:     ca.unitPrice,
-      amount_gbp:         amt,
-      vat_rate:           ca.vatRate,
-      vat_amount_gbp:     amt * (ca.vatRate / 100),
-      is_alternative:     false,
-    }];
-    _calcApplied = null;
+    // _calcApplied kept alive so currency changes can re-derive prices
+  } else if (existingLines.length) {
+    _quoteLines = existingLines.map(l => ({ ...l }));
   } else if (!_quoteLines.length) {
     _quoteLines = [blankLine(1)];
   }
@@ -1630,6 +1910,22 @@ async function renderBuildTab() {
 
   const today = new Date().toISOString().split('T')[0];
   const ref   = cq?.quote_reference || generateQuoteReference();
+
+  // Parse existing lead_time string (e.g. "4 weeks") into qty + unit
+  const _leadMatch = (cq?.lead_time || '').match(/^(\d+)\s*(days?|weeks?|months?)$/i);
+  const leadQty    = _leadMatch ? _leadMatch[1] : '';
+  const leadUnit   = _leadMatch ? (_leadMatch[2].toLowerCase().endsWith('s') ? _leadMatch[2].toLowerCase() : _leadMatch[2].toLowerCase() + 's') : 'weeks';
+
+  // Derive "valid for" days from existing quote; default 7
+  let selectedValidDays = 7;
+  if (cq?.validity_date && cq?.issued_date) {
+    const diff = Math.round((new Date(cq.validity_date) - new Date(cq.issued_date)) / 86400000);
+    if ([7, 14, 30].includes(diff)) selectedValidDays = diff;
+  }
+  const baseDate    = cq?.issued_date || today;
+  const expiryDate  = new Date(baseDate);
+  expiryDate.setDate(expiryDate.getDate() + selectedValidDays);
+  const expiryDisplay = expiryDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
   const el = document.getElementById('build-quote-content');
   el.innerHTML = `
@@ -1687,11 +1983,24 @@ async function renderBuildTab() {
           </div>
           <div class="form-group">
             <label class="form-label">Date</label>
-            <input type="date" class="form-input" id="bq-date" value="${esc(cq?.issued_date || today)}" />
+            <input type="date" class="form-input" id="bq-date" value="${esc(cq?.issued_date || today)}" onchange="updateExpiryDisplay()" />
           </div>
           <div class="form-group">
-            <label class="form-label">Expiry Date</label>
-            <input type="date" class="form-input" id="bq-expiry" value="${esc(cq?.validity_date || '')}" />
+            <label class="form-label">Valid For</label>
+            <select class="form-select" id="bq-valid-days" onchange="updateExpiryDisplay()">
+              ${[7,14,30].map(d => `<option value="${d}" ${d === selectedValidDays ? 'selected' : ''}>${d} days</option>`).join('')}
+            </select>
+            <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1)">Expires: <span id="bq-expiry-display">${expiryDisplay}</span></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Quote Currency</label>
+            <select class="form-select" id="bq-currency" onchange="_quoteCurrency=this.value;renderBuildTab()">
+              <option value="GBP" ${_quoteCurrency === 'GBP' ? 'selected' : ''}>GBP (£)</option>
+              <option value="USD" ${_quoteCurrency === 'USD' ? 'selected' : ''}>USD ($)</option>
+            </select>
+            <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1)">
+              ${_quoteCurrency === 'GBP' && _calc.fx ? `Converted from USD at £1 = $${fmt(_calc.fx, 3)}` : 'No conversion — prices shown as USD'}
+            </div>
           </div>
           <div class="form-group" style="grid-column:1/-1">
             <label class="form-label">Payment Terms</label>
@@ -1707,7 +2016,15 @@ async function renderBuildTab() {
           </div>
           <div class="form-group" style="grid-column:1/-1">
             <label class="form-label">Lead Time</label>
-            <input type="text" class="form-input" id="bq-lead" value="${esc(cq?.lead_time || '')}" placeholder="e.g. 4–6 weeks from order confirmation" />
+            <div style="display:flex;gap:var(--space-2)">
+              <input type="number" class="form-input" id="bq-lead-qty" value="${esc(leadQty)}" min="1" max="99" step="1" placeholder="e.g. 4" style="width:90px;flex-shrink:0" />
+              <select class="form-select" id="bq-lead-unit">
+                <option value="days"   ${leadUnit === 'days'   ? 'selected' : ''}>Days</option>
+                <option value="weeks"  ${leadUnit === 'weeks'  ? 'selected' : ''}>Weeks</option>
+                <option value="months" ${leadUnit === 'months' ? 'selected' : ''}>Months</option>
+              </select>
+            </div>
+            <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1)">From order confirmation</div>
           </div>
         </div>
       </div>
@@ -1872,7 +2189,8 @@ async function saveQuoteDraft(publish = false) {
     sell_price_per_mt_gbp:    lines.find(l => !l.is_alternative)?.unit_price_gbp || null,
     quote_reference:          document.getElementById('bq-ref')?.value || generateQuoteReference(),
     issued_date:              document.getElementById('bq-date')?.value || null,
-    validity_date:            document.getElementById('bq-expiry')?.value || null,
+    validity_date:            (() => { const d = new Date(document.getElementById('bq-date')?.value || new Date().toISOString().split('T')[0]); d.setDate(d.getDate() + (parseInt(document.getElementById('bq-valid-days')?.value) || 7)); return d.toISOString().split('T')[0]; })(),
+    currency:                 document.getElementById('bq-currency')?.value || _quoteCurrency || 'GBP',
     customer_name:            document.getElementById('bq-cust-name')?.value.trim() || null,
     customer_company:         document.getElementById('bq-cust-company')?.value.trim() || null,
     customer_address_line_1:  document.getElementById('bq-addr1')?.value.trim() || null,
@@ -1882,7 +2200,7 @@ async function saveQuoteDraft(publish = false) {
     customer_country:         document.getElementById('bq-country')?.value.trim() || null,
     customer_vat_number:      document.getElementById('bq-vat')?.value.trim() || null,
     payment_terms:            (() => { const sel = document.getElementById('bq-payment-select')?.value; return sel === 'other' ? (document.getElementById('bq-payment-other')?.value.trim() || null) : (sel || null); })(),
-    lead_time:                document.getElementById('bq-lead')?.value.trim() || null,
+    lead_time:                (() => { const qty = parseInt(document.getElementById('bq-lead-qty')?.value); const unit = document.getElementById('bq-lead-unit')?.value || 'weeks'; return qty > 0 ? `${qty} ${unit}` : null; })(),
     notes:                    document.getElementById('bq-notes')?.value.trim() || null,
     terms_conditions:         document.getElementById('bq-terms')?.value.trim() || null,
     subtotal_gbp:             subtotal   || null,
@@ -2132,6 +2450,7 @@ async function updateCqStatus(id, status) {
     _rfqData.status = 'responded';
   }
   renderCustomerTab();
+  refreshRfqStatusBadge();
 }
 
 function showAlert(msg, type = 'info') {

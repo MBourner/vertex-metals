@@ -47,6 +47,7 @@
     'dashboard.html',
     'customers/dashboard.html',
     'customers/index.html',
+    'leads/index.html',
     'contacts/index.html',
     'suppliers/index.html',
     'suppliers/onboarding-pipeline.html',
@@ -135,6 +136,7 @@
 
       ${secLink('customers/dashboard.html',    'Customer')}
       ${a('customers/index.html',           'Customers')}
+      ${a('leads/index.html',               'Leads Hub')}
       ${soon('Customer History')}
 
       ${sec('Supplier')}

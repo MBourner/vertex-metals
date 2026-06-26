@@ -29,9 +29,6 @@
     .product-strip-item span:last-child { font-family:var(--font-display); font-weight:600; color:var(--color-steel); }
     .slider-wrap { display:flex; flex-direction:column; gap:var(--space-2); }
     .slider-wrap input[type=range] { width:100%; accent-color:var(--color-steel); }
-    .variance-badge { display:inline-flex; align-items:center; gap:var(--space-1); font-size:var(--text-xs); font-weight:700; padding:2px 8px; border-radius:999px; }
-    .variance-pos { background:color-mix(in srgb,#22c55e 15%,transparent); color:#15803d; }
-    .variance-neg { background:color-mix(in srgb,#ef4444 15%,transparent); color:#b91c1c; }
     .hidden { display:none !important; }
   </style>
 </head>
@@ -162,7 +159,7 @@
                 <input type="number" class="form-input" id="inp-overheads" step="0.01" min="0" value="0" placeholder="Duties, handling…" oninput="calculate()" />
               </div>
               <div class="form-group" style="grid-column:1/-1">
-                <label class="form-label">GBP/USD Exchange Rate</label>
+                <label class="form-label">GBP → USD Rate <span style="font-weight:400;color:var(--color-text-muted)">(e.g. 1.27 means £1 = $1.27)</span></label>
                 <input type="number" class="form-input" id="inp-rate" step="0.0001" min="0" placeholder="e.g. 1.27" oninput="calculate()" />
                 <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Enter manually — check xe.com for current rate</span>
               </div>
@@ -220,6 +217,17 @@
                   <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">Uses the market reference price set on the product line</div>
                 </div>
               </label>
+              <label class="model-option" id="model-opt-manual" onclick="selectModel('manual')">
+                <input type="radio" name="pricing-model" value="manual">
+                <div>
+                  <div style="font-weight:600;font-size:var(--text-sm)">Manual Price</div>
+                  <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:2px">Enter a specific sell price in USD/MT</div>
+                </div>
+              </label>
+              <div id="manual-price-row" class="hidden" style="padding:0 var(--space-2)">
+                <label class="form-label" style="font-size:var(--text-xs)">Sell price (USD/MT)</label>
+                <input type="number" class="form-input" id="inp-manual-price" step="0.01" min="0" placeholder="e.g. 2800" oninput="calculate()" style="width:160px" />
+              </div>
             </div>
           </div>
         </div>
@@ -231,37 +239,6 @@
             <div id="calc-output">
               <div style="color:var(--color-text-muted);font-size:var(--text-sm)">Select a product and enter costs to see results.</div>
             </div>
-          </div>
-        </div>
-
-        <!-- Sell Price Override -->
-        <div class="panel" id="override-panel" style="display:none">
-          <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center">
-            <h3>Sell Price Override</h3>
-            <span id="override-variance-badge" class="variance-badge variance-pos">+0%</span>
-          </div>
-          <div class="panel-body">
-            <div class="slider-wrap" style="margin-bottom:var(--space-4)">
-              <input type="range" id="override-slider" min="0" max="200" step="1" value="100" oninput="onOverrideSlide()" />
-              <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--color-text-muted)">
-                <span>Cost price</span><span id="override-slider-max-label">—</span>
-              </div>
-            </div>
-            <div style="display:flex;gap:var(--space-4);flex-wrap:wrap">
-              <div>
-                <div style="font-size:var(--text-xs);color:var(--color-text-muted)">Override price (£/MT)</div>
-                <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:var(--color-steel)" id="override-price-display">—</div>
-              </div>
-              <div>
-                <div style="font-size:var(--text-xs);color:var(--color-text-muted)">Resulting margin</div>
-                <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700" id="override-margin-display">—</div>
-              </div>
-              <div>
-                <div style="font-size:var(--text-xs);color:var(--color-text-muted)">vs Standard price</div>
-                <div style="font-size:var(--text-sm);font-weight:600" id="override-vs-std">—</div>
-              </div>
-            </div>
-            <button class="btn btn-ghost btn-sm" style="margin-top:var(--space-3)" onclick="resetOverride()">Reset to model price</button>
           </div>
         </div>
 

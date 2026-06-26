@@ -1394,7 +1394,7 @@ function renderPricingCalculator(sqList, lqList, ohList) {
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Exchange Rate (USD per £)</label>
+          <label class="form-label">GBP → USD Rate <span style="font-weight:400;color:var(--color-text-muted);font-size:var(--text-xs)">(e.g. 1.27 means £1 = $1.27)</span></label>
           <input type="number" class="form-input" id="calc-fx" value="${_calc.fx}" step="0.001" min="0.001" oninput="_calc.fx=parseFloat(this.value)||1.27;recalcAllLines()" />
         </div>
         <div class="form-group">
@@ -1425,28 +1425,48 @@ function renderPricingCalculator(sqList, lqList, ohList) {
         <table style="width:100%;border-collapse:collapse;font-size:var(--text-sm)">
           <thead>
             <tr style="background:var(--color-surface)">
-              <th style="padding:var(--space-2) var(--space-3);text-align:left;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border);white-space:nowrap">Line</th>
-              <th style="padding:var(--space-2) var(--space-3);text-align:left;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Description</th>
+              <th style="padding:var(--space-2) var(--space-3);text-align:left;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border);white-space:nowrap">#</th>
+              <th style="padding:var(--space-2) var(--space-3);text-align:left;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Product</th>
               <th style="padding:var(--space-2) var(--space-3);text-align:left;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Qty</th>
-              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">FOB/unit (USD)</th>
-              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Freight (USD)</th>
-              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Landed (USD)</th>
-              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Sell Price (USD)</th>
+              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">FOB/MT (USD)</th>
+              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">+ Freight/MT</th>
+              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">+ Ins &amp; Ovhd/MT</th>
+              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border);background:rgba(0,0,0,.03)">=&nbsp;Landed/MT (USD)</th>
+              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Margin</th>
+              <th style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted);border-bottom:2px solid var(--color-border)">Sell/MT (USD)</th>
             </tr>
           </thead>
           <tbody id="calc-lines-body">
-            <tr><td colspan="7" style="padding:var(--space-4);text-align:center;color:var(--color-text-muted)">Select a scenario above to see pricing.</td></tr>
+            <tr><td colspan="9" style="padding:var(--space-4);text-align:center;color:var(--color-text-muted)">Select a scenario above to see pricing.</td></tr>
           </tbody>
         </table>
       </div>
 
       <!-- Summary + apply -->
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-3) var(--space-4);background:#0a1728;border-radius:var(--radius)">
-        <div>
-          <span style="font-size:var(--text-xs);color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.06em">Total Quote Value</span>
-          <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:#7ab8d4" id="calc-total-value">—</div>
+      <div style="background:#0a1728;border-radius:var(--radius);padding:var(--space-5)">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4);margin-bottom:var(--space-4)">
+          <div>
+            <div style="font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Revenue (USD)</div>
+            <div style="font-family:var(--font-display);font-size:var(--text-lg);font-weight:700;color:#7ab8d4" id="calc-total-value">—</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px" id="calc-revenue-gbp"></div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Total Cost (USD)</div>
+            <div style="font-family:var(--font-display);font-size:var(--text-lg);font-weight:700;color:#ffffff" id="calc-total-cost">—</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Gross Profit (USD)</div>
+            <div style="font-family:var(--font-display);font-size:var(--text-lg);font-weight:700" id="calc-profit-usd">—</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Gross Profit (GBP) — into your account</div>
+            <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700" id="calc-profit-gbp">—</div>
+          </div>
         </div>
-        <button class="btn btn-primary" id="calc-apply-btn" onclick="applyAllLinesToQuote()" disabled>Apply all lines to Quote →</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(255,255,255,.1);padding-top:var(--space-4)">
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.45)" id="calc-margin-summary"></div>
+          <button class="btn btn-primary" id="calc-apply-btn" onclick="applyAllLinesToQuote()" disabled>Apply all lines to Quote →</button>
+        </div>
       </div>
       `}
     </div>`;
@@ -1566,7 +1586,8 @@ function recalcAllLines() {
   }
 
   _pricedLines = [];
-  let grandTotal = 0;
+  let grandTotal   = 0;
+  let totalCostUsd = 0;
   let allPrimaryPriced = true;
 
   tbody.innerHTML = _rfqLines.map(line => {
@@ -1579,28 +1600,54 @@ function recalcAllLines() {
         <td style="padding:var(--space-2) var(--space-3)">${line.line_number}${line.is_alternative ? ' <span class="badge badge-info" style="font-size:10px">Alt</span>' : ''}</td>
         <td style="padding:var(--space-2) var(--space-3)">${esc(line.description)}<div style="font-size:var(--text-xs);color:var(--color-text-muted)">${esc(line.grade_specification || '')}</div></td>
         <td style="padding:var(--space-2) var(--space-3)">${line.quantity ? fmt(line.quantity, 0) + ' ' + (line.quantity_unit || 'MT') : '—'}</td>
-        <td colspan="4" style="padding:var(--space-2) var(--space-3);text-align:center;color:var(--color-text-muted);font-size:var(--text-xs)">No supplier quote for this scenario</td>
+        <td colspan="6" style="padding:var(--space-2) var(--space-3);text-align:center;color:var(--color-text-muted);font-size:var(--text-xs)">No supplier quote for this scenario</td>
       </tr>`;
     }
 
-    const lineTotal = result.sellPriceUsd * (parseFloat(line.quantity) || 0);
-    grandTotal += lineTotal;
+    const qty       = parseFloat(line.quantity) || 0;
+    const lineTotal = result.sellPriceUsd * qty;
+    const lineCost  = result.landedUsd * qty;
+    grandTotal   += lineTotal;
+    totalCostUsd += lineCost;
     _pricedLines.push({ line, result, sqForLine, lineTotal });
 
+    const mBadge = result.marginPct >= 10 ? 'badge-success' : result.marginPct >= 5 ? 'badge-warning' : 'badge-danger';
     return `<tr style="border-bottom:1px solid var(--color-border);background:${line.is_alternative ? '#f9fffe' : ''}">
       <td style="padding:var(--space-2) var(--space-3);font-weight:600">${line.line_number}${line.is_alternative ? ' <span class="badge badge-info" style="font-size:10px">Alt</span>' : ''}</td>
       <td style="padding:var(--space-2) var(--space-3)">${esc(line.description)}<div style="font-size:var(--text-xs);color:var(--color-text-muted)">${esc(line.grade_specification || '')}</div></td>
-      <td style="padding:var(--space-2) var(--space-3)">${line.quantity ? fmt(line.quantity, 0) + ' ' + (line.quantity_unit || 'MT') : '—'}</td>
+      <td style="padding:var(--space-2) var(--space-3)">${qty ? fmt(qty, 0) + ' ' + (line.quantity_unit || 'MT') : '—'}</td>
       <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums">$${fmt(result.fobUsd)}</td>
-      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums">$${fmt(result.freightUsdPerMt)}</td>
-      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums">$${fmt(result.landedUsd)}</td>
-      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-weight:700;color:var(--color-text-primary)">$${fmt(result.sellPriceUsd)}</td>
+      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums;color:var(--color-text-muted)">$${fmt(result.freightUsdPerMt)}</td>
+      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums;color:var(--color-text-muted)">$${fmt(result.insuranceUsd + result.ovhPerMtUsd)}</td>
+      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-variant-numeric:tabular-nums;font-weight:600;background:rgba(0,0,0,.025)">$${fmt(result.landedUsd)}</td>
+      <td style="padding:var(--space-2) var(--space-3);text-align:right"><span class="badge ${mBadge}" style="font-size:10px">+${fmt(result.marginPct,1)}%</span></td>
+      <td style="padding:var(--space-2) var(--space-3);text-align:right;font-family:var(--font-display);font-weight:700;color:var(--color-text-primary)">
+        <div>$${fmt(result.sellPriceUsd)}</div>
+        <div style="font-size:10px;color:var(--color-text-muted);font-family:var(--font-body);font-weight:400">≈ £${fmt(result.sellPriceGbp)}</div>
+      </td>
     </tr>`;
   }).join('');
 
-  // Update total and apply button
+  // Update totals bar
+  const totalProfitUsd = grandTotal - totalCostUsd;
+  const totalProfitGbp = totalProfitUsd / fx;
+  const profitColour   = totalProfitUsd >= 0 ? '#4ade80' : '#f87171';
+
   const totalEl = document.getElementById('calc-total-value');
-  if (totalEl) totalEl.textContent = grandTotal ? `$${(grandTotal).toLocaleString('en-US', {minimumFractionDigits:2})}` : '—';
+  if (totalEl) totalEl.textContent = grandTotal ? `$${fmt(grandTotal)}` : '—';
+  const revGbpEl = document.getElementById('calc-revenue-gbp');
+  if (revGbpEl) revGbpEl.textContent = grandTotal ? `≈ £${fmt(grandTotal / fx)} GBP` : '';
+  const costEl = document.getElementById('calc-total-cost');
+  if (costEl) costEl.textContent = totalCostUsd ? `$${fmt(totalCostUsd)}` : '—';
+  const profUsdEl = document.getElementById('calc-profit-usd');
+  if (profUsdEl) { profUsdEl.textContent = grandTotal ? `$${fmt(totalProfitUsd)}` : '—'; profUsdEl.style.color = profitColour; }
+  const profGbpEl = document.getElementById('calc-profit-gbp');
+  if (profGbpEl) { profGbpEl.textContent = grandTotal ? `£${fmt(totalProfitGbp)}` : '—'; profGbpEl.style.color = profitColour; }
+  const marginSumEl = document.getElementById('calc-margin-summary');
+  if (marginSumEl && _pricedLines.length > 0) {
+    const avgMargin = grandTotal > 0 ? (totalProfitUsd / grandTotal) * 100 : 0;
+    marginSumEl.textContent = `Avg margin: ${fmt(avgMargin, 1)}% across ${_pricedLines.length} line${_pricedLines.length !== 1 ? 's' : ''}`;
+  }
 
   const applyBtn = document.getElementById('calc-apply-btn');
   if (applyBtn) applyBtn.disabled = _costsLocked || !(allPrimaryPriced && _pricedLines.length > 0);
@@ -1757,16 +1804,17 @@ async function renderSummaryTab() {
               <th>#</th>
               <th>Product</th>
               <th style="text-align:right">Qty</th>
-              <th style="text-align:right">Cost/unit (USD)</th>
-              <th style="text-align:right">Sell/unit (USD)</th>
+              <th style="text-align:right">Cost/MT (USD)</th>
+              <th style="text-align:right">Sell/MT (USD)</th>
               <th style="text-align:right">Revenue (USD)</th>
               <th style="text-align:right">Margin</th>
-              <th style="text-align:right">Profit (USD)</th>
+              <th style="text-align:right">Profit (GBP)</th>
             </tr></thead>
             <tbody>
               ${_pricedLines.map(({ line, result, lineTotal }) => {
                 const qty        = parseFloat(line.quantity) || 0;
                 const profitUsd  = lineTotal - (result.landedUsd * qty);
+                const profitGbp  = profitUsd / fx;
                 return `<tr>
                   <td style="font-weight:600;color:var(--color-text-muted)">${line.line_number}${line.is_alternative ? ' <span class="badge badge-info" style="font-size:10px">Alt</span>' : ''}</td>
                   <td>
@@ -1775,10 +1823,16 @@ async function renderSummaryTab() {
                   </td>
                   <td style="text-align:right">${qty ? fmt(qty, 0) + ' ' + esc(line.quantity_unit || 'MT') : '—'}</td>
                   <td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--color-text-muted)">$${fmt(result.landedUsd)}</td>
-                  <td style="text-align:right;font-variant-numeric:tabular-nums">$${fmt(result.sellPriceUsd)}</td>
+                  <td style="text-align:right;font-variant-numeric:tabular-nums">
+                    <div>$${fmt(result.sellPriceUsd)}</div>
+                    <div style="font-size:var(--text-xs);color:var(--color-text-muted)">≈ £${fmt(result.sellPriceGbp)}</div>
+                  </td>
                   <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">$${fmt(lineTotal)}</td>
                   <td style="text-align:right"><span class="badge ${marginBadgeClass(result.marginPct)}">${fmt(result.marginPct, 1)}%</span></td>
-                  <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:${profitColour(profitUsd)}">$${fmt(profitUsd)}</td>
+                  <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:${profitColour(profitGbp)}">
+                    <div>£${fmt(profitGbp)}</div>
+                    <div style="font-size:var(--text-xs);color:var(--color-text-muted);font-weight:400">≈ $${fmt(profitUsd)}</div>
+                  </td>
                 </tr>`;
               }).join('')}
             </tbody>
@@ -1798,12 +1852,12 @@ async function renderSummaryTab() {
         <div>
           <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-1)">Total Revenue</div>
           <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:#7ab8d4">$${fmt(totalRevenueUsd)}</div>
-          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.4);margin-top:2px">Internal trade view (USD)</div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);margin-top:2px">≈ £${fmt(totalRevenueUsd / fx)} GBP (buyer invoice)</div>
         </div>
         <div>
-          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-1)">Gross Profit</div>
-          <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:${totalProfitUsd >= 0 ? '#4ade80' : '#f87171'}">$${fmt(totalProfitUsd)}</div>
-          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.4);margin-top:2px">Revenue minus cost (USD)</div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-1)">Gross Profit (GBP)</div>
+          <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:700;color:${totalProfitUsd >= 0 ? '#4ade80' : '#f87171'}">£${fmt(totalProfitUsd / fx)}</div>
+          <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);margin-top:2px">≈ $${fmt(totalProfitUsd)} USD — into your account</div>
         </div>
         <div>
           <div style="font-size:var(--text-xs);color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em;margin-bottom:var(--space-1)">Average Margin</div>

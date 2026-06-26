@@ -19,8 +19,8 @@ let allProductLines     = [];
 let currentProduct      = null;
 let supplierQuotes      = [];
 let logisticsQuotes     = [];
-let calculatedSellPerMt = null;
-let costPerMtGbp        = null;
+let calculatedSellPerMt = null; // USD/MT
+let costPerMtUsd        = null; // USD/MT
 
 // ── Product cascade ───────────────────────────────────────────────────────────
 
@@ -191,6 +191,7 @@ function selectModel(model) {
   document.getElementById(`model-opt-${model}`)?.classList.add('selected');
   document.querySelector(`input[name="pricing-model"][value="${model}"]`).checked = true;
   document.getElementById('min-margin-row').classList.toggle('hidden', model !== 'best');
+  document.getElementById('manual-price-row').classList.toggle('hidden', model !== 'manual');
   calculate();
 }
 
@@ -256,118 +257,99 @@ function calculate() {
     if (!rate)     hints.push('enter the GBP/USD exchange rate');
     if (!qty)      hints.push('enter a quantity');
     out.innerHTML = `<div style="color:var(--color-text-muted);font-size:var(--text-sm)">To see results, ${hints.join(', ')}.</div>`;
-    document.getElementById('override-panel').style.display = 'none';
-    document.getElementById('save-panel').style.display     = 'none';
+    document.getElementById('save-panel').style.display = 'none';
     calculatedSellPerMt = null;
-    costPerMtGbp        = null;
+    costPerMtUsd        = null;
     return;
   }
 
   const insurancePerMt    = fobPerMt * (insurancePct / 100);
   const totalCostUsdPerMt = fobPerMt + freightPerMt + insurancePerMt + otherPerMt;
-  costPerMtGbp            = totalCostUsdPerMt / rate;
+  costPerMtUsd            = totalCostUsdPerMt; // all inputs are already USD
 
-  // Sell price from chosen model
-  let sellPerMt = null;
-  let modelNote = '';
+  // Sell price from chosen model — calculated in USD
+  let sellPerMtUsd = null;
+  let modelNote    = '';
 
   if (model === 'standard') {
     const markup = currentProduct?.default_markup_pct ?? 10;
-    sellPerMt = costPerMtGbp / (1 - markup / 100);
-    modelNote = `Standard markup: ${fmt(markup, 1)}%`;
+    sellPerMtUsd = costPerMtUsd / (1 - markup / 100);
+    modelNote    = `Standard markup: ${fmt(markup, 1)}%`;
   } else if (model === 'best') {
     const minMargin = parseFloat(document.getElementById('inp-min-margin').value) || 5;
-    sellPerMt = costPerMtGbp / (1 - minMargin / 100);
-    modelNote = `Best price — minimum margin: ${fmt(minMargin, 1)}%`;
+    sellPerMtUsd = costPerMtUsd / (1 - minMargin / 100);
+    modelNote    = `Best price — minimum margin: ${fmt(minMargin, 1)}%`;
   } else if (model === 'market') {
     const mkt = currentProduct?.market_reference_price_gbp;
     if (!mkt) {
       out.innerHTML = `<div class="alert alert-warning">Market reference price not set for this product line. Edit the product line to add one, then return here.</div>`;
-      document.getElementById('override-panel').style.display = 'none';
-      document.getElementById('save-panel').style.display     = 'none';
+      document.getElementById('save-panel').style.display = 'none';
       calculatedSellPerMt = null;
       return;
     }
-    sellPerMt = mkt;
-    modelNote = `Market reference price: £${fmt(mkt)}/MT`;
+    sellPerMtUsd = mkt * rate; // convert GBP market reference to USD sell price
+    modelNote    = `Market reference price: £${fmt(mkt)}/MT (≈ $${fmt(mkt * rate)}/MT at current FX)`;
+  } else if (model === 'manual') {
+    const manualPrice = parseFloat(document.getElementById('inp-manual-price').value);
+    if (!manualPrice || manualPrice <= 0) {
+      out.innerHTML = `<div style="color:var(--color-text-muted);font-size:var(--text-sm)">Enter a sell price in the Manual Price field above to see results.</div>`;
+      document.getElementById('save-panel').style.display = 'none';
+      calculatedSellPerMt = null;
+      return;
+    }
+    sellPerMtUsd = manualPrice;
+    modelNote    = `Manual price: $${fmt(manualPrice)}/MT`;
   }
 
-  calculatedSellPerMt    = sellPerMt;
-  const grossPerMt       = sellPerMt - costPerMtGbp;
-  const marginPct        = (grossPerMt / sellPerMt) * 100;
-  const totalSell        = sellPerMt * qty;
-  const totalCost        = costPerMtGbp * qty;
-  const totalGross       = totalSell - totalCost;
-  const profitColor      = grossPerMt >= 0 ? 'var(--color-success,#22c55e)' : 'var(--color-danger)';
+  calculatedSellPerMt      = sellPerMtUsd; // stored in USD
+  const sellPerMtGbp       = sellPerMtUsd / rate;
+  const grossPerMtUsd      = sellPerMtUsd - costPerMtUsd;
+  const grossPerMtGbp      = grossPerMtUsd / rate; // what hits the bank
+  const marginPct          = sellPerMtUsd > 0 ? (grossPerMtUsd / sellPerMtUsd) * 100 : 0;
+  const totalSellUsd       = sellPerMtUsd * qty;
+  const totalCostUsdTotal  = costPerMtUsd * qty;
+  const totalGrossUsd      = totalSellUsd - totalCostUsdTotal;
+  const totalGrossGbp      = totalGrossUsd / rate;
+  const profitColor        = grossPerMtUsd >= 0 ? 'var(--color-success,#22c55e)' : 'var(--color-danger)';
 
   out.innerHTML = `
     <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-3);font-style:italic">${esc(modelNote)}</div>
-    <div class="result-row"><span class="result-label">Supplier FOB (USD/MT)</span><span class="result-val">$${fmt(fobPerMt)}</span></div>
-    <div class="result-row"><span class="result-label">Freight (USD/MT)</span><span class="result-val">$${fmt(freightPerMt)}</span></div>
-    <div class="result-row"><span class="result-label">Insurance (USD/MT)</span><span class="result-val">$${fmt(insurancePerMt)}</span></div>
-    ${otherPerMt ? `<div class="result-row"><span class="result-label">Other overheads (USD/MT)</span><span class="result-val">$${fmt(otherPerMt)}</span></div>` : ''}
-    <div class="result-row"><span class="result-label">Total landed cost (USD/MT)</span><span class="result-val">$${fmt(totalCostUsdPerMt)}</span></div>
-    <div class="result-row"><span class="result-label">Total landed cost (GBP/MT)</span><span class="result-val" style="font-weight:700">£${fmt(costPerMtGbp)}</span></div>
+    <div class="result-row"><span class="result-label">Supplier FOB</span><span class="result-val">$${fmt(fobPerMt)}/MT</span></div>
+    <div class="result-row"><span class="result-label">+ Freight</span><span class="result-val">$${fmt(freightPerMt)}/MT</span></div>
+    <div class="result-row"><span class="result-label">+ Insurance</span><span class="result-val">$${fmt(insurancePerMt)}/MT</span></div>
+    ${otherPerMt ? `<div class="result-row"><span class="result-label">+ Other overheads</span><span class="result-val">$${fmt(otherPerMt)}/MT</span></div>` : ''}
+    <div class="result-row" style="border-bottom:2px solid var(--color-border)"><span class="result-label" style="font-weight:600">= Total landed cost (USD/MT)</span><span class="result-val" style="font-weight:700">$${fmt(costPerMtUsd)}</span></div>
     <hr class="divider">
-    <div class="result-row"><span class="result-label">Sell price (GBP/MT)</span><span class="result-val highlight">£${fmt(sellPerMt)}</span></div>
-    <div class="result-row"><span class="result-label">Gross profit (GBP/MT)</span><span class="result-val" style="color:${profitColor}">£${fmt(grossPerMt)}</span></div>
+    <div class="result-row">
+      <span class="result-label">Sell price to buyer (USD/MT)</span>
+      <span class="result-val highlight">$${fmt(sellPerMtUsd)}</span>
+    </div>
+    <div class="result-row" style="padding-top:0;border-bottom:none">
+      <span class="result-label" style="font-size:11px;padding-left:var(--space-3)">Indicative GBP equivalent</span>
+      <span class="result-val" style="font-size:var(--text-sm);color:var(--color-text-muted)">≈ £${fmt(sellPerMtGbp)}/MT</span>
+    </div>
     <div class="result-row"><span class="result-label">Gross margin</span><span class="result-val" style="color:${profitColor}">${fmt(marginPct, 1)}%</span></div>
+    <div class="result-row"><span class="result-label" style="font-weight:600">Gross profit — into your account (GBP/MT)</span><span class="result-val profit" style="color:${profitColor};font-size:var(--text-lg)">£${fmt(grossPerMtGbp)}</span></div>
+    <div class="result-row" style="padding-top:0;border-bottom:none">
+      <span class="result-label" style="font-size:11px;padding-left:var(--space-3)">USD equivalent</span>
+      <span class="result-val" style="font-size:var(--text-sm);color:var(--color-text-muted)">≈ $${fmt(grossPerMtUsd)}/MT</span>
+    </div>
     <hr class="divider">
     <div class="result-row"><span class="result-label" style="font-weight:600">Total for ${fmt(qty, 0)} MT</span><span></span></div>
-    <div class="result-row"><span class="result-label">Total sell value (GBP)</span><span class="result-val">£${fmt(totalSell)}</span></div>
-    <div class="result-row"><span class="result-label">Total gross profit (GBP)</span><span class="result-val" style="color:${profitColor};font-size:var(--text-lg)">£${fmt(totalGross)}</span></div>
+    <div class="result-row"><span class="result-label">Total sell value (USD)</span><span class="result-val">$${fmt(totalSellUsd)}</span></div>
+    <div class="result-row" style="padding-top:0;border-bottom:none">
+      <span class="result-label" style="font-size:11px;padding-left:var(--space-3)">Indicative GBP equivalent</span>
+      <span class="result-val" style="font-size:var(--text-sm);color:var(--color-text-muted)">≈ £${fmt(totalSellUsd / rate)}</span>
+    </div>
+    <div class="result-row"><span class="result-label" style="font-weight:600">Total gross profit — into your account (GBP)</span><span class="result-val" style="color:${profitColor};font-size:var(--text-xl);font-weight:700">£${fmt(totalGrossGbp)}</span></div>
+    <div class="result-row" style="padding-top:0;border-bottom:none">
+      <span class="result-label" style="font-size:11px;padding-left:var(--space-3)">USD equivalent</span>
+      <span class="result-val" style="font-size:var(--text-sm);color:var(--color-text-muted)">≈ $${fmt(totalGrossUsd)}</span>
+    </div>
   `;
 
-  // Override slider: range from cost price to 2× sell price
-  document.getElementById('override-panel').style.display = 'block';
-  document.getElementById('save-panel').style.display     = 'block';
-  document.getElementById('save-price-display').textContent = `£${fmt(sellPerMt)}/MT`;
-
-  const slider = document.getElementById('override-slider');
-  slider.min   = Math.floor(costPerMtGbp);
-  slider.max   = Math.ceil(sellPerMt * 2);
-  slider.value = Math.round(sellPerMt);
-  document.getElementById('override-slider-max-label').textContent = `£${fmt(Math.ceil(sellPerMt * 2))}/MT`;
-  updateOverrideDisplay(sellPerMt);
-}
-
-// ── Override slider ───────────────────────────────────────────────────────────
-
-function onOverrideSlide() {
-  const override = parseFloat(document.getElementById('override-slider').value);
-  updateOverrideDisplay(override);
-  document.getElementById('save-price-display').textContent = `£${fmt(override)}/MT`;
-}
-
-function updateOverrideDisplay(priceGbp) {
-  if (!costPerMtGbp || !calculatedSellPerMt) return;
-  const grossMt   = priceGbp - costPerMtGbp;
-  const marginPct = (grossMt / priceGbp) * 100;
-  const stdPrice  = currentProduct?.standard_sell_price_gbp;
-  const varPct    = stdPrice ? ((priceGbp - stdPrice) / stdPrice) * 100 : null;
-  const profitColor = grossMt >= 0 ? 'var(--color-success,#22c55e)' : 'var(--color-danger)';
-
-  document.getElementById('override-price-display').textContent  = `£${fmt(priceGbp)}/MT`;
-  document.getElementById('override-margin-display').textContent = `${fmt(marginPct, 1)}%`;
-  document.getElementById('override-margin-display').style.color = profitColor;
-
-  const badge = document.getElementById('override-variance-badge');
-  if (varPct != null) {
-    badge.textContent = `${varPct >= 0 ? '+' : ''}${fmt(varPct, 1)}% vs std`;
-    badge.className   = `variance-badge ${varPct >= 0 ? 'variance-pos' : 'variance-neg'}`;
-    document.getElementById('override-vs-std').textContent = `Standard: £${fmt(stdPrice)}/MT`;
-  } else {
-    badge.textContent = 'No std set';
-    badge.className   = 'variance-badge variance-pos';
-    document.getElementById('override-vs-std').textContent = 'No standard price set on this product line yet';
-  }
-}
-
-function resetOverride() {
-  if (!calculatedSellPerMt) return;
-  document.getElementById('override-slider').value = Math.round(calculatedSellPerMt);
-  updateOverrideDisplay(calculatedSellPerMt);
-  document.getElementById('save-price-display').textContent = `£${fmt(calculatedSellPerMt)}/MT`;
+  document.getElementById('save-panel').style.display    = 'block';
+  document.getElementById('save-price-display').innerHTML = `£${fmt(sellPerMtGbp)}/MT <span style="font-size:var(--text-xs);opacity:.65">(≈ $${fmt(sellPerMtUsd)}/MT)</span>`;
 }
 
 // ── Save as standard ──────────────────────────────────────────────────────────
@@ -376,14 +358,18 @@ async function saveAsStandard() {
   const alertEl = document.getElementById('save-standard-alert');
   if (!currentProduct) return;
 
-  const priceToSave = parseFloat(document.getElementById('override-slider').value);
-  if (!priceToSave || priceToSave <= 0) {
+  const sellUsd = calculatedSellPerMt;
+  const rate    = parseFloat(document.getElementById('inp-rate').value) || 0;
+  if (!sellUsd || sellUsd <= 0 || !rate) {
     alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
-    alertEl.textContent = 'No valid price to save.'; return;
+    alertEl.textContent = 'No valid price or exchange rate to save.'; return;
   }
 
+  // DB stores standard price in GBP — convert from the USD working price
+  const priceToSaveGbp = sellUsd / rate;
+
   const { error } = await supabaseClient.from('product_lines').update({
-    standard_sell_price_gbp: priceToSave,
+    standard_sell_price_gbp: priceToSaveGbp,
     pricing_last_reviewed:   new Date().toISOString().split('T')[0],
   }).eq('id', currentProduct.id);
 
@@ -392,11 +378,11 @@ async function saveAsStandard() {
     alertEl.textContent = 'Save failed: ' + error.message;
   } else {
     alertEl.style.display = 'block'; alertEl.className = 'alert alert-success';
-    alertEl.textContent   = `Standard price £${fmt(priceToSave)}/MT saved to ${esc(currentProduct.name)}.`;
-    currentProduct.standard_sell_price_gbp = priceToSave;
-    document.getElementById('strip-std').textContent = `£${fmt(priceToSave)}`;
+    alertEl.textContent   = `Standard price £${fmt(priceToSaveGbp)}/MT (≈ $${fmt(sellUsd)}/MT) saved to ${esc(currentProduct.name)}.`;
+    currentProduct.standard_sell_price_gbp = priceToSaveGbp;
+    document.getElementById('strip-std').textContent = `£${fmt(priceToSaveGbp)}`;
     const idx = allProductLines.findIndex(p => p.id === currentProduct.id);
-    if (idx !== -1) allProductLines[idx].standard_sell_price_gbp = priceToSave;
+    if (idx !== -1) allProductLines[idx].standard_sell_price_gbp = priceToSaveGbp;
   }
 }
 
@@ -404,11 +390,10 @@ async function saveAsStandard() {
 
 function clearOutput() {
   calculatedSellPerMt = null;
-  costPerMtGbp        = null;
+  costPerMtUsd        = null;
   document.getElementById('product-strip').classList.remove('visible');
   document.getElementById('calc-output').innerHTML = '<div style="color:var(--color-text-muted);font-size:var(--text-sm)">Select a product and enter costs to see results.</div>';
-  document.getElementById('override-panel').style.display = 'none';
-  document.getElementById('save-panel').style.display     = 'none';
+  document.getElementById('save-panel').style.display = 'none';
   document.getElementById('sel-supplier-quote').innerHTML  = '<option value="">— Select a quote —</option>';
   document.getElementById('sel-logistics-quote').innerHTML = '<option value="">— Select a quote —</option>';
   document.getElementById('fob-used-display').style.display     = 'none';

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leads Hub — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" />
+  <link rel="stylesheet" href="../../css/base.css" />
+  <link rel="stylesheet" href="../../css/components.css" />
+  <link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar"></aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)">
+      <button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span class="topbar-title">Leads Hub</span>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="openAddModal()">+ Add Lead</button>
+  </div>
+
+  <div class="portal-content">
+    <div class="portal-page-header">
+      <div>
+        <h1>Leads Hub</h1>
+        <p>Prospective buyer pipeline — track research leads from first contact through to customer onboarding.</p>
+      </div>
+    </div>
+
+    <div id="pipeline-bar" style="margin-bottom:var(--space-6)"></div>
+
+    <div class="filter-bar" style="display:flex;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-4)">
+      <input type="text" class="form-input" id="filter-search" placeholder="Search company, contact, country…"
+             style="min-width:220px;width:auto;flex:1 1 220px" oninput="renderLeadsTable()" />
+      <select class="form-select" id="filter-region" onchange="renderLeadsTable()" style="width:auto;min-width:150px">
+        <option value="">All regions</option>
+      </select>
+      <select class="form-select" id="filter-product" onchange="renderLeadsTable()" style="width:auto;min-width:170px">
+        <option value="">All products</option>
+      </select>
+      <select class="form-select" id="filter-assigned" onchange="renderLeadsTable()" style="width:auto;min-width:160px">
+        <option value="">All assignees</option>
+        <option value="Jackson Paul">Jackson Paul</option>
+        <option value="Martyn Bourner">Martyn Bourner</option>
+      </select>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead><tr>
+          <th>Company / Contact</th>
+          <th>Country / Region</th>
+          <th>Product Interests</th>
+          <th>Stage</th>
+          <th>Assigned To</th>
+          <th>Last Contacted</th>
+          <th>Source</th>
+          <th style="width:110px"></th>
+        </tr></thead>
+        <tbody id="leads-body">
+          <tr><td colspan="8" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Lead modal -->
+<div class="modal-overlay" id="lead-modal">
+  <div class="modal-box" style="max-width:700px;width:95vw;max-height:90vh;overflow-y:auto;position:relative">
+    <button class="modal-close" onclick="closeModal()">&#x2715;</button>
+    <h3 id="modal-title">Add Lead</h3>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script>
+<script src="../../js/auth.js"></script>
+<script src="../../js/portal/auth-roles.js"></script>
+<script src="../../js/portal/sidebar.js"></script>
+<script src="../../js/portal-guard.js"></script>
+<script src="../../js/portal/leads.js"></script>
+</body>
+</html>

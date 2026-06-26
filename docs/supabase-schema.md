@@ -265,6 +265,8 @@
 | `description` | `text` |  Nullable |
 | `active` | `bool` |  Nullable |
 | `created_at` | `timestamptz` |  |
+| `reach_regulated` | `boolean` | Default `false` — added migration 20260627. `true` if this metal family is a regulated substance under UK REACH. Attaches at family level because REACH regulates the chemical substance, not the product form. |
+| `reach_notes` | `text` |  Nullable — added migration 20260627. SVHC status, registration numbers, restriction entries, or exemption details. |
 
 ## Table `reason_codes`
 

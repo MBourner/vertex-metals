@@ -350,6 +350,14 @@ async function renderManageFamilies() {
           <label class="form-label">Active</label>
           <label class="form-switch"><input type="checkbox" id="add-family-active" checked><span></span></label>
         </div>
+        <div class="form-group">
+          <label class="form-label">UK REACH Regulated</label>
+          <label class="form-switch"><input type="checkbox" id="add-family-reach"><span></span></label>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">REACH Notes</label>
+          <textarea class="form-input" id="add-family-reach-notes" rows="2" placeholder="e.g. SVHC candidate — Cobalt sulphate. Registration No. XXXXXXXX" style="resize:vertical"></textarea>
+        </div>
       </div>
       <div id="add-family-alert" class="alert" style="display:none;margin-bottom:var(--space-4)"></div>
       <button type="submit" class="btn btn-primary">Add Family</button>
@@ -357,11 +365,14 @@ async function renderManageFamilies() {
     <div style="margin-top:var(--space-5)">
       <h4 style="margin-bottom:var(--space-3);font-size:var(--text-base);font-weight:700">Existing Families</h4>
       <div class="table-wrapper"><table>
-        <thead><tr><th>Name</th><th>Description</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Description</th><th>UK REACH</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${families.map(f => `<tr>
             <td>${esc(f.name)}</td>
             <td>${esc(f.description || '—')}</td>
+            <td>${f.reach_regulated
+              ? `<span class="badge badge-warning" title="${esc(f.reach_notes || '')}">Regulated</span>`
+              : '<span class="badge badge-neutral">Not Regulated</span>'}</td>
             <td><span class="badge ${f.active ? 'badge-success' : 'badge-neutral'}">${f.active ? 'Active' : 'Inactive'}</span></td>
             <td style="text-align:right">
               <button class="btn btn-secondary btn-sm" onclick="openEditFamilyModal('${esc(f.id)}');event.stopPropagation()">Edit</button>
@@ -380,6 +391,8 @@ async function submitAddFamily(e) {
   const name = document.getElementById('add-family-name')?.value.trim();
   const description = document.getElementById('add-family-description')?.value.trim() || null;
   const active = document.getElementById('add-family-active')?.checked ?? true;
+  const reach_regulated = document.getElementById('add-family-reach')?.checked ?? false;
+  const reach_notes = document.getElementById('add-family-reach-notes')?.value.trim() || null;
 
   if (!name) {
     alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
@@ -387,7 +400,7 @@ async function submitAddFamily(e) {
     return;
   }
 
-  const { error } = await supabaseClient.from('product_families').insert([{ name, description, active }]);
+  const { error } = await supabaseClient.from('product_families').insert([{ name, description, active, reach_regulated, reach_notes }]);
   if (error) {
     alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
     alertEl.textContent = 'Save failed: ' + error.message;
@@ -416,6 +429,14 @@ async function openEditFamilyModal(id) {
           <label class="form-label">Active</label>
           <label class="form-switch"><input type="checkbox" id="edit-family-active" ${family.active ? 'checked' : ''}><span></span></label>
         </div>
+        <div class="form-group">
+          <label class="form-label">UK REACH Regulated</label>
+          <label class="form-switch"><input type="checkbox" id="edit-family-reach" ${family.reach_regulated ? 'checked' : ''}><span></span></label>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">REACH Notes</label>
+          <textarea class="form-input" id="edit-family-reach-notes" rows="2" placeholder="e.g. SVHC candidate — Cobalt sulphate. Registration No. XXXXXXXX" style="resize:vertical">${esc(family.reach_notes || '')}</textarea>
+        </div>
       </div>
       <div id="edit-family-alert" class="alert" style="display:none;margin-bottom:var(--space-4)"></div>
       <div style="display:flex;gap:var(--space-3)">
@@ -433,6 +454,8 @@ async function submitEditFamily(e, id) {
   const name = document.getElementById('edit-family-name')?.value.trim();
   const description = document.getElementById('edit-family-description')?.value.trim() || null;
   const active = document.getElementById('edit-family-active')?.checked ?? true;
+  const reach_regulated = document.getElementById('edit-family-reach')?.checked ?? false;
+  const reach_notes = document.getElementById('edit-family-reach-notes')?.value.trim() || null;
 
   if (!name) {
     alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
@@ -447,7 +470,7 @@ async function submitEditFamily(e, id) {
     return;
   }
 
-  const { error } = await supabaseClient.from('product_families').update({ name, description, active }).eq('id', id);
+  const { error } = await supabaseClient.from('product_families').update({ name, description, active, reach_regulated, reach_notes }).eq('id', id);
   if (error) {
     alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
     alertEl.textContent = 'Save failed: ' + error.message;

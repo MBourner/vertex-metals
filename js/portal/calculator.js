@@ -272,9 +272,9 @@ function calculate() {
   let modelNote    = '';
 
   if (model === 'standard') {
-    const markup = currentProduct?.default_markup_pct ?? 10;
-    sellPerMtUsd = costPerMtUsd / (1 - markup / 100);
-    modelNote    = `Standard markup: ${fmt(markup, 1)}%`;
+    const margin = currentProduct?.default_markup_pct ?? 10;
+    sellPerMtUsd = costPerMtUsd / (1 - margin / 100);
+    modelNote    = `Standard margin: ${fmt(margin, 1)}%`;
   } else if (model === 'best') {
     const minMargin = parseFloat(document.getElementById('inp-min-margin').value) || 5;
     sellPerMtUsd = costPerMtUsd / (1 - minMargin / 100);
@@ -306,6 +306,7 @@ function calculate() {
   const grossPerMtUsd      = sellPerMtUsd - costPerMtUsd;
   const grossPerMtGbp      = grossPerMtUsd / rate; // what hits the bank
   const marginPct          = sellPerMtUsd > 0 ? (grossPerMtUsd / sellPerMtUsd) * 100 : 0;
+  const markupPct          = costPerMtUsd > 0 ? (grossPerMtUsd / costPerMtUsd) * 100 : 0; // indicative only — internal use
   const totalSellUsd       = sellPerMtUsd * qty;
   const totalCostUsdTotal  = costPerMtUsd * qty;
   const totalGrossUsd      = totalSellUsd - totalCostUsdTotal;
@@ -329,6 +330,10 @@ function calculate() {
       <span class="result-val" style="font-size:var(--text-sm);color:var(--color-text-muted)">≈ £${fmt(sellPerMtGbp)}/MT</span>
     </div>
     <div class="result-row"><span class="result-label">Gross margin</span><span class="result-val" style="color:${profitColor}">${fmt(marginPct, 1)}%</span></div>
+    <div class="result-row" style="padding-top:0;border-bottom:none">
+      <span class="result-label" style="font-size:11px;padding-left:var(--space-3)">Indicative markup</span>
+      <span class="result-val" style="font-size:var(--text-sm);color:var(--color-text-muted)">${fmt(markupPct, 1)}%</span>
+    </div>
     <div class="result-row"><span class="result-label" style="font-weight:600">Gross profit — into your account (GBP/MT)</span><span class="result-val profit" style="color:${profitColor};font-size:var(--text-lg)">£${fmt(grossPerMtGbp)}</span></div>
     <div class="result-row" style="padding-top:0;border-bottom:none">
       <span class="result-label" style="font-size:11px;padding-left:var(--space-3)">USD equivalent</span>

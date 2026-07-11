@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<!-- SHARED: update portal sidebar in all portal pages if changed -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Line — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar"></aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)"><button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="topbar-title" id="topbar-title">Product Line</span></div>
+    <a href="index.html" class="btn btn-ghost btn-sm">← Product Lines</a>
+  </div>
+  <div class="portal-content">
+    <div id="pl-header" class="detail-header"><div style="color:var(--color-text-muted)">Loading…</div></div>
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="overview"   onclick="switchTab('overview')">Overview</button>
+      <button class="tab-btn"        data-tab="grades"     onclick="switchTab('grades')">Grades</button>
+      <button class="tab-btn"        data-tab="compliance" onclick="switchTab('compliance')">Compliance</button>
+      <button class="tab-btn"        data-tab="usage"      onclick="switchTab('usage')">Usage</button>
+    </div>
+    <div id="tab-overview"   class="tab-pane active"><div style="color:var(--color-text-muted)">Loading…</div></div>
+    <div id="tab-grades"     class="tab-pane"></div>
+    <div id="tab-compliance" class="tab-pane"></div>
+    <div id="tab-usage"      class="tab-pane"></div>
+  </div>
+</div>
+
+<!-- Add/Edit Grade Modal -->
+<div class="modal-overlay" id="grade-modal">
+  <div class="modal-box" style="max-width:480px">
+    <button class="modal-close" onclick="document.getElementById('grade-modal').classList.remove('open')">✕</button>
+    <h3 id="grade-modal-title">Add Grade</h3>
+    <div id="grade-form-container"></div>
+  </div>
+</div>
+
+<!-- Edit Product Modal -->
+<div class="modal-overlay" id="edit-pl-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('edit-pl-modal').classList.remove('open')">✕</button>
+    <h3>Edit Product Line</h3>
+    <div id="edit-pl-form-container"></div>
+  </div>
+</div>
+
+<!-- Delete Product Modal -->
+<div class="modal-overlay" id="delete-pl-modal">
+  <div class="modal-box" style="max-width:480px">
+    <button class="modal-close" onclick="document.getElementById('delete-pl-modal').classList.remove('open')">✕</button>
+    <h3 style="color:var(--color-danger)">Delete Product Line</h3>
+    <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4)">
+      This will permanently delete <strong id="delete-pl-name-display"></strong>. This action cannot be undone.
+    </p>
+    <div style="background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius-sm);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-5);font-size:var(--text-sm)">
+      Blocked automatically if this product line is referenced by any RFQ, supplier quote, or customer quote.
+    </div>
+    <div class="form-group" style="margin-bottom:var(--space-5)">
+      <label class="form-label">Type the product name to confirm</label>
+      <input type="text" class="form-input" id="delete-pl-confirm-input"
+        placeholder="Exact product name"
+        oninput="onDeletePlConfirmInput(this.value)" />
+    </div>
+    <div id="delete-pl-error" style="font-size:var(--text-sm);color:var(--color-danger);margin-bottom:var(--space-3)"></div>
+    <div style="display:flex;gap:var(--space-3);justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('delete-pl-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-sm" id="delete-pl-btn"
+        style="background:var(--color-danger);color:#fff;border:none"
+        disabled onclick="confirmDeletePl()">Delete Product Line</button>
+    </div>
+  </div>
+</div>
+
+<datalist id="physical-form-options">
+  <option value="Ingot"></option>
+  <option value="Bar"></option>
+  <option value="Rod"></option>
+  <option value="Wire"></option>
+  <option value="Sheet"></option>
+  <option value="Plate"></option>
+  <option value="Coil"></option>
+  <option value="Tube"></option>
+  <option value="Pipe"></option>
+  <option value="Billet"></option>
+  <option value="Powder"></option>
+  <option value="Granules"></option>
+  <option value="Concentrate"></option>
+  <option value="Ore"></option>
+  <option value="Cathode"></option>
+</datalist>
+
+<script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal/sidebar.js"></script>
+<script src="../../js/portal-guard.js"></script><script src="../../js/portal/product-lines-detail.js"></script>
+</body></html>

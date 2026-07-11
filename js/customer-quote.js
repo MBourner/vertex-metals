@@ -95,12 +95,13 @@ function renderQuote(cq, lines) {
   const vatLine = cq.customer_vat_number ? `VAT Registration No. ${cq.customer_vat_number}` : '';
 
   // Build line items table rows
-  const lineRows = lines.map(l => `
+  const lineRows = lines.map((l, i) => `
     <tr class="${l.is_alternative ? 'alt-row' : ''}">
-      <td>${esc(fmtDate(cq.issued_date))}</td>
-      <td>${esc(l.item_code || '—')}</td>
-      <td>${esc(l.description)}${l.is_alternative ? '<span class="alt-tag">Alt</span>' : ''}
-        ${l.grade_specification ? `<div style="font-size:11px;color:#777;margin-top:2px">${esc(l.grade_specification)}</div>` : ''}</td>
+      <td>${l.line_number || i + 1}</td>
+      <td>${esc(l.product_family || '—')}${l.is_alternative ? '<span class="alt-tag">Alt</span>' : ''}</td>
+      <td>${esc(l.product_type || '—')}</td>
+      <td>${esc(l.grade_specification || '—')}</td>
+      <td>${esc(l.description)}</td>
       <td>${l.vat_rate != null ? `${fmt(l.vat_rate, 0)}%` : '—'}</td>
       <td style="text-align:right">${l.quantity != null ? fmt(l.quantity, l.unit === 'MT' ? 3 : 2) : '—'}</td>
       <td>${esc(l.unit || 'MT')}</td>
@@ -167,8 +168,10 @@ function renderQuote(cq, lines) {
     <table class="qdoc-table">
       <thead>
         <tr>
-          <th>DATE</th>
-          <th>ITEM</th>
+          <th>#</th>
+          <th>PRODUCT</th>
+          <th>TYPE</th>
+          <th>SPECIFICATION</th>
           <th>DESCRIPTION</th>
           <th>VAT</th>
           <th style="text-align:right">QTY</th>
@@ -178,7 +181,7 @@ function renderQuote(cq, lines) {
         </tr>
       </thead>
       <tbody>
-        ${lineRows || '<tr><td colspan="8" style="text-align:center;color:#999;padding:16px">No line items</td></tr>'}
+        ${lineRows || '<tr><td colspan="10" style="text-align:center;color:#999;padding:16px">No line items</td></tr>'}
       </tbody>
     </table>
 

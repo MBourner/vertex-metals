@@ -42,7 +42,10 @@
     <a href="index.html" class="btn btn-ghost btn-sm">← Back to RFQs</a>
   </div>
   <div class="portal-content">
-    <div class="portal-page-header"><div><h1 id="rfq-title">Loading...</h1><div id="rfq-status-display" style="margin-top:var(--space-2)"></div></div></div>
+    <div class="portal-page-header">
+      <div><h1 id="rfq-title">Loading...</h1><div id="rfq-status-display" style="margin-top:var(--space-2)"></div></div>
+      <button class="btn btn-ghost btn-sm" style="color:var(--color-danger)" onclick="openDeleteRfqModal()">Delete RFQ</button>
+    </div>
 
     <!-- Tab bar -->
     <div class="tab-bar">
@@ -134,6 +137,24 @@
     <div id="convert-order-form-container"></div>
   </div>
 </div>
+
+<datalist id="physical-form-options">
+  <option value="Ingot"></option>
+  <option value="Bar"></option>
+  <option value="Rod"></option>
+  <option value="Wire"></option>
+  <option value="Sheet"></option>
+  <option value="Plate"></option>
+  <option value="Coil"></option>
+  <option value="Tube"></option>
+  <option value="Pipe"></option>
+  <option value="Billet"></option>
+  <option value="Powder"></option>
+  <option value="Granules"></option>
+  <option value="Concentrate"></option>
+  <option value="Ore"></option>
+  <option value="Cathode"></option>
+</datalist>
 
 <script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal/sidebar.js"></script>
 <script src="../../js/portal-guard.js"></script><script src="../../js/portal/rfq.js"></script>

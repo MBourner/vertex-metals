@@ -69,7 +69,7 @@ await supabaseClient.from('trades').update({ current_state: 'quoted' }).eq('id',
 | Suppliers | `suppliers/index.html`, `suppliers/detail.html`, `suppliers/audit.html`, `js/portal/suppliers.js`, `suppliers-detail.js`, `suppliers-audit.js` |
 | Disputes | `disputes/index.html`, `disputes/detail.html`, `js/portal/disputes.js` |
 | Financials | `financials/index.html`, `js/portal/financials.js` |
-| Product Lines | `product-lines/index.html`, `js/portal/product-lines.js` |
+| Product Lines | `product-lines/index.html`, `product-lines/detail.html`, `product-lines/families.html`, `js/portal/product-lines.js`, `product-lines-detail.js`, `product-families.js` |
 | Concessions | `concessions/index.html`, `js/portal/concessions.js` |
 | CBAM | `cbam/index.html`, `js/portal/cbam.js` |
 | Verification Queue | `verification-queue/index.html`, `js/portal/verification-queue.js` |

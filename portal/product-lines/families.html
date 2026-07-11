@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<!-- SHARED: update portal sidebar in all portal pages if changed -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Families — Vertex Metals Portal</title>
+  <link rel="stylesheet" href="../../css/variables.css" /><link rel="stylesheet" href="../../css/base.css" /><link rel="stylesheet" href="../../css/components.css" /><link rel="stylesheet" href="../../css/portal.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="portal-body">
+<aside class="sidebar" id="sidebar"></aside>
+<div class="portal-main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3)"><button class="topbar-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="topbar-title">Product Families</span></div>
+    <div style="display:flex;gap:var(--space-2)">
+      <a href="index.html" class="btn btn-ghost btn-sm">← Product Lines</a>
+      <button onclick="openAddFamilyModal()" class="btn btn-primary btn-sm">+ Add Family</button>
+    </div>
+  </div>
+  <div class="portal-content">
+    <div class="portal-page-header"><div><h1>Product Families</h1><p>Metal family groupings used to categorise the product catalogue</p></div></div>
+    <div class="table-wrapper"><table>
+      <thead><tr><th>Name</th><th>Description</th><th>UK REACH</th><th>Status</th><th></th></tr></thead>
+      <tbody id="families-body"><tr><td colspan="5" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- Add Family Modal -->
+<div class="modal-overlay" id="add-family-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('add-family-modal').classList.remove('open')">✕</button>
+    <h3>Add Product Family</h3>
+    <div id="add-family-form-container"></div>
+  </div>
+</div>
+
+<!-- Edit Family Modal -->
+<div class="modal-overlay" id="edit-family-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('edit-family-modal').classList.remove('open')">✕</button>
+    <h3>Edit Product Family</h3>
+    <div id="edit-family-form-container"></div>
+  </div>
+</div>
+
+<script src="../../js/supabase-client.js"></script><script src="../../js/auth.js"></script><script src="../../js/portal/sidebar.js"></script>
+<script src="../../js/portal-guard.js"></script><script src="../../js/portal/product-families.js"></script>
+</body></html>

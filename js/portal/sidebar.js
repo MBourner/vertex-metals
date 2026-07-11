@@ -19,7 +19,7 @@
 (function () {
 
   // Portal build version — keep in sync with DEVELOPMENT.md "Current Version".
-  const PORTAL_VERSION = 'v0.6.1';
+  const PORTAL_VERSION = 'v0.7.0';
 
   // ── Path depth ────────────────────────────────────────────────────────────
   // Work out how many directory levels the current page sits below portal/

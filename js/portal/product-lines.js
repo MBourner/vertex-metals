@@ -83,12 +83,12 @@ async function loadProductLines() {
   const { data, error } = await query;
 
   if (error) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--color-danger);padding:var(--space-8)">${esc(error.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--color-danger);padding:var(--space-8)">${esc(error.message)}</td></tr>`;
     return;
   }
 
   if (!data || data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">No product lines yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">No product lines yet.</td></tr>';
     return;
   }
 
@@ -102,7 +102,7 @@ async function loadProductLines() {
 
   const rows = [];
   Object.entries(grouped).forEach(([family, items]) => {
-    rows.push(`<tr><td colspan="9" style="background:var(--color-navy);color:var(--color-steel);font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:var(--space-2) var(--space-4)">${esc(family)}</td></tr>`);
+    rows.push(`<tr><td colspan="10" style="background:var(--color-navy);color:var(--color-steel);font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:var(--space-2) var(--space-4)">${esc(family)}</td></tr>`);
     items.forEach(pl => {
       const stdUsd = pl.standard_sell_price_usd   ?? (pl.standard_sell_price_gbp   != null ? pl.standard_sell_price_gbp   * FX_USD_PER_GBP : null);
       const stdGbp = pl.standard_sell_price_gbp   ?? (pl.standard_sell_price_usd   != null ? pl.standard_sell_price_usd   / FX_USD_PER_GBP : null);
@@ -114,9 +114,10 @@ async function loadProductLines() {
       const mktPrice = mktUsd != null
         ? `<div style="font-family:var(--font-display);font-weight:600">$${fmt(mktUsd)}</div><div style="font-size:var(--color-text-muted);font-size:var(--text-xs)">£${fmt(mktGbp)}</div>`
         : '—';
-      rows.push(`<tr>
+      rows.push(`<tr style="cursor:pointer" onclick="location.href='detail.html?id=${esc(pl.id)}'">
         <td style="padding-left:var(--space-6);color:var(--color-text-muted);font-size:var(--text-sm)">${esc(pl.sub_type || '—')}</td>
         <td style="font-weight:600">${esc(pl.name)}</td>
+        <td style="color:var(--color-text-muted);font-size:var(--text-sm)">${esc(pl.physical_form || '—')}</td>
         <td style="font-family:var(--font-display);font-size:var(--text-xs)">${esc(pl.cn_code || '—')}</td>
         <td>${fmt(pl.default_markup_pct, 1)}%</td>
         <td>${fmt((pl.vat_rate || 0) * 100, 1)}%</td>
@@ -164,13 +165,18 @@ function buildPlForm(pl = {}, formId, submitFn, cancelModal) {
                 <option value="">— Select family —</option>
                 ${productFamilies.map(f => `<option value="${esc(f.name)}" ${pl.metal_family === f.name ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
                </select>`
-            : `<div class="alert alert-warning" style="font-size:var(--text-sm)">No families set up yet. <button type="button" class="btn btn-ghost btn-sm" onclick="openManageFamiliesModal()">Add a family first →</button></div>
+            : `<div class="alert alert-warning" style="font-size:var(--text-sm)">No families set up yet. <a href="families.html" class="btn btn-ghost btn-sm">Add a family first →</a></div>
                <input type="hidden" id="${formId}-family" value="" />`
           }
         </div>
         <div class="form-group">
           <label class="form-label">Subtype</label>
           <input type="text" class="form-input" id="${formId}-subtype" value="${esc(pl.sub_type || '')}" placeholder="e.g. Alloy Wire, EC Grade, 6XXX Series" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <input type="text" class="form-input" id="${formId}-form" list="physical-form-options" value="${esc(pl.physical_form || '')}" placeholder="e.g. Ingot, Bar, Rod, Powder" />
+          <span style="font-size:var(--text-xs);color:var(--color-text-muted)">Physical form — shown on customer quotes; pick a suggestion or type your own</span>
         </div>
         <div class="form-group" style="grid-column:1/-1">
           <label class="form-label">Product Name <span style="color:var(--color-danger)">*</span></label>
@@ -209,10 +215,27 @@ function buildPlForm(pl = {}, formId, submitFn, cancelModal) {
             <span id="${formId}-std-gbp-preview" style="font-size:var(--text-xs);color:var(--color-text-muted)">${stdUsdVal ? `≈ £${fmt(stdUsdVal / FX_USD_PER_GBP)}/MT (GBP)` : 'Saved automatically from the pricing calculator'}</span>
           </div>
           <div class="form-group">
-            <label class="form-label">Market Reference Price ($/MT)</label>
-            <input type="number" class="form-input" id="${formId}-mkt-price" value="${mktUsdVal ?? ''}" step="0.01" min="0" placeholder="From market research"
+            <label class="form-label">Latest Price — Fastmarkets/SMM ($/MT)</label>
+            <input type="number" class="form-input" id="${formId}-mkt-price" value="${mktUsdVal ?? ''}" step="0.01" min="0" placeholder="From Fastmarkets/SMM"
                    oninput="updatePriceGbpPreview('${formId}','mkt')" />
-            <span id="${formId}-mkt-gbp-preview" style="font-size:var(--text-xs);color:var(--color-text-muted)">${mktUsdVal ? `≈ £${fmt(mktUsdVal / FX_USD_PER_GBP)}/MT (GBP)` : 'Update from market research — used by the Market Rate pricing model'}</span>
+            <span id="${formId}-mkt-gbp-preview" style="font-size:var(--text-xs);color:var(--color-text-muted)">${mktUsdVal ? `≈ £${fmt(mktUsdVal / FX_USD_PER_GBP)}/MT (GBP)` : 'Used by the Market Rate pricing model'}</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Price Source</label>
+            <select class="form-select" id="${formId}-price-source">
+              <option value="">— Not set —</option>
+              <option value="fastmarkets" ${pl.price_reference_source === 'fastmarkets' ? 'selected' : ''}>Fastmarkets</option>
+              <option value="smm" ${pl.price_reference_source === 'smm' ? 'selected' : ''}>SMM (Shanghai Metals Market)</option>
+              <option value="manual" ${pl.price_reference_source === 'manual' ? 'selected' : ''}>Manual / Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Price Reference Code</label>
+            <input type="text" class="form-input" id="${formId}-price-code" value="${esc(pl.price_reference_code || '')}" placeholder="e.g. MB-SB-0001" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Price Last Updated</label>
+            <input type="date" class="form-input" id="${formId}-price-updated" value="${esc(pl.price_reference_updated_at || '')}" />
           </div>
           <div class="form-group">
             <label class="form-label">Default Origin Country</label>
@@ -221,6 +244,33 @@ function buildPlForm(pl = {}, formId, submitFn, cancelModal) {
           <div class="form-group">
             <label class="form-label">Default Destination</label>
             <input type="text" class="form-input" id="${formId}-dest" value="${esc(pl.default_destination || '')}" placeholder="e.g. United Kingdom" />
+          </div>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--color-border);margin:var(--space-5) 0 var(--space-4);padding-top:var(--space-4)">
+        <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-3)">Compliance</p>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
+              <input type="checkbox" id="${formId}-reach-uk" ${pl.reach_uk_regulated ? 'checked' : ''} /> UK REACH regulated
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
+              <input type="checkbox" id="${formId}-reach-eu" ${pl.reach_eu_regulated ? 'checked' : ''} /> EU REACH regulated
+            </label>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">UK REACH Notes</label>
+            <input type="text" class="form-input" id="${formId}-reach-uk-notes" value="${esc(pl.reach_uk_notes || '')}" placeholder="e.g. SVHC candidate — registration no. XXXXXXXX" />
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">EU REACH Notes</label>
+            <input type="text" class="form-input" id="${formId}-reach-eu-notes" value="${esc(pl.reach_eu_notes || '')}" placeholder="e.g. Annex XIV / XVII restriction detail" />
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Other Import Restrictions</label>
+            <textarea class="form-textarea" id="${formId}-import-restrictions" rows="2" placeholder="e.g. Import licence required, quota, dual-use export control classification">${esc(pl.import_restrictions_notes || '')}</textarea>
           </div>
         </div>
       </div>
@@ -247,6 +297,7 @@ function getPlPayload(formId) {
   return {
     metal_family:                 document.getElementById(`${formId}-family`)?.value.trim()  || null,
     sub_type:                     document.getElementById(`${formId}-subtype`)?.value.trim() || null,
+    physical_form:                document.getElementById(`${formId}-form`)?.value.trim()    || null,
     name:                         document.getElementById(`${formId}-name`)?.value.trim(),
     cn_code:                      document.getElementById(`${formId}-cn`)?.value.trim()      || null,
     default_markup_pct:           markup,
@@ -256,8 +307,16 @@ function getPlPayload(formId) {
     standard_sell_price_gbp:      stdUsd != null ? +(stdUsd / FX_USD_PER_GBP).toFixed(2) : null,
     market_reference_price_usd:   mktUsd,
     market_reference_price_gbp:   mktUsd != null ? +(mktUsd / FX_USD_PER_GBP).toFixed(2) : null,
+    price_reference_source:       document.getElementById(`${formId}-price-source`)?.value || null,
+    price_reference_code:         document.getElementById(`${formId}-price-code`)?.value.trim() || null,
+    price_reference_updated_at:   document.getElementById(`${formId}-price-updated`)?.value || null,
     default_origin_country:       document.getElementById(`${formId}-origin`)?.value.trim() || null,
     default_destination:          document.getElementById(`${formId}-dest`)?.value.trim()   || null,
+    reach_uk_regulated:           document.getElementById(`${formId}-reach-uk`)?.checked || false,
+    reach_uk_notes:               document.getElementById(`${formId}-reach-uk-notes`)?.value.trim() || null,
+    reach_eu_regulated:           document.getElementById(`${formId}-reach-eu`)?.checked || false,
+    reach_eu_notes:               document.getElementById(`${formId}-reach-eu-notes`)?.value.trim() || null,
+    import_restrictions_notes:    document.getElementById(`${formId}-import-restrictions`)?.value.trim() || null,
     notes:                        document.getElementById(`${formId}-notes`)?.value.trim()  || null,
   };
 }
@@ -316,196 +375,6 @@ async function submitEditPl(e, id) {
 
 async function toggleActive(id, active) {
   await supabaseClient.from('product_lines').update({ active }).eq('id', id);
-  loadProductLines();
-}
-
-// ── Manage Families ───────────────────────────────────────────────────────────
-
-async function openManageFamiliesModal() {
-  document.getElementById('manage-families-container').innerHTML = '<div style="text-align:center;color:var(--color-text-muted);padding:var(--space-8)">Loading families…</div>';
-  document.getElementById('manage-families-modal').classList.add('open');
-  await renderManageFamilies();
-}
-
-async function renderManageFamilies() {
-  const container = document.getElementById('manage-families-container');
-  const { data, error } = await supabaseClient.from('product_families').select('*').order('name');
-  if (error) {
-    container.innerHTML = `<div class="alert alert-error">Unable to load product families: ${esc(error.message)}</div>`;
-    return;
-  }
-  const families = data || [];
-  container.innerHTML = `
-    <form id="add-family-form" onsubmit="submitAddFamily(event)">
-      <div class="form-grid" style="margin-bottom:var(--space-4)">
-        <div class="form-group">
-          <label class="form-label">Family Name <span style="color:var(--color-danger)">*</span></label>
-          <input type="text" class="form-input" id="add-family-name" required placeholder="e.g. Fasteners" />
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Description</label>
-          <input type="text" class="form-input" id="add-family-description" placeholder="Optional description" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Active</label>
-          <label class="form-switch"><input type="checkbox" id="add-family-active" checked><span></span></label>
-        </div>
-        <div class="form-group">
-          <label class="form-label">UK REACH Regulated</label>
-          <label class="form-switch"><input type="checkbox" id="add-family-reach"><span></span></label>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">REACH Notes</label>
-          <textarea class="form-input" id="add-family-reach-notes" rows="2" placeholder="e.g. SVHC candidate — Cobalt sulphate. Registration No. XXXXXXXX" style="resize:vertical"></textarea>
-        </div>
-      </div>
-      <div id="add-family-alert" class="alert" style="display:none;margin-bottom:var(--space-4)"></div>
-      <button type="submit" class="btn btn-primary">Add Family</button>
-    </form>
-    <div style="margin-top:var(--space-5)">
-      <h4 style="margin-bottom:var(--space-3);font-size:var(--text-base);font-weight:700">Existing Families</h4>
-      <div class="table-wrapper"><table>
-        <thead><tr><th>Name</th><th>Description</th><th>UK REACH</th><th>Status</th><th></th></tr></thead>
-        <tbody>
-          ${families.map(f => `<tr>
-            <td>${esc(f.name)}</td>
-            <td>${esc(f.description || '—')}</td>
-            <td>${f.reach_regulated
-              ? `<span class="badge badge-warning" title="${esc(f.reach_notes || '')}">Regulated</span>`
-              : '<span class="badge badge-neutral">Not Regulated</span>'}</td>
-            <td><span class="badge ${f.active ? 'badge-success' : 'badge-neutral'}">${f.active ? 'Active' : 'Inactive'}</span></td>
-            <td style="text-align:right">
-              <button class="btn btn-secondary btn-sm" onclick="openEditFamilyModal('${esc(f.id)}');event.stopPropagation()">Edit</button>
-              <button class="btn btn-secondary btn-sm" onclick="deleteFamily('${esc(f.id)}','${esc(f.name)}');event.stopPropagation()" style="margin-left:var(--space-2)">Delete</button>
-            </td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div>
-    </div>
-  `;
-}
-
-async function submitAddFamily(e) {
-  e.preventDefault();
-  const alertEl = document.getElementById('add-family-alert');
-  const name = document.getElementById('add-family-name')?.value.trim();
-  const description = document.getElementById('add-family-description')?.value.trim() || null;
-  const active = document.getElementById('add-family-active')?.checked ?? true;
-  const reach_regulated = document.getElementById('add-family-reach')?.checked ?? false;
-  const reach_notes = document.getElementById('add-family-reach-notes')?.value.trim() || null;
-
-  if (!name) {
-    alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
-    alertEl.textContent = 'Family name is required.';
-    return;
-  }
-
-  const { error } = await supabaseClient.from('product_families').insert([{ name, description, active, reach_regulated, reach_notes }]);
-  if (error) {
-    alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
-    alertEl.textContent = 'Save failed: ' + error.message;
-  } else {
-    document.getElementById('add-family-form')?.reset();
-    await loadFamilies();
-    await renderManageFamilies();
-  }
-}
-
-async function openEditFamilyModal(id) {
-  const { data: family, error } = await supabaseClient.from('product_families').select('*').eq('id', id).single();
-  if (error || !family) return;
-  document.getElementById('edit-family-form-container').innerHTML = `
-    <form id="edit-family-form" onsubmit="submitEditFamily(event,'${esc(id)}')">
-      <div class="form-grid" style="margin-bottom:var(--space-4)">
-        <div class="form-group">
-          <label class="form-label">Family Name <span style="color:var(--color-danger)">*</span></label>
-          <input type="text" class="form-input" id="edit-family-name" value="${esc(family.name)}" required />
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Description</label>
-          <input type="text" class="form-input" id="edit-family-description" value="${esc(family.description || '')}" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Active</label>
-          <label class="form-switch"><input type="checkbox" id="edit-family-active" ${family.active ? 'checked' : ''}><span></span></label>
-        </div>
-        <div class="form-group">
-          <label class="form-label">UK REACH Regulated</label>
-          <label class="form-switch"><input type="checkbox" id="edit-family-reach" ${family.reach_regulated ? 'checked' : ''}><span></span></label>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">REACH Notes</label>
-          <textarea class="form-input" id="edit-family-reach-notes" rows="2" placeholder="e.g. SVHC candidate — Cobalt sulphate. Registration No. XXXXXXXX" style="resize:vertical">${esc(family.reach_notes || '')}</textarea>
-        </div>
-      </div>
-      <div id="edit-family-alert" class="alert" style="display:none;margin-bottom:var(--space-4)"></div>
-      <div style="display:flex;gap:var(--space-3)">
-        <button type="submit" class="btn btn-primary">Save Changes</button>
-        <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-family-modal').classList.remove('open')">Cancel</button>
-      </div>
-    </form>
-  `;
-  document.getElementById('edit-family-modal').classList.add('open');
-}
-
-async function submitEditFamily(e, id) {
-  e.preventDefault();
-  const alertEl = document.getElementById('edit-family-alert');
-  const name = document.getElementById('edit-family-name')?.value.trim();
-  const description = document.getElementById('edit-family-description')?.value.trim() || null;
-  const active = document.getElementById('edit-family-active')?.checked ?? true;
-  const reach_regulated = document.getElementById('edit-family-reach')?.checked ?? false;
-  const reach_notes = document.getElementById('edit-family-reach-notes')?.value.trim() || null;
-
-  if (!name) {
-    alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
-    alertEl.textContent = 'Family name is required.';
-    return;
-  }
-
-  const { data: current, error: fetchError } = await supabaseClient.from('product_families').select('*').eq('id', id).single();
-  if (fetchError || !current) {
-    alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
-    alertEl.textContent = 'Unable to find family record.';
-    return;
-  }
-
-  const { error } = await supabaseClient.from('product_families').update({ name, description, active, reach_regulated, reach_notes }).eq('id', id);
-  if (error) {
-    alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
-    alertEl.textContent = 'Save failed: ' + error.message;
-    return;
-  }
-
-  if (current.name !== name) {
-    const { error: familyError } = await supabaseClient.from('product_lines').update({ metal_family: name }).eq('metal_family', current.name);
-    if (familyError) {
-      alertEl.style.display = 'block'; alertEl.className = 'alert alert-error';
-      alertEl.textContent = 'Family renamed, but related product lines could not be updated: ' + familyError.message;
-      return;
-    }
-  }
-
-  document.getElementById('edit-family-modal').classList.remove('open');
-  await loadFamilies();
-  await renderManageFamilies();
-  loadProductLines();
-}
-
-async function deleteFamily(id, name) {
-  if (!confirm(`Delete family ‘${name}’? This will clear the family from any product lines using it.`)) return;
-  const { error: updateError } = await supabaseClient.from('product_lines').update({ metal_family: null }).eq('metal_family', name);
-  if (updateError) {
-    alert(`Unable to clear product lines for family ${name}: ${updateError.message}`);
-    return;
-  }
-  const { error } = await supabaseClient.from('product_families').delete().eq('id', id);
-  if (error) {
-    alert(`Unable to delete family ${name}: ${error.message}`);
-    return;
-  }
-  await loadFamilies();
-  await renderManageFamilies();
   loadProductLines();
 }
 

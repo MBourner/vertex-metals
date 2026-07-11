@@ -39,6 +39,35 @@ function flagCard(cardId, count, colour) {
   const in30    = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
   const now     = new Date().toISOString();
 
+  // ── Business Overview counts (parallel) ──────────────────────────────────
+  const [openRfqs, activeCustomers, activeSuppliers, productLines] =
+    await Promise.all([
+      supabaseClient
+        .from('rfq_submissions')
+        .select('id', { count: 'exact', head: true })
+        .not('status', 'eq', 'closed'),
+
+      supabaseClient
+        .from('contacts')
+        .select('id', { count: 'exact', head: true })
+        .eq('type', 'buyer'),
+
+      supabaseClient
+        .from('contacts')
+        .select('id', { count: 'exact', head: true })
+        .in('type', ['supplier', 'logistics', 'other']),
+
+      supabaseClient
+        .from('product_lines')
+        .select('id', { count: 'exact', head: true })
+        .eq('active', true),
+    ]);
+
+  document.getElementById('stat-open-rfqs').textContent        = openRfqs.count        ?? '—';
+  document.getElementById('stat-active-customers').textContent = activeCustomers.count ?? '—';
+  document.getElementById('stat-active-suppliers').textContent = activeSuppliers.count ?? '—';
+  document.getElementById('stat-product-lines').textContent    = productLines.count    ?? '—';
+
   // ── KPI counts (parallel) ────────────────────────────────────────────────
   const [vqPending, vqOverdue, inTransit, disputesOpen, auditsDue, blocked] =
     await Promise.all([

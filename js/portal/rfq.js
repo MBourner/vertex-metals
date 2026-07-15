@@ -32,11 +32,31 @@ function generateOrderReference() {
   for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random() * chars.length)];
   return `VM-${new Date().getFullYear()}-${s}`;
 }
-function generateQuoteReference() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let s = '';
-  for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return `VM-Q-${new Date().getFullYear()}-${s}`;
+// Sequential quote numbering, starting at 50 — looks up the highest existing
+// number across all quote_reference values (any year prefix) and returns the
+// next one. Not race-safe under concurrent creation, but fine at this team's
+// scale; revisit with a dedicated sequence table if that ever changes.
+async function generateQuoteReference() {
+  const prefix = `VM-Q-${new Date().getFullYear()}-`;
+  const START  = 50;
+
+  const { data } = await supabaseClient.from('customer_quotes').select('quote_reference').ilike('quote_reference', 'VM-Q-%');
+  let maxNum = START - 1;
+  (data || []).forEach(row => {
+    const parts = (row.quote_reference || '').split('-');
+    const last  = parts[parts.length - 1];
+    if (/^\d+$/.test(last)) {
+      const n = parseInt(last, 10);
+      if (n > maxNum) maxNum = n;
+    }
+  });
+
+  return `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
+}
+
+async function regenerateQuoteRef() {
+  const input = document.getElementById('bq-ref');
+  if (input) input.value = await generateQuoteReference();
 }
 
 // ── List page — New RFQ (multi-step) ─────────────────────────────────────────
@@ -2053,7 +2073,7 @@ async function renderBuildTab() {
   const overheadTotal = (overheads||[]).reduce((s,o) => s + parseFloat(o.amount_gbp||0), 0);
 
   const today = new Date().toISOString().split('T')[0];
-  const ref   = cq?.quote_reference || generateQuoteReference();
+  const ref   = cq?.quote_reference || await generateQuoteReference();
 
   // Parse existing lead_time string (e.g. "4 weeks") into qty + unit
   const _leadMatch = (cq?.lead_time || '').match(/^(\d+)\s*(days?|weeks?|months?)$/i);
@@ -2122,7 +2142,7 @@ async function renderBuildTab() {
             <label class="form-label">Quote Reference</label>
             <div style="display:flex;gap:var(--space-2)">
               <input type="text" class="form-input" id="bq-ref" value="${esc(ref)}" readonly style="flex:1;background:var(--color-surface)" />
-              <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('bq-ref').value=generateQuoteReference()">Regenerate</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="regenerateQuoteRef()">Regenerate</button>
             </div>
           </div>
           <div class="form-group">
@@ -2186,9 +2206,9 @@ async function renderBuildTab() {
           <th style="min-width:180px">Description *</th>
           <th style="width:70px">Qty</th>
           <th style="width:70px">Unit</th>
-          <th style="width:90px">Unit Price (£)</th>
+          <th style="width:90px">Unit Price (${_quoteCurrency === 'USD' ? '$' : '£'})</th>
           <th style="width:70px">VAT %</th>
-          <th style="width:90px">Amount (£)</th>
+          <th style="width:90px">Amount (${_quoteCurrency === 'USD' ? '$' : '£'})</th>
           <th style="width:30px"></th>
         </tr></thead>
         <tbody id="line-items-body"></tbody>
@@ -2204,7 +2224,7 @@ async function renderBuildTab() {
       ${overheadTotal > 0 ? `
       <div style="margin-bottom:var(--space-3)">
         <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-2)">Additional Costs (from Cost Inputs tab)</p>
-        <div id="overhead-totals-summary" style="font-size:var(--text-sm);color:var(--color-text-muted)">£${fmt(overheadTotal)} total overheads</div>
+        <div id="overhead-totals-summary" style="font-size:var(--text-sm);color:var(--color-text-muted)">${_quoteCurrency === 'USD' ? `$${fmt(overheadTotal * (_calc.fx || 1.27))}` : `£${fmt(overheadTotal)}`} total overheads</div>
       </div>` : ''}
       <div class="totals-row"><span>Subtotal (ex. VAT)</span><span id="t-subtotal" style="font-family:var(--font-display)">—</span></div>
       <div class="totals-row"><span>VAT</span><span id="t-vat" style="font-family:var(--font-display)">—</span></div>
@@ -2256,7 +2276,7 @@ function renderLineItemsBody() {
       </select></td>
       <td><input class="line-input" type="number" value="${l.unit_price_gbp||''}" step="0.01" min="0" oninput="_quoteLines[${i}].unit_price_gbp=parseFloat(this.value)||null;recalcLine(${i})" /></td>
       <td><input class="line-input" type="number" value="${l.vat_rate??20}" step="0.5" min="0" oninput="_quoteLines[${i}].vat_rate=parseFloat(this.value)||0;recalcLine(${i})" /></td>
-      <td style="font-family:var(--font-display);font-weight:600;text-align:right" id="line-amount-${i}">${l.amount_gbp ? `£${fmt(l.amount_gbp)}` : '—'}</td>
+      <td style="font-family:var(--font-display);font-weight:600;text-align:right" id="line-amount-${i}">${l.amount_gbp ? `${_quoteCurrency === 'USD' ? '$' : '£'}${fmt(l.amount_gbp)}` : '—'}</td>
       <td><button type="button" onclick="removeQuoteLine(${i})" style="background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:var(--text-lg);line-height:1;padding:var(--space-1)" title="Remove line">×</button></td>
     </tr>`).join('');
   recalcTotals();
@@ -2281,12 +2301,14 @@ function recalcLine(i) {
   const vat   = parseFloat(l.vat_rate)       || 0;
   l.amount_gbp     = qty * price;
   l.vat_amount_gbp = l.amount_gbp * (vat / 100);
+  const sym = _quoteCurrency === 'USD' ? '$' : '£';
   const el = document.getElementById(`line-amount-${i}`);
-  if (el) el.textContent = l.amount_gbp ? `£${fmt(l.amount_gbp)}` : '—';
+  if (el) el.textContent = l.amount_gbp ? `${sym}${fmt(l.amount_gbp)}` : '—';
   recalcTotals();
 }
 
 function recalcTotals() {
+  const sym = _quoteCurrency === 'USD' ? '$' : '£';
   const subtotal  = _quoteLines.reduce((s, l) => s + (parseFloat(l.amount_gbp) || 0), 0);
   const vatTotal  = _quoteLines.reduce((s, l) => s + (parseFloat(l.vat_amount_gbp) || 0), 0);
   const grandTotal = subtotal + vatTotal;
@@ -2294,9 +2316,9 @@ function recalcTotals() {
   const tSub  = document.getElementById('t-subtotal');
   const tVat  = document.getElementById('t-vat');
   const tTot  = document.getElementById('t-total');
-  if (tSub) tSub.textContent = subtotal  ? `£${fmt(subtotal)}`  : '—';
-  if (tVat) tVat.textContent = vatTotal  ? `£${fmt(vatTotal)}`  : '—';
-  if (tTot) tTot.textContent = grandTotal ? `£${fmt(grandTotal)}` : '—';
+  if (tSub) tSub.textContent = subtotal  ? `${sym}${fmt(subtotal)}`  : '—';
+  if (tVat) tVat.textContent = vatTotal  ? `${sym}${fmt(vatTotal)}`  : '—';
+  if (tTot) tTot.textContent = grandTotal ? `${sym}${fmt(grandTotal)}` : '—';
 }
 
 async function saveDraftWithFeedback() {
@@ -2333,7 +2355,7 @@ async function saveQuoteDraft(publish = false) {
     rfq_id:                   _rfqId,
     product_line_id:          _rfqData?.product_line_id || null,
     sell_price_per_mt_gbp:    lines.find(l => !l.is_alternative)?.unit_price_gbp || null,
-    quote_reference:          document.getElementById('bq-ref')?.value || generateQuoteReference(),
+    quote_reference:          document.getElementById('bq-ref')?.value || await generateQuoteReference(),
     issued_date:              document.getElementById('bq-date')?.value || null,
     validity_date:            (() => { const d = new Date(document.getElementById('bq-date')?.value || new Date().toISOString().split('T')[0]); d.setDate(d.getDate() + (parseInt(document.getElementById('bq-valid-days')?.value) || 7)); return d.toISOString().split('T')[0]; })(),
     currency:                 document.getElementById('bq-currency')?.value || _quoteCurrency || 'GBP',
@@ -2711,7 +2733,11 @@ async function openConvertOrderModal(quoteId) {
 
   if (!cq) { container.innerHTML = '<div class="alert alert-error">Quote not found.</div>'; return; }
 
-  const totalGBP    = cq.total_gbp ?? (cq.sell_price_per_mt_gbp && cq.quantity_mt ? (cq.sell_price_per_mt_gbp * cq.quantity_mt).toFixed(2) : '');
+  // customer_quotes stores line/total amounts in whatever currency the quote was
+  // built in (cq.currency) — but trades.sell_price_gbp is always GBP, so convert
+  // USD-denominated quotes back to GBP using the RFQ's saved FX rate.
+  const rawTotal    = cq.total_gbp ?? (cq.sell_price_per_mt_gbp && cq.quantity_mt ? cq.sell_price_per_mt_gbp * cq.quantity_mt : null);
+  const totalGBP     = rawTotal != null ? (cq.currency === 'USD' ? (rawTotal / (_calc.fx || 1.27)).toFixed(2) : rawTotal.toFixed(2)) : '';
   const productName = cq.product_line?.name || cq.customer_company || '';
   const rfqCompany  = (_rfqData?.company || '').toLowerCase();
   const matchedBuyer = (buyers || []).find(b => b.company_name.toLowerCase().includes(rfqCompany) || rfqCompany.includes(b.company_name.toLowerCase()));
@@ -2745,6 +2771,7 @@ async function openConvertOrderModal(quoteId) {
         <div class="form-group">
           <label class="form-label">Agreed Sell Price (£ total)</label>
           <input type="number" class="form-input" id="co-price" value="${totalGBP}" step="0.01" min="0" />
+          ${cq.currency === 'USD' ? `<span style="font-size:var(--text-xs);color:var(--color-text-muted)">Converted from the quote's $${fmt(rawTotal)} total at £1 = $${fmt(_calc.fx || 1.27, 3)} — orders are always recorded in GBP.</span>` : ''}
         </div>
         <div class="form-group">
           <label class="form-label">Payment Terms</label>

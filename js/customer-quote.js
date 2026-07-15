@@ -81,6 +81,7 @@ function showError() {
 
 function renderQuote(cq, lines) {
   const today = fmtDate(new Date());
+  const sym = cq.currency === 'USD' ? '$' : '£';
 
   // Build customer address
   const addrLines = [
@@ -105,8 +106,8 @@ function renderQuote(cq, lines) {
       <td>${l.vat_rate != null ? `${fmt(l.vat_rate, 0)}%` : '—'}</td>
       <td style="text-align:right">${l.quantity != null ? fmt(l.quantity, l.unit === 'MT' ? 3 : 2) : '—'}</td>
       <td>${esc(l.unit || 'MT')}</td>
-      <td style="text-align:right">${l.unit_price_gbp != null ? `£${fmt(l.unit_price_gbp)}` : '—'}</td>
-      <td class="amount">${l.amount_gbp != null ? `£${fmt(l.amount_gbp)}` : '—'}</td>
+      <td style="text-align:right">${l.unit_price_gbp != null ? `${sym}${fmt(l.unit_price_gbp)}` : '—'}</td>
+      <td class="amount">${l.amount_gbp != null ? `${sym}${fmt(l.amount_gbp)}` : '—'}</td>
     </tr>`).join('');
 
   // VAT summary (group by rate)
@@ -120,8 +121,8 @@ function renderQuote(cq, lines) {
   const vatSummaryRows = Object.entries(vatGroups).map(([rate, g]) => `
     <tr>
       <td>VAT @ ${rate}%</td>
-      <td>£${fmt(g.vat)}</td>
-      <td>£${fmt(g.net)}</td>
+      <td>${sym}${fmt(g.vat)}</td>
+      <td>${sym}${fmt(g.net)}</td>
     </tr>`).join('');
 
   // Notes block (lead time, payment terms, etc.)
@@ -190,9 +191,9 @@ function renderQuote(cq, lines) {
 
     <!-- Totals -->
     <div class="qdoc-totals">
-      <div class="qdoc-totals-row"><span class="label">SUBTOTAL</span><span class="amount">${cq.subtotal_gbp ? `£${fmt(cq.subtotal_gbp)}` : '—'}</span></div>
-      <div class="qdoc-totals-row"><span class="label">VAT TOTAL</span><span class="amount">${cq.vat_total_gbp ? `£${fmt(cq.vat_total_gbp)}` : '—'}</span></div>
-      <div class="qdoc-totals-row total"><span class="label">TOTAL</span><span class="amount">${cq.total_gbp ? `£${fmt(cq.total_gbp)}` : '—'}</span></div>
+      <div class="qdoc-totals-row"><span class="label">SUBTOTAL</span><span class="amount">${cq.subtotal_gbp ? `${sym}${fmt(cq.subtotal_gbp)}` : '—'}</span></div>
+      <div class="qdoc-totals-row"><span class="label">VAT TOTAL</span><span class="amount">${cq.vat_total_gbp ? `${sym}${fmt(cq.vat_total_gbp)}` : '—'}</span></div>
+      <div class="qdoc-totals-row total"><span class="label">TOTAL</span><span class="amount">${cq.total_gbp ? `${sym}${fmt(cq.total_gbp)}` : '—'}</span></div>
     </div>
 
     <!-- VAT summary -->

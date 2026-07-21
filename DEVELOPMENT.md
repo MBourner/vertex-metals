@@ -152,11 +152,7 @@ Additional one-off SQL applied directly (v0.6.1):
 ALTER TABLE contacts ADD COLUMN IF NOT EXISTS year_established integer;
 ```
 
-Pending migrations (apply before v0.6.0 goes live in production):
-```sql
-ALTER TABLE rfq_submissions ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES contacts(id);
-ALTER TABLE logistics_quotes  ADD COLUMN IF NOT EXISTS price_flat_usd numeric(12,2);
-```
+Applied: `rfq_submissions.contact_id` (uuid, references `contacts(id)`) and `logistics_quotes.price_flat_usd` (numeric(12,2)) — added for v0.6.0.
 
 Applied (2026-07-10): `20260710_rfq_pricing_settings.sql` — adds `pricing_scenario_supplier_id`, `pricing_logistics_quote_id`, `pricing_fx_rate`, `pricing_insurance_pct`, `pricing_model`, `pricing_markup_pct` (renamed back to `pricing_margin_pct` on 2026-07-11 — see below) to `rfq_submissions` so the calculator's FX rate/insurance/model/margin selections persist per RFQ instead of resetting to hardcoded defaults every time the operator navigates away and back.
 
@@ -168,9 +164,9 @@ Applied (2026-07-11): `20260711_rfq_pricing_margin_rename.sql` — renames `rfq_
 
 Applied (2026-07-11): `20260712_rfq_lines_product_type.sql` — adds `product_type` to `rfq_lines` so "Type" (bar, rod, ingot, powder, etc.) can be captured per line at the Enquiry stage (Quote Lines table + Add/Edit Line modal), not just later in the Build Quote tab. Falls back to the linked product line's catalogue default when left blank; the Quote Lines table now shows Product/Type/Specification columns matching the final customer quote, so gaps are visible before the quote is generated.
 
-Pending migration — **run this now** (`20260712b_product_lines_compliance_pricing.sql`): adds `reach_uk_regulated`/`reach_uk_notes`, `reach_eu_regulated`/`reach_eu_notes`, `import_restrictions_notes`, and `price_reference_source`/`price_reference_code`/`price_reference_updated_at` to `product_lines`. Powers the new Product Line detail page (`product-lines/detail.html`) — a standalone page per product (like the supplier detail page), reached by clicking a product in the Product Lines list. Has Overview / Compliance / Usage tabs, Edit and Delete actions (delete requires typing the product name to confirm, and is blocked if the product line is referenced by any RFQ, RFQ line, supplier quote, or customer quote line).
+Applied: `20260712b_product_lines_compliance_pricing.sql` — adds `reach_uk_regulated`/`reach_uk_notes`, `reach_eu_regulated`/`reach_eu_notes`, `import_restrictions_notes`, and `price_reference_source`/`price_reference_code`/`price_reference_updated_at` to `product_lines`. Powers the new Product Line detail page (`product-lines/detail.html`) — a standalone page per product (like the supplier detail page), reached by clicking a product in the Product Lines list. Has Overview / Compliance / Usage tabs, Edit and Delete actions (delete requires typing the product name to confirm, and is blocked if the product line is referenced by any RFQ, RFQ line, supplier quote, or customer quote line).
 
-Pending migration — **run this now** (`20260712c_product_line_grades.sql`): new `product_line_grades` table (`product_line_id`, `grade`, `notes`) — a simple add/remove list of grades per product, for products where grade is purely a spec-level detail with no CN code/pricing implications of its own (e.g. Antimony purity grades), as distinct from grades that warrant their own `product_lines` row (e.g. Stainless Steel 304 vs 316 — different CN codes). Managed from a new "Grades" tab on the Product Line detail page.
+Applied: `20260712c_product_line_grades.sql` — new `product_line_grades` table (`product_line_id`, `grade`, `notes`) — a simple add/remove list of grades per product, for products where grade is purely a spec-level detail with no CN code/pricing implications of its own (e.g. Antimony purity grades), as distinct from grades that warrant their own `product_lines` row (e.g. Stainless Steel 304 vs 316 — different CN codes). Managed from a new "Grades" tab on the Product Line detail page.
 
 Applied (2026-07-13): `20260713_customer_quotes_vat_applicable.sql` — adds `vat_applicable` (boolean, default `true`) to `customer_quotes`. A new "Apply VAT to this quote" toggle on the Build Quote tab lets an operator mark a specific RFQ as VAT-exempt (VM is not yet VAT registered, and some trades are 'string' chain trades that never touch the UK) — when off, the VAT column, VAT rate, VAT summary table, and VAT total row are omitted entirely from the generated customer-facing quote, rather than showing 0%.
 

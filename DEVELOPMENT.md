@@ -172,7 +172,7 @@ Pending migration — **run this now** (`20260712b_product_lines_compliance_pric
 
 Pending migration — **run this now** (`20260712c_product_line_grades.sql`): new `product_line_grades` table (`product_line_id`, `grade`, `notes`) — a simple add/remove list of grades per product, for products where grade is purely a spec-level detail with no CN code/pricing implications of its own (e.g. Antimony purity grades), as distinct from grades that warrant their own `product_lines` row (e.g. Stainless Steel 304 vs 316 — different CN codes). Managed from a new "Grades" tab on the Product Line detail page.
 
-Pending migration — **run this now** (`20260713_customer_quotes_vat_applicable.sql`): adds `vat_applicable` (boolean, default `true`) to `customer_quotes`. A new "Apply VAT to this quote" toggle on the Build Quote tab lets an operator mark a specific RFQ as VAT-exempt (VM is not yet VAT registered, and some trades are 'string' chain trades that never touch the UK) — when off, the VAT column, VAT rate, VAT summary table, and VAT total row are omitted entirely from the generated customer-facing quote, rather than showing 0%.
+Applied (2026-07-13): `20260713_customer_quotes_vat_applicable.sql` — adds `vat_applicable` (boolean, default `true`) to `customer_quotes`. A new "Apply VAT to this quote" toggle on the Build Quote tab lets an operator mark a specific RFQ as VAT-exempt (VM is not yet VAT registered, and some trades are 'string' chain trades that never touch the UK) — when off, the VAT column, VAT rate, VAT summary table, and VAT total row are omitted entirely from the generated customer-facing quote, rather than showing 0%.
 
 Additional one-off SQL applied directly (not in migration files):
 ```sql

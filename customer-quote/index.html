@@ -31,19 +31,16 @@
     .cq-accepted-banner { background:#d1fae5; border:1px solid #6ee7b7; border-radius:var(--radius); padding:var(--space-4) var(--space-6); margin-bottom:var(--space-6); color:#065f46; font-weight:600; }
 
     /* Quote document */
-    #quote-print-template { background:#fff; border-radius:var(--radius); box-shadow:0 1px 4px rgba(0,0,0,.08); padding:40px 48px; font-family:'DM Sans',sans-serif; font-size:13px; color:#0a1728; line-height:1.5; }
+    #quote-print-template { background:#fff; border-radius:var(--radius); box-shadow:0 1px 4px rgba(0,0,0,.08); padding:28px 40px; font-family:'DM Sans',sans-serif; font-size:13px; color:#0a1728; line-height:1.5; }
 
-    .qdoc-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:32px; padding-bottom:24px; border-bottom:2px solid #0a1728; }
-    .qdoc-logo { font-family:'Syne',sans-serif; font-size:24px; font-weight:700; color:#0a1728; letter-spacing:-.02em; }
+    .qdoc-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; padding-bottom:14px; border-bottom:2px solid #0a1728; }
+    .qdoc-logo { font-family:'Syne',sans-serif; font-size:22px; font-weight:700; color:#0a1728; letter-spacing:-.02em; }
     .qdoc-logo span { color:#7ab8d4; }
-    .qdoc-header-contact { font-size:11px; color:#666; line-height:1.7; text-align:right; }
+    .qdoc-header-contact { font-size:11px; color:#666; line-height:1.6; text-align:right; }
     .qdoc-header-contact a { color:#7ab8d4; text-decoration:none; }
 
-    .qdoc-heading { font-family:'Syne',sans-serif; font-size:28px; font-weight:700; color:#7ab8d4; margin-bottom:28px; letter-spacing:-.01em; }
-
-    .qdoc-meta { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:32px; }
-    .qdoc-address { font-size:13px; line-height:1.8; }
-    .qdoc-address .label { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#999; margin-bottom:6px; display:block; }
+    .qdoc-meta { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:16px; }
+    .qdoc-address { font-size:13px; line-height:1.45; }
     .qdoc-ref-block { text-align:right; }
     .qdoc-ref-row { display:flex; justify-content:flex-end; gap:24px; align-items:baseline; margin-bottom:4px; }
     .qdoc-ref-row .key { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#999; }
@@ -59,26 +56,40 @@
     .qdoc-table tbody td.amount { text-align:right; font-weight:600; font-variant-numeric:tabular-nums; }
     .alt-tag { display:inline-block; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; background:#7ab8d4; color:#fff; border-radius:2px; padding:1px 5px; margin-left:4px; vertical-align:middle; }
 
-    .qdoc-notes { background:#f4f5f7; border-radius:4px; padding:14px 18px; margin:20px 0; font-size:12px; color:#555; white-space:pre-wrap; }
+    .qdoc-notes { background:#f4f5f7; border-radius:4px; padding:10px 14px; margin:14px 0; font-size:12px; color:#555; white-space:pre-wrap; }
 
-    .qdoc-totals { margin-top:16px; }
-    .qdoc-totals-row { display:flex; justify-content:flex-end; gap:24px; padding:5px 12px; font-size:13px; }
+    .qdoc-totals { margin-top:10px; }
+    .qdoc-totals-row { display:flex; justify-content:flex-end; gap:24px; padding:4px 12px; font-size:13px; }
     .qdoc-totals-row .label { color:#666; min-width:120px; text-align:right; }
     .qdoc-totals-row .amount { min-width:90px; text-align:right; font-variant-numeric:tabular-nums; }
-    .qdoc-totals-row.total { border-top:2px solid #0a1728; margin-top:6px; padding-top:10px; font-weight:700; font-size:16px; font-family:'Syne',sans-serif; }
+    .qdoc-totals-row.total { border-top:2px solid #0a1728; margin-top:4px; padding-top:8px; font-weight:700; font-size:16px; font-family:'Syne',sans-serif; }
 
-    .qdoc-vat-summary { margin-top:20px; font-size:11px; }
+    .qdoc-vat-summary { margin-top:14px; font-size:11px; }
     .qdoc-vat-summary table { border-collapse:collapse; }
     .qdoc-vat-summary th { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#999; padding:4px 16px 4px 0; border-bottom:1px solid #e5e7eb; }
     .qdoc-vat-summary td { padding:4px 16px 4px 0; border-bottom:1px solid #f3f4f6; }
 
-    .qdoc-acceptance { margin-top:32px; padding-top:20px; border-top:1px solid #e5e7eb; display:grid; grid-template-columns:1fr 1fr; gap:32px; }
-    .qdoc-acceptance-field { border-bottom:1px solid #ccc; padding-bottom:4px; margin-top:24px; min-height:28px; }
+    .qdoc-acceptance { margin-top:20px; padding-top:14px; border-top:1px solid #e5e7eb; display:grid; grid-template-columns:1fr 1fr; gap:32px; }
+    .qdoc-acceptance-field { border-bottom:1px solid #ccc; padding-bottom:4px; margin-top:16px; min-height:24px; }
     .qdoc-acceptance-label { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#999; margin-top:6px; }
 
-    .qdoc-terms { margin-top:24px; padding-top:16px; border-top:1px solid #e5e7eb; font-size:11px; color:#888; white-space:pre-wrap; }
+    .qdoc-terms { margin-top:16px; padding-top:10px; border-top:1px solid #e5e7eb; font-size:11px; color:#888; white-space:pre-wrap; }
 
-    .qdoc-footer { margin-top:32px; padding-top:12px; border-top:1px solid #e5e7eb; display:flex; justify-content:space-between; font-size:10px; color:#bbb; }
+    .qdoc-footer { margin-top:16px; padding-top:8px; border-top:1px solid #e5e7eb; display:flex; justify-content:space-between; font-size:10px; color:#bbb; }
+
+    /* Clean PDF/print pagination — don't split a table row or a whole block
+       across a page boundary; break before a block instead if it doesn't fit. */
+    .qdoc-table tr,
+    .qdoc-header,
+    .qdoc-meta,
+    .qdoc-totals,
+    .qdoc-vat-summary,
+    .qdoc-acceptance,
+    .qdoc-terms,
+    .qdoc-footer {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
 
     /* Loading / error states */
     #cq-loading { padding:var(--space-16); text-align:center; color:var(--color-text-muted); }

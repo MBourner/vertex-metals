@@ -12,6 +12,13 @@ function fmt(n, dp = 2) {
   if (n == null || isNaN(n)) return '—';
   return Number(n).toLocaleString('en-GB', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 }
+// Quantities: show up to 3dp for MT (fractional tonnages happen) or 2dp otherwise,
+// but drop trailing zeros so a whole number like 12 reads as "12", not "12.000".
+function fmtQty(n, unit) {
+  if (n == null || isNaN(n)) return '—';
+  const dp = unit === 'MT' ? 3 : 2;
+  return Number(n).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: dp });
+}
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-GB') : '—'; }
 
 const VERTEX = {
@@ -81,7 +88,8 @@ function showError() {
 
 function renderQuote(cq, lines) {
   const today = fmtDate(new Date());
-  const sym = cq.currency === 'USD' ? '$' : '£';
+  const sym   = cq.currency === 'USD' ? '$' : '£';
+  const vatOn = cq.vat_applicable !== false;
 
   // Build customer address
   const addrLines = [
@@ -103,27 +111,30 @@ function renderQuote(cq, lines) {
       <td>${esc(l.product_type || '—')}</td>
       <td>${esc(l.grade_specification || '—')}</td>
       <td>${esc(l.description)}</td>
-      <td>${l.vat_rate != null ? `${fmt(l.vat_rate, 0)}%` : '—'}</td>
-      <td style="text-align:right">${l.quantity != null ? fmt(l.quantity, l.unit === 'MT' ? 3 : 2) : '—'}</td>
+      ${vatOn ? `<td>${l.vat_rate != null ? `${fmt(l.vat_rate, 0)}%` : '—'}</td>` : ''}
+      <td style="text-align:right">${l.quantity != null ? fmtQty(l.quantity, l.unit) : '—'}</td>
       <td>${esc(l.unit || 'MT')}</td>
       <td style="text-align:right">${l.unit_price_gbp != null ? `${sym}${fmt(l.unit_price_gbp)}` : '—'}</td>
       <td class="amount">${l.amount_gbp != null ? `${sym}${fmt(l.amount_gbp)}` : '—'}</td>
     </tr>`).join('');
 
-  // VAT summary (group by rate)
-  const vatGroups = {};
-  lines.forEach(l => {
-    const rate = l.vat_rate ?? 20;
-    if (!vatGroups[rate]) vatGroups[rate] = { vat: 0, net: 0 };
-    vatGroups[rate].net += parseFloat(l.amount_gbp || 0);
-    vatGroups[rate].vat += parseFloat(l.vat_amount_gbp || 0);
-  });
-  const vatSummaryRows = Object.entries(vatGroups).map(([rate, g]) => `
-    <tr>
-      <td>VAT @ ${rate}%</td>
-      <td>${sym}${fmt(g.vat)}</td>
-      <td>${sym}${fmt(g.net)}</td>
-    </tr>`).join('');
+  // VAT summary (group by rate) — omitted entirely when VAT is off for this quote
+  let vatSummaryRows = '';
+  if (vatOn) {
+    const vatGroups = {};
+    lines.forEach(l => {
+      const rate = l.vat_rate ?? 20;
+      if (!vatGroups[rate]) vatGroups[rate] = { vat: 0, net: 0 };
+      vatGroups[rate].net += parseFloat(l.amount_gbp || 0);
+      vatGroups[rate].vat += parseFloat(l.vat_amount_gbp || 0);
+    });
+    vatSummaryRows = Object.entries(vatGroups).map(([rate, g]) => `
+      <tr>
+        <td>VAT @ ${rate}%</td>
+        <td>${sym}${fmt(g.vat)}</td>
+        <td>${sym}${fmt(g.net)}</td>
+      </tr>`).join('');
+  }
 
   // Notes block (lead time, payment terms, etc.)
   const noteItems = [
@@ -138,7 +149,7 @@ function renderQuote(cq, lines) {
     <div class="qdoc-header">
       <div>
         <div class="qdoc-logo">VERTEX <span>METALS</span></div>
-        <div style="font-size:11px;color:#666;margin-top:8px;line-height:1.7">
+        <div style="font-size:11px;color:#666;margin-top:6px;line-height:1.5">
           ${esc(VERTEX.addr1)}<br>${esc(VERTEX.addr2)}<br>${esc(VERTEX.addr3)}<br>
           <a href="mailto:${esc(VERTEX.email)}" style="color:#7ab8d4">${esc(VERTEX.email)}</a>
         </div>
@@ -151,13 +162,9 @@ function renderQuote(cq, lines) {
       </div>
     </div>
 
-    <!-- Heading -->
-    <div class="qdoc-heading">Estimate</div>
-
     <!-- Address + ref -->
     <div class="qdoc-meta">
       <div>
-        <span class="qdoc-address label">ADDRESS</span>
         <div class="qdoc-address">
           ${addrLines.map(l => esc(l)).join('<br>')}
           ${vatLine ? `<br><em style="font-size:11px;color:#888">${esc(vatLine)}</em>` : ''}
@@ -174,7 +181,7 @@ function renderQuote(cq, lines) {
           <th>TYPE</th>
           <th>SPECIFICATION</th>
           <th>DESCRIPTION</th>
-          <th>VAT</th>
+          ${vatOn ? '<th>VAT</th>' : ''}
           <th style="text-align:right">QTY</th>
           <th>UNIT</th>
           <th style="text-align:right">PRICE</th>
@@ -182,7 +189,7 @@ function renderQuote(cq, lines) {
         </tr>
       </thead>
       <tbody>
-        ${lineRows || '<tr><td colspan="10" style="text-align:center;color:#999;padding:16px">No line items</td></tr>'}
+        ${lineRows || `<tr><td colspan="${vatOn ? 10 : 9}" style="text-align:center;color:#999;padding:16px">No line items</td></tr>`}
       </tbody>
     </table>
 
@@ -192,7 +199,7 @@ function renderQuote(cq, lines) {
     <!-- Totals -->
     <div class="qdoc-totals">
       <div class="qdoc-totals-row"><span class="label">SUBTOTAL</span><span class="amount">${cq.subtotal_gbp ? `${sym}${fmt(cq.subtotal_gbp)}` : '—'}</span></div>
-      <div class="qdoc-totals-row"><span class="label">VAT TOTAL</span><span class="amount">${cq.vat_total_gbp ? `${sym}${fmt(cq.vat_total_gbp)}` : '—'}</span></div>
+      ${vatOn ? `<div class="qdoc-totals-row"><span class="label">VAT TOTAL</span><span class="amount">${cq.vat_total_gbp ? `${sym}${fmt(cq.vat_total_gbp)}` : '—'}</span></div>` : ''}
       <div class="qdoc-totals-row total"><span class="label">TOTAL</span><span class="amount">${cq.total_gbp ? `${sym}${fmt(cq.total_gbp)}` : '—'}</span></div>
     </div>
 
@@ -224,7 +231,6 @@ function renderQuote(cq, lines) {
     <!-- Footer -->
     <div class="qdoc-footer">
       <span>${esc(VERTEX.name)} — ${esc(VERTEX.reg)}</span>
-      <span>Page 1 of 1</span>
     </div>
   `;
 }
@@ -263,13 +269,43 @@ async function acceptQuote() {
 function downloadPdf() {
   const template = document.getElementById('quote-print-template');
   const ref      = document.title.split('—')[0].trim() || 'VM-Quote';
+
+  // On screen the template can render wider (up to 860px, see .cq-page-wrap)
+  // than an A4 page's printable width (~718px at 190mm usable), which was
+  // causing the right-hand columns to fall outside the page and get cropped.
+  // Force a page-safe width just for the capture, then restore it.
+  const prevWidth    = template.style.width;
+  const prevMaxWidth = template.style.maxWidth;
+  template.style.width    = '700px';
+  template.style.maxWidth = '700px';
+
   html2pdf().set({
     margin:      [10, 10, 10, 10],
     filename:    `${ref}.pdf`,
     image:       { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true },
     jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
-  }).from(template).save();
+    // 'css' honours break-inside/page-break-inside:avoid (table rows, totals,
+    // etc. — see customer-quote/index.html). Deliberately not using 'avoid-all':
+    // its automatic heuristics tend to push whole trailing sections (e.g.
+    // Terms & Conditions) onto a needless extra page even when there's room.
+    pagebreak:   { mode: ['css'] },
+  }).from(template).toPdf().get('pdf').then(pdf => {
+    // Stamp real "Page X of Y" on every page — the document's actual page
+    // count isn't known until the PDF is fully paginated.
+    const pageCount = pdf.internal.getNumberOfPages();
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    for (let i = 1; i <= pageCount; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(8);
+      pdf.setTextColor(160);
+      pdf.text(`Page ${i} of ${pageCount}`, pageW - 10, pageH - 6, { align: 'right' });
+    }
+  }).save().then(() => {
+    template.style.width    = prevWidth;
+    template.style.maxWidth = prevMaxWidth;
+  });
 }
 
 // Init on load

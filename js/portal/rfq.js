@@ -10,6 +10,13 @@ function fmt(n, dp = 2) {
   if (n == null || isNaN(n)) return '—';
   return Number(n).toLocaleString('en-GB', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 }
+// Quantities: show up to 3dp for MT (fractional tonnages happen) or 0dp otherwise,
+// but drop trailing zeros so a whole number like 12 reads as "12", not "12.000".
+function fmtQty(n, unit) {
+  if (n == null || isNaN(n)) return '—';
+  const dp = unit === 'MT' ? 3 : 0;
+  return Number(n).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: dp });
+}
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-GB') : '—'; }
 
 function statusBadge(s) {
@@ -300,6 +307,7 @@ let _pricedLines        = [];    // calculated results per rfq_line
 let _calc = { pl: null, sqData: null, lqData: null, overheadTotal: 0, qty: 0, fx: 1.27, ins: 0.5, minMargin: 5, model: 'standard' };
 let _calcApplied    = null; // pre-fill data passed to renderBuildTab (object OR array)
 let _quoteCurrency  = 'GBP'; // customer-facing quote currency; set on Build Quote tab
+let _quoteVatApplicable = true; // false for VAT-exempt/string-chain trades; set on Build Quote tab
 let _costsLocked    = false; // true once a quote has been issued (quoted/accepted/etc.)
 
 // ── Tab management ────────────────────────────────────────────────────────────
@@ -663,7 +671,7 @@ function renderRfqLinesSection(lines) {
           <td style="font-size:var(--text-sm);color:${l.product_type ? 'var(--color-text-primary)' : 'var(--color-text-muted)'}">${esc(l.product_type || l.product_lines?.physical_form || '—')}${!l.product_type && l.product_lines?.physical_form ? ' <span style="font-size:9px;color:var(--color-text-muted)">(default)</span>' : ''}</td>
           <td style="font-size:var(--text-sm);color:var(--color-text-muted)">${esc(l.grade_specification || '—')}</td>
           <td style="font-weight:500">${esc(l.description)}</td>
-          <td>${l.quantity != null ? fmt(l.quantity, l.quantity_unit === 'MT' ? 3 : 0) : '—'}</td>
+          <td>${l.quantity != null ? fmtQty(l.quantity, l.quantity_unit) : '—'}</td>
           <td>${esc(l.quantity_unit || 'MT')}</td>
           <td style="white-space:nowrap">
             <button onclick="openEditRfqLineModal('${esc(l.id)}')" class="btn btn-ghost btn-sm" style="color:var(--color-text-muted)">Edit</button>
@@ -2035,8 +2043,9 @@ async function renderBuildTab() {
     contactAddr = contacts?.[0] || null;
   }
 
-  // Sync quote currency from saved draft, then fall back to module state
+  // Sync quote currency and VAT applicability from saved draft, then fall back to module state
   if (cq?.currency) _quoteCurrency = cq.currency;
+  if (cq && cq.vat_applicable != null) _quoteVatApplicable = cq.vat_applicable;
 
   // Initialise working line items — prefer fresh calculator output (allows currency change),
   // then existing draft, then blank
@@ -2166,6 +2175,16 @@ async function renderBuildTab() {
               ${_quoteCurrency === 'GBP' && _calc.fx ? `Converted from USD at £1 = $${fmt(_calc.fx, 3)}` : 'No conversion — prices shown as USD'}
             </div>
           </div>
+          <div class="form-group">
+            <label class="form-label">VAT</label>
+            <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer;margin-top:var(--space-2)">
+              <input type="checkbox" id="bq-vat-applicable" ${_quoteVatApplicable ? 'checked' : ''} onchange="_quoteVatApplicable=this.checked;renderBuildTab()" />
+              Apply VAT to this quote
+            </label>
+            <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1)">
+              ${_quoteVatApplicable ? 'Standard rate(s) below apply per line.' : 'Off — no VAT column, rate, or total will appear on the generated quote (e.g. pre-registration or a string chain trade outside the UK).'}
+            </div>
+          </div>
           <div class="form-group" style="grid-column:1/-1">
             <label class="form-label">Payment Terms</label>
             <select class="form-select" id="bq-payment-select" onchange="document.getElementById('bq-payment-other').style.display=this.value==='other'?'block':'none'">
@@ -2207,7 +2226,7 @@ async function renderBuildTab() {
           <th style="width:70px">Qty</th>
           <th style="width:70px">Unit</th>
           <th style="width:90px">Unit Price (${_quoteCurrency === 'USD' ? '$' : '£'})</th>
-          <th style="width:70px">VAT %</th>
+          <th style="width:70px">${_quoteVatApplicable ? 'VAT %' : 'VAT (off)'}</th>
           <th style="width:90px">Amount (${_quoteCurrency === 'USD' ? '$' : '£'})</th>
           <th style="width:30px"></th>
         </tr></thead>
@@ -2226,9 +2245,9 @@ async function renderBuildTab() {
         <p style="font-family:var(--font-display);font-size:var(--text-xs);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-muted);margin-bottom:var(--space-2)">Additional Costs (from Cost Inputs tab)</p>
         <div id="overhead-totals-summary" style="font-size:var(--text-sm);color:var(--color-text-muted)">${_quoteCurrency === 'USD' ? `$${fmt(overheadTotal * (_calc.fx || 1.27))}` : `£${fmt(overheadTotal)}`} total overheads</div>
       </div>` : ''}
-      <div class="totals-row"><span>Subtotal (ex. VAT)</span><span id="t-subtotal" style="font-family:var(--font-display)">—</span></div>
-      <div class="totals-row"><span>VAT</span><span id="t-vat" style="font-family:var(--font-display)">—</span></div>
-      <div class="totals-row total-final"><span>Total (inc. VAT)</span><span id="t-total">—</span></div>
+      <div class="totals-row"><span>${_quoteVatApplicable ? 'Subtotal (ex. VAT)' : 'Subtotal'}</span><span id="t-subtotal" style="font-family:var(--font-display)">—</span></div>
+      <div class="totals-row" id="t-vat-row" style="${_quoteVatApplicable ? '' : 'display:none'}"><span>VAT</span><span id="t-vat" style="font-family:var(--font-display)">—</span></div>
+      <div class="totals-row total-final"><span>${_quoteVatApplicable ? 'Total (inc. VAT)' : 'Total'}</span><span id="t-total">—</span></div>
     </div>
 
     <!-- Notes & T&Cs -->
@@ -2275,7 +2294,7 @@ function renderLineItemsBody() {
         ${UNITS.map(u => `<option value="${u}"${u===(l.unit||'MT')?' selected':''}>${u}</option>`).join('')}
       </select></td>
       <td><input class="line-input" type="number" value="${l.unit_price_gbp||''}" step="0.01" min="0" oninput="_quoteLines[${i}].unit_price_gbp=parseFloat(this.value)||null;recalcLine(${i})" /></td>
-      <td><input class="line-input" type="number" value="${l.vat_rate??20}" step="0.5" min="0" oninput="_quoteLines[${i}].vat_rate=parseFloat(this.value)||0;recalcLine(${i})" /></td>
+      <td><input class="line-input" type="number" value="${l.vat_rate??20}" step="0.5" min="0" ${_quoteVatApplicable ? '' : 'disabled title="VAT is off for this quote"'} oninput="_quoteLines[${i}].vat_rate=parseFloat(this.value)||0;recalcLine(${i})" /></td>
       <td style="font-family:var(--font-display);font-weight:600;text-align:right" id="line-amount-${i}">${l.amount_gbp ? `${_quoteCurrency === 'USD' ? '$' : '£'}${fmt(l.amount_gbp)}` : '—'}</td>
       <td><button type="button" onclick="removeQuoteLine(${i})" style="background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:var(--text-lg);line-height:1;padding:var(--space-1)" title="Remove line">×</button></td>
     </tr>`).join('');
@@ -2298,7 +2317,7 @@ function recalcLine(i) {
   const l = _quoteLines[i];
   const qty   = parseFloat(l.quantity)      || 0;
   const price = parseFloat(l.unit_price_gbp) || 0;
-  const vat   = parseFloat(l.vat_rate)       || 0;
+  const vat   = _quoteVatApplicable ? (parseFloat(l.vat_rate) || 0) : 0;
   l.amount_gbp     = qty * price;
   l.vat_amount_gbp = l.amount_gbp * (vat / 100);
   const sym = _quoteCurrency === 'USD' ? '$' : '£';
@@ -2310,7 +2329,8 @@ function recalcLine(i) {
 function recalcTotals() {
   const sym = _quoteCurrency === 'USD' ? '$' : '£';
   const subtotal  = _quoteLines.reduce((s, l) => s + (parseFloat(l.amount_gbp) || 0), 0);
-  const vatTotal  = _quoteLines.reduce((s, l) => s + (parseFloat(l.vat_amount_gbp) || 0), 0);
+  // Master toggle overrides any stale per-line VAT amounts left over from before it was switched off.
+  const vatTotal  = _quoteVatApplicable ? _quoteLines.reduce((s, l) => s + (parseFloat(l.vat_amount_gbp) || 0), 0) : 0;
   const grandTotal = subtotal + vatTotal;
 
   const tSub  = document.getElementById('t-subtotal');
@@ -2347,8 +2367,9 @@ async function saveQuoteDraft(publish = false) {
     return null;
   }
 
+  const vatApplicable = document.getElementById('bq-vat-applicable')?.checked ?? _quoteVatApplicable;
   const subtotal   = lines.reduce((s,l) => s + (parseFloat(l.amount_gbp)||0), 0);
-  const vatTotal   = lines.reduce((s,l) => s + (parseFloat(l.vat_amount_gbp)||0), 0);
+  const vatTotal   = vatApplicable ? lines.reduce((s,l) => s + (parseFloat(l.vat_amount_gbp)||0), 0) : 0;
   const grandTotal = subtotal + vatTotal;
 
   const qPayload = {
@@ -2374,6 +2395,7 @@ async function saveQuoteDraft(publish = false) {
     subtotal_gbp:             subtotal   || null,
     vat_total_gbp:            vatTotal   || null,
     total_gbp:                grandTotal || null,
+    vat_applicable:           vatApplicable,
     status:                   publish ? 'issued' : 'draft',
   };
 
@@ -2408,8 +2430,8 @@ async function saveQuoteDraft(publish = false) {
     unit:              l.unit || 'MT',
     unit_price_gbp:    parseFloat(l.unit_price_gbp) || null,
     amount_gbp:        parseFloat(l.amount_gbp) || null,
-    vat_rate:          parseFloat(l.vat_rate) ?? 20,
-    vat_amount_gbp:    parseFloat(l.vat_amount_gbp) || null,
+    vat_rate:          vatApplicable ? (parseFloat(l.vat_rate) ?? 20) : 0,
+    vat_amount_gbp:    vatApplicable ? (parseFloat(l.vat_amount_gbp) || null) : 0,
     is_alternative:    !!l.is_alternative,
   }));
   const { error: lineErr } = await supabaseClient.from('customer_quote_lines').insert(lineRows);
@@ -2511,9 +2533,15 @@ async function openLinkSupplierQuoteModal() {
   const opts = (quotes || []).map(q =>
     `<option value="${esc(q.id)}">${esc(q.contacts?.company_name || '?')} — ${esc(q.product)} — $${fmt(q.fob_price_usd)}/MT</option>`
   ).join('');
+  const lineOpts = _rfqLines.map(l =>
+    `<option value="${esc(l.id)}">Line ${l.line_number}${l.is_alternative ? ' (alt)' : ''} — ${esc(l.description)}</option>`
+  ).join('');
   showLinkModal('Link Supplier Quote', `
     <div class="form-group"><label class="form-label">Select Supplier Quote</label>
       <select class="form-select" id="link-sq-select"><option value="">— Select —</option>${opts}</select>
+    </div>
+    <div class="form-group"><label class="form-label">Quote Line <span style="color:var(--color-danger)">*</span></label>
+      <select class="form-select" id="link-sq-line"><option value="">— Which line is this quote for? —</option>${lineOpts}</select>
     </div>
     <div id="link-sq-alert" class="alert" style="display:none;margin-top:var(--space-3)"></div>
     <div style="display:flex;gap:var(--space-3);margin-top:var(--space-4)">
@@ -2525,10 +2553,12 @@ async function openLinkSupplierQuoteModal() {
 }
 
 async function submitLinkSupplierQuote() {
-  const id = document.getElementById('link-sq-select').value;
-  const al = document.getElementById('link-sq-alert');
-  if (!id) { al.style.display='block'; al.className='alert alert-error'; al.textContent='Select a quote.'; return; }
-  const { error } = await supabaseClient.from('supplier_quotes').update({ rfq_id: _rfqId }).eq('id', id);
+  const id     = document.getElementById('link-sq-select').value;
+  const lineId = document.getElementById('link-sq-line').value;
+  const al     = document.getElementById('link-sq-alert');
+  if (!id)     { al.style.display='block'; al.className='alert alert-error'; al.textContent='Select a quote.'; return; }
+  if (!lineId) { al.style.display='block'; al.className='alert alert-error'; al.textContent='Select which quote line this quote is for.'; return; }
+  const { error } = await supabaseClient.from('supplier_quotes').update({ rfq_id: _rfqId, rfq_line_id: lineId }).eq('id', id);
   if (error) { al.style.display='block'; al.className='alert alert-error'; al.textContent='Failed: '+error.message; return; }
   closeLinkModal();
   renderCostsTab();

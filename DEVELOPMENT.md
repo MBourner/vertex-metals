@@ -1,8 +1,8 @@
 # Vertex Metals — Development Log
 
-**Current Version:** v0.7.0  
+**Current Version:** v0.7.1  
 **Branch:** develop  
-**Last updated:** 11 July 2026  
+**Last updated:** 21 July 2026  
 **Built by:** Vector Business Solutions
 
 The portal displays its current version number at the bottom of the sidebar (`js/portal/sidebar.js`, `PORTAL_VERSION`). Keep that constant in sync with "Current Version" above whenever this log is updated.
@@ -13,6 +13,7 @@ The portal displays its current version number at the bottom of the sidebar (`js
 
 | Version | Branch / PR | Summary |
 |---------|-------------|---------|
+| v0.7.1 | develop | Per-RFQ VAT-exempt toggle (VM is not yet VAT registered, and some trades are 'string' chain trades that never touch the UK) — when off, the VAT column/rate, VAT summary, and VAT total row are omitted entirely from the generated customer quote rather than showing 0%. Sequential quote numbering (`VM-Q-{year}-{4-digit}`, starting at 0050) replacing random reference generation. Fixed a currency-mislabelling bug where a USD-quoted RFQ displayed `£` throughout the Build Quote tab and the customer-facing document despite storing correct USD figures, including the Convert-to-Order flow (USD totals are now converted back to GBP before pre-filling the trade's sell price). Generated quote PDF: clean page-break behaviour (`break-inside:avoid` extended to the Terms and footer blocks, so they move as whole units instead of splitting mid-paragraph across a page boundary), fixed the line-item table overflowing/clipping off the right edge of the page (the on-screen template is wider than an A4 page's printable area — capture width is now constrained to fit), and real "Page X of Y" numbers stamped onto the output PDF (replacing a hardcoded, always-wrong "Page 1 of 1"). Quote document layout compressed to help short quotes fit on a single page — removed a redundant "Estimate" heading that duplicated the header's own label, removed the self-evident "ADDRESS" label, and tightened header/meta/notes/totals/acceptance/terms/footer spacing throughout. Quantity display fix: whole-number MT quantities no longer render with misleading trailing zeros (e.g. "12.000") — new `fmtQty()` helper trims trailing zeros while still allowing up to 3dp for genuine fractional tonnages, applied to both the customer quote and the internal RFQ Lines tab. "Link Supplier Quote" on the Cost Inputs tab now requires selecting which RFQ line the quote applies to (`rfq_line_id`), matching the "Add Supplier Quote" form — previously a linked (as opposed to manually added) supplier quote was left unallocated to any line. |
 | v0.1.0 | Initial commits | Public website (8 pages), Supabase client, basic contact form |
 | v0.2.0 | portal-update-0105 (#15) | Full portal build — order lifecycle management, supplier PO, documents, shipment tracking, invoicing, state machine |
 | v0.3.0 | dev-work-0205 (#25) | Verification queue, KYC/compliance screens, product lines & families, contacts CRM |
@@ -171,6 +172,8 @@ Pending migration — **run this now** (`20260712b_product_lines_compliance_pric
 
 Pending migration — **run this now** (`20260712c_product_line_grades.sql`): new `product_line_grades` table (`product_line_id`, `grade`, `notes`) — a simple add/remove list of grades per product, for products where grade is purely a spec-level detail with no CN code/pricing implications of its own (e.g. Antimony purity grades), as distinct from grades that warrant their own `product_lines` row (e.g. Stainless Steel 304 vs 316 — different CN codes). Managed from a new "Grades" tab on the Product Line detail page.
 
+Pending migration — **run this now** (`20260713_customer_quotes_vat_applicable.sql`): adds `vat_applicable` (boolean, default `true`) to `customer_quotes`. A new "Apply VAT to this quote" toggle on the Build Quote tab lets an operator mark a specific RFQ as VAT-exempt (VM is not yet VAT registered, and some trades are 'string' chain trades that never touch the UK) — when off, the VAT column, VAT rate, VAT summary table, and VAT total row are omitted entirely from the generated customer-facing quote, rather than showing 0%.
+
 Additional one-off SQL applied directly (not in migration files):
 ```sql
 ALTER TABLE supplier_quotes ALTER COLUMN fob_price_usd DROP NOT NULL;
@@ -208,7 +211,6 @@ ALTER TABLE customer_quotes ADD CONSTRAINT customer_quotes_status_check
 - **Director bios on About Us** — hidden for privacy reasons. The section is commented out in `about.html` with a clear note to reinstate. Re-enable when directors are comfortable with public disclosure.
 - **Product pages still reference aluminium wire as the launch product** — the products/aluminium-alloy-core-wire.html page still has India-specific supplier references. Now that the business has pivoted to a broader multi-product model, these pages may need a copy review.
 - **Verification queue RLS** — the verification queue currently allows any authenticated user to see and act on all queue items regardless of role. Four-eyes constraints are enforced (drafter cannot approve their own items) but finer-grained role-based access control (e.g. only Finance role sees invoice review items) has not been applied.
-- **PDF output quality** — the customer-facing quote PDF (html2pdf.js) renders well for simple quotes but may paginate awkwardly for quotes with many line items. Long quotes with 6+ lines may need a CSS page-break rule.
 
 ---
 
